@@ -162,9 +162,17 @@ try {
     
     $versionMatch = [regex]::Match($redirectUrl, '/tag/v(.*)$')
     if (-not $versionMatch.Success) { throw "Could not parse version from redirect URL: $redirectUrl" }
-    
     $version = $versionMatch.Groups[1].Value
-    $downloadUrl = "https://github.com/$Owner/$Repo/releases/download/v$version/KalOS.zip"
+    
+    # Follow the redirect to grab the actual release page HTML and extract the dynamic ZIP path
+    $html = (Invoke-WebRequest -Uri $redirectUrl -UseBasicParsing -TimeoutSec 15).Content
+    $zipAssetMatch = [regex]::Match($html, 'href="(/[^"]+/releases/download/[^"]+\.zip)"')
+    
+    if (-not $zipAssetMatch.Success) {
+        throw "Could not locate a .zip payload attached to release v$version. Please ensure a zip file is uploaded to GitHub."
+    }
+    
+    $downloadUrl = "https://github.com" + $zipAssetMatch.Groups[1].Value
     
     Write-Host "Latest version: $version" -ForegroundColor Green
 }
