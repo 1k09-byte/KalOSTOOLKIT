@@ -1,0 +1,33 @@
+# Build outputs
+bin/
+obj/
+publish/
+dist/
+AppPackages/
+*.user
+*.suo
+.vs/
+
+# Test outputs
+tests/bin/
+tests/obj/
+
+# Local tooling
+.freebuff/
+
+# Build/debug artifacts and runtime outputs
+*.log
+build_*.txt
+crash.txt
+firstchance.txt
+diag*.txt
+*_context.txt
+diff.txt
+errors.txt
+log.txt
+test_output.log
+test_nvram*.ps1
+sdio.cfg
+logs/
+BiosBackups/
+tests/TestResults/

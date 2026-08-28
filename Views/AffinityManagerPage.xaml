@@ -1,0 +1,104 @@
+﻿<Page
+    x:Class="KalOS.Views.AffinityManagerPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewmodels="using:KalOS.ViewModels"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    mc:Ignorable="d"
+    Background="Transparent">
+
+    <Page.Resources>
+        <CollectionViewSource x:Name="DeviceGroups" IsSourceGrouped="True" />
+    </Page.Resources>
+
+    <ScrollViewer Style="{StaticResource PageScrollStyle}">
+        <Grid>
+            <StackPanel MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Stretch"
+                        Spacing="{StaticResource SettingsCardSpacing}"
+                        Margin="{StaticResource PagePadding}">
+                <StackPanel.ChildrenTransitions>
+                    <EntranceThemeTransition FromVerticalOffset="50" IsStaggeringEnabled="False" />
+                    <RepositionThemeTransition IsStaggeringEnabled="False" />
+                </StackPanel.ChildrenTransitions>
+
+                <StackPanel Spacing="4" Margin="0,0,0,6">
+                    <TextBlock Text="Per-CPU Scheduling" Style="{StaticResource PageTitleStyle}" />
+                    <TextBlock Text="Pin interrupt-heavy devices to dedicated CPU cores for lower latency." Style="{StaticResource PageSubtitleStyle}" />
+                </StackPanel>
+                
+                <TextBlock Text="Optimization" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
+
+                <controls:SettingsCard Header="Optimize Affinities"
+                                       Description="Apply KalOS low-latency defaults automatically. Audio runs at normal priority; others are pinned to dedicated cores.">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE946;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <Button Content="Optimize Affinities" Command="{x:Bind ViewModel.OptimizeAffinitiesCommand}" Style="{StaticResource AccentButtonStyle}" />
+                </controls:SettingsCard>
+
+                <!-- Loading State -->
+                <StackPanel Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay, Converter={StaticResource BoolToVis}}" HorizontalAlignment="Center" Margin="0,48,0,0" Spacing="12">
+                    <ProgressRing IsActive="True" Width="48" Height="48" HorizontalAlignment="Center" />
+                    <TextBlock Text="Scanning PCI devices…" FontSize="14" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" />
+                </StackPanel>
+
+                <!-- No devices State -->
+                <StackPanel Visibility="{x:Bind ViewModel.HasNoDevices, Mode=OneWay, Converter={StaticResource BoolToVis}}" HorizontalAlignment="Center" Margin="0,48,0,0" Spacing="8">
+                    <TextBlock Text="No MSI-capable devices detected" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                    <TextBlock Text="This system doesn't expose any PCI devices that support MSI messaging." FontSize="13" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" />
+                </StackPanel>
+
+                <!-- Devices List -->
+                <StackPanel Visibility="{x:Bind ViewModel.HasDevices, Mode=OneWay, Converter={StaticResource BoolToVis}}">
+                    <InfoBar Margin="0,4,0,16" IsOpen="{x:Bind ViewModel.HasHighCoreCount, Mode=OneWay}" Severity="Warning"
+                             Title="High Core Count Detected (>64)" Message="Windows MSI Interrupts use a 64-bit mask. Only the first 64 logical processors are available for manual scheduling." IsClosable="False" />
+
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.GroupedDevices, Mode=OneWay}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="viewmodels:PciDeviceGroup">
+                                <StackPanel Margin="0,0,0,24">
+                                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="1,24,0,8">
+                                        <TextBlock Text="{x:Bind DisplayHeader, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                    
+                                    <ItemsControl ItemsSource="{Binding}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="viewmodels:PciDeviceItem">
+                                                <controls:SettingsCard Header="{x:Bind Name, Mode=OneWay}" Margin="0,0,0,4">
+                                                    <controls:SettingsCard.HeaderIcon>
+                                                        <FontIcon Glyph="{x:Bind Category, Converter={StaticResource CategoryToIconConverter}}" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                                    </controls:SettingsCard.HeaderIcon>
+                                                    <controls:SettingsCard.Description>
+                                                        <StackPanel Orientation="Horizontal" Spacing="12">
+                                                            <TextBlock Text="{x:Bind MsiEnabledText, Mode=OneWay}" Foreground="{x:Bind MsiEnabled, Converter={StaticResource MsiColorConverter}}" />
+                                                            <TextBlock Text="|" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                                            <TextBlock Text="Limit: " Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                            <TextBlock Text="{x:Bind MsiLimit, Mode=OneWay}" />
+                                                            <TextBlock Text="|" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                                            <TextBlock Text="Priority: " Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                            <TextBlock Text="{x:Bind DevicePriority, Mode=OneWay}" />
+                                                        </StackPanel>
+                                                    </controls:SettingsCard.Description>
+                                                    
+                                                    <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                                                        <StackPanel VerticalAlignment="Center">
+                                                            <TextBlock Text="Cores" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Right" />
+                                                            <TextBlock Text="{x:Bind CoresAssignedDisplay, Mode=OneWay}" HorizontalAlignment="Right" />
+                                                        </StackPanel>
+                                                        <Button Content="Edit" Click="CardButton_Click" Tag="{Binding}" />
+                                                    </StackPanel>
+                                                </controls:SettingsCard>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</Page>

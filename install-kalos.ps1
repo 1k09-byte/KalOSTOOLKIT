@@ -1,0 +1,247 @@
+<#
+.SYNOPSIS
+    Installs, updates, or completely uninstalls the consumer build of KalOS.
+
+.DESCRIPTION
+    Installs or updates KalOS automatically. The installer downloads the latest
+    GitHub release, extracts it, and creates shortcuts.
+
+.EXAMPLE
+    .\install-kalos.ps1
+    .\install-kalos.ps1 -InstallDir "$env:USERPROFILE\KalOS" -NoShortcut
+    .\install-kalos.ps1 -Silent
+
+    Double-clicking the script also runs it. If Windows blocks scripts, right-click
+    the file and choose 'Run with PowerShell'.
+#>
+param(
+    [string]$InstallDir = (Join-Path $env:LOCALAPPDATA "Programs\KalOS"),
+    [switch]$NoShortcut,
+    [switch]$NoTaskbarPin,
+    [switch]$Silent,
+    [switch]$InstallDotNetRuntime,
+    [switch]$SkipDependencyCheck
+)
+
+$ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+$Owner = "1k09-byte"
+$Repo  = "KalOSTOOLKIT"
+$AssetPrefix = "KalOS-v"
+$ApiLatest = "https://api.github.com/repos/$Owner/$Repo/releases/latest"
+$DotNetRuntimeUrl = "https://dotnet.microsoft.com/download/dotnet/thank-you/runtime-desktop-9.0.0-windows-x64-installer"
+$RequiredOsBuild = 22621
+
+function Write-Step([string]$msg) {
+    Write-Host ""
+    Write-Host "==> $msg" -ForegroundColor Cyan
+}
+
+function Write-ErrorAndExit([string]$msg) {
+    Write-Host "ERROR: $msg" -ForegroundColor Red
+    exit 1
+}
+
+function Test-InteractiveConsole {
+    try { return $host.UI.RawUI -ne $null -and -not [Console]::IsInputRedirected } catch { return $false }
+}
+
+function Invoke-Verb([string]$targetPath, [string]$pattern) {
+    try {
+        if (-not (Test-Path $targetPath)) { return $false }
+        $shellApp = New-Object -ComObject Shell.Application
+        $item = $shellApp.Namespace((Split-Path $targetPath)).ParseName((Split-Path $targetPath -Leaf))
+        foreach ($verb in $item.Verbs()) {
+            if ($verb.Name -match $pattern) { $verb.DoIt(); return $true }
+        }
+    } catch { }
+    return $false
+}
+
+function Test-Administrator {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Test-InternetConnection {
+    try {
+        $response = Invoke-WebRequest -Uri "https://api.github.com" -Method Head -UseBasicParsing -TimeoutSec 15
+        return $response.StatusCode -ge 200 -and $response.StatusCode -lt 500
+    } catch { return $false }
+}
+
+function Test-DotNetDesktopRuntime {
+    try {
+        $runtimes = & dotnet --list-runtimes 2>$null
+        return [bool]($runtimes -match "Microsoft\.WindowsDesktop\.App 9\.")
+    } catch { return $false }
+}
+
+function Ensure-RequiredRuntime {
+    Write-Step "Checking required dependencies"
+
+    if (-not (Test-Administrator)) {
+        Write-ErrorAndExit "Administrator permission is required. Right-click PowerShell and choose 'Run as administrator', then run the installer again."
+    }
+    Write-Host "Dependency check passed: Administrator permission is available." -ForegroundColor Green
+
+    if (-not (Test-InternetConnection)) {
+        Write-ErrorAndExit "An internet connection is required to download KalOS and its dependencies."
+    }
+    Write-Host "Dependency check passed: Internet connection is available." -ForegroundColor Green
+
+    if ($InstallDotNetRuntime -or (Test-DotNetDesktopRuntime)) {
+        Write-Host "Dependency check passed: .NET Desktop Runtime 9 is installed." -ForegroundColor Green
+        return
+    }
+
+    Write-Host ".NET Desktop Runtime 9 is required and was not found." -ForegroundColor Yellow
+    if (-not $canPrompt) { Write-ErrorAndExit "Install .NET 9 Desktop Runtime on this PC, then run the installer again." }
+
+    $installRuntime = Read-Host "Download and install the .NET 9 Desktop Runtime now? [Y/n]"
+    if ($installRuntime -notmatch "^[Yy]") {
+        Write-ErrorAndExit "KalOS cannot run without the .NET 9 Desktop Runtime."
+    }
+
+    $runtimeInstaller = Join-Path $env:TEMP "windowsdesktop-runtime-9-x64.exe"
+    Write-Step "Downloading .NET 9 Desktop Runtime ..."
+    try {
+        Invoke-WebRequest -Uri $DotNetRuntimeUrl -OutFile $runtimeInstaller -UseBasicParsing
+        Write-Step "Installing .NET 9 Desktop Runtime ..."
+        Start-Process -FilePath $runtimeInstaller -ArgumentList "/install", "/quiet", "/norestart" -Wait
+    } catch {
+        Write-ErrorAndExit "Could not install .NET 9 Desktop Runtime: $($_.Exception.Message)"
+    } finally {
+        Remove-Item $runtimeInstaller -Force -ErrorAction SilentlyContinue
+    }
+
+    if (-not (Test-DotNetDesktopRuntime)) {
+        Write-ErrorAndExit "The .NET 9 Desktop Runtime installation did not complete successfully."
+    }
+}
+
+$interactive = Test-InteractiveConsole
+$canPrompt = -not $Silent
+
+# When launched by double-click, PowerShell may close as soon as the script
+# exits. Keep the window open so users can see progress and errors. Command-line
+# callers can still use -Silent or invoke the script normally.
+$launchedByExplorer = $false
+try {
+    $currentPid = [System.Diagnostics.Process]::GetCurrentProcess().Id
+    $parent = (Get-CimInstance Win32_Process -Filter "ProcessId = $currentPid").ParentProcessId
+    $parentName = (Get-Process -Id $parent -ErrorAction SilentlyContinue).ProcessName
+    $launchedByExplorer = $parentName -in @("explorer", "openwith")
+} catch { }
+
+# --- Check dependencies before any release lookup ---------------------------
+if (-not $SkipDependencyCheck) {
+    Ensure-RequiredRuntime
+}
+
+# --- Resolve latest release -------------------------------------------------
+Write-Step "Checking latest KalOS release on $Owner/$Repo ..."
+$release = Invoke-RestMethod -Uri $ApiLatest -Headers @{ "User-Agent" = "KalOS-Installer" }
+$asset = $release.assets | Where-Object { $_.name -like "$AssetPrefix*" } | Select-Object -First 1
+if (-not $asset) {
+    Write-ErrorAndExit "Latest release v$($release.tag_name) has no installable asset (expected a '$AssetPrefix*' zip)."
+}
+
+$version = $release.tag_name.TrimStart("v")
+Write-Host "Latest version: $version  (asset: $($asset.name))"
+Write-Host "Install folder: $InstallDir"
+
+Write-Host "Dependency check passed. Continuing with KalOS installation..." -ForegroundColor Green
+
+# --- Download and extract ---------------------------------------------------
+$tmpZip = Join-Path $env:TEMP "KalOS-$version.zip"
+Write-Step "Downloading $($asset.name) ..."
+try {
+    Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $tmpZip -UseBasicParsing
+} catch {
+    Write-ErrorAndExit "Download failed: $($_.Exception.Message)"
+}
+
+$staging = Join-Path $env:TEMP "KalOS-$version-staging"
+if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
+try {
+    Expand-Archive -Path $tmpZip -DestinationPath $staging -Force
+} catch {
+    Write-ErrorAndExit "Extract failed (corrupt download?): $($_.Exception.Message)"
+}
+
+$requiredFiles = @(
+    "KalOS.exe",
+    "hostfxr.dll",
+    "hostpolicy.dll",
+    "coreclr.dll",
+    "HardwareMonitorWorker.exe"
+)
+$missingFiles = $requiredFiles | Where-Object { -not (Test-Path (Join-Path $staging $_)) }
+if ($missingFiles) {
+    Write-ErrorAndExit "The release package is missing required files: $($missingFiles -join ', ')"
+}
+Write-Host "Dependency check passed: release package contains all required files." -ForegroundColor Green
+
+Write-Step "Installing to $InstallDir ..."
+New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+Get-ChildItem -Path $InstallDir -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
+Copy-Item -Path "$staging\*" -Destination $InstallDir -Recurse -Force
+Remove-Item $tmpZip -Force -ErrorAction SilentlyContinue
+Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue
+
+# --- Shortcuts --------------------------------------------------------------
+$exePath = Join-Path $InstallDir "KalOS.exe"
+if (-not $NoShortcut) {
+    $shell = New-Object -ComObject WScript.Shell
+    $startMenu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
+    $lnkPath = Join-Path $startMenu "KalOS.lnk"
+    $lnk = $shell.CreateShortcut($lnkPath)
+    $lnk.TargetPath = $exePath
+    $lnk.WorkingDirectory = $InstallDir
+    $lnk.Description = "KalOS $version — Windows post-install utility"
+    $lnk.Save()
+    Write-Host "Shortcut created: $lnkPath"
+
+    $desktop = [Environment]::GetFolderPath("Desktop")
+    if (-not $desktop -or -not (Test-Path $desktop)) {
+        $desktop = Join-Path ([Environment]::GetFolderPath("CommonDesktopDirectory")) ""
+    }
+    $desktopLnk = Join-Path $desktop "KalOS.lnk"
+    $lnk2 = $shell.CreateShortcut($desktopLnk)
+    $lnk2.TargetPath = $exePath
+    $lnk2.WorkingDirectory = $InstallDir
+    $lnk2.Description = "KalOS $version — Windows post-install utility"
+    $lnk2.Save()
+    Write-Host "Shortcut created: $desktopLnk"
+}
+
+# --- Pin to taskbar (best effort) -------------------------------------------
+if (-not $NoTaskbarPin) {
+    $openShell = Test-Path "HKCU:\Software\OpenShell\StartMenu" -ErrorAction SilentlyContinue
+    $pinned = $false
+    if (-not $openShell) {
+        if (Invoke-Verb $exePath "(?i)^Pin to taskbar") { $pinned = $true }
+        elseif (Test-Path $lnkPath) { $pinned = Invoke-Verb $lnkPath "(?i)^Pin to taskbar" }
+    }
+    if ($pinned) { Write-Host "Pinned to taskbar." }
+    elseif ($openShell) { Write-Host "Skipped taskbar pin — Open-Shell is installed." }
+    else { Write-Host "Already pinned to taskbar, or pinning unsupported — skipping." }
+}
+
+Write-Host ""
+Write-Host "KalOS $version installed successfully!" -ForegroundColor Green
+Write-Host "Launch it from the Start Menu (KalOS) or run:"
+Write-Host "    $exePath"
+
+if ($canPrompt) {
+    Start-Process $exePath
+}
+
+if ($launchedByExplorer -and -not $Silent) {
+    Write-Host ""
+    Read-Host "Press Enter to close this window"
+}

@@ -1,0 +1,50 @@
+﻿<Page
+    x:Class="KalOS.Views.SdioPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:KalOS.Views"
+    xmlns:vm="using:KalOS.ViewModels"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    Background="Transparent">
+
+    <ScrollViewer Style="{StaticResource PageScrollStyle}">
+        <Grid>
+            <StackPanel MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Stretch"
+                        Spacing="{StaticResource SettingsCardSpacing}"
+                        Margin="{StaticResource PagePadding}">
+                <StackPanel.ChildrenTransitions>
+                    <EntranceThemeTransition FromVerticalOffset="50" IsStaggeringEnabled="False" />
+                    <RepositionThemeTransition IsStaggeringEnabled="False" />
+                </StackPanel.ChildrenTransitions>
+
+                <StackPanel Spacing="4" Margin="0,0,0,6">
+                    <TextBlock Text="Other Drivers" Style="{StaticResource PageTitleStyle}" />
+                    <TextBlock Text="Install legacy missing drivers via Snappy Driver Installer Origin."
+                               Style="{StaticResource PageSubtitleStyle}" />
+                </StackPanel>
+                
+                <TextBlock Text="Tools" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
+                
+                <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                        BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="18">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="3">
+                            <TextBlock Text="Snappy Driver Installer Origin" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding StatusText, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <ProgressRing IsActive="{Binding IsWorking, Mode=OneWay}" Visibility="{Binding IsWorking, Mode=OneWay}" Width="16" Height="16" />
+                            <Button Content="Open SDIO" Command="{Binding OpenSdioCommand}" Style="{StaticResource AccentButtonStyle}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</Page>

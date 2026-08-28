@@ -1,0 +1,280 @@
+<Page
+    x:Name="RootPage"
+    x:Class="KalOS.Views.AdditionalTweaksPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    mc:Ignorable="d"
+    Background="Transparent"
+    NavigationCacheMode="Enabled">
+
+    <Page.Resources>
+        <DataTemplate x:Key="TechnicalDetailsTemplate">
+            <StackPanel Spacing="6" MaxWidth="360" Padding="4,4,12,4">
+                <TextBlock Text="Win32PrioritySeparation is a Windows setting that controls how the CPU scheduler gives time to different threads. It does not make the CPU run faster, increase CPU frequency, give a game extra cores, or directly increase a game's priority."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="The setting mainly affects three things: quantum length, quantum type, and foreground application boosting."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="Windows schedules threads, not entire applications. A game can have separate threads for rendering, game logic, physics, audio, networking, and other tasks. Each thread has its own priority and can compete with other runnable threads for CPU time."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="Thread priority decides which runnable thread Windows prefers to run. Quantum length determines roughly how long that thread can continue running before Windows reaches another scheduling point. A higher-priority thread can still interrupt a lower-priority thread before its quantum finishes, so a quantum is not a guaranteed amount of uninterrupted CPU time."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="A short quantum means Windows reaches scheduling boundaries more often. This can help responsiveness when multiple threads are competing, but it can also mean more scheduling overhead. A long quantum lets threads generally run for longer before their quantum expires. This can be useful for sustained workloads, but it does not automatically improve gaming performance or FPS."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="Windows can also use variable quantums, where the foreground application receives different scheduling treatment from background applications. This is part of Windows' normal design for keeping the application you're actively using responsive."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="The foreground boost should not be confused with setting a game to High or Realtime priority. It primarily gives the foreground application more execution time through its quantum behavior. Windows also has separate dynamic priority mechanisms that can temporarily boost individual threads for things like input or I/O activity."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="Win32PrioritySeparation is a bitfield, meaning the value contains several settings at once rather than being a simple “higher number = more performance” option. The commonly discussed values such as 0x26, 0x2A and 0x18 represent different combinations of quantum length, quantum type and foreground boost."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="For gaming, the important thing is that changing Win32PrioritySeparation is not a guaranteed FPS or latency tweak. If the CPU isn't heavily loaded, changing the scheduler's quantum settings may have little or no measurable effect. Even when the CPU is saturated, the result depends on the game's thread structure and what else is running on the system."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="In simple terms:" FontWeight="SemiBold"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                <TextBlock Text="• Priority = which thread Windows favors."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorPrimaryBrush}" TextWrapping="Wrap" />
+                <TextBlock Text="• Quantum = how long it generally gets to run."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorPrimaryBrush}" TextWrapping="Wrap" />
+                <TextBlock Text="• Foreground boost = extra scheduling time for the application you're actively using."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorPrimaryBrush}" TextWrapping="Wrap" />
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate x:Key="FullscreenDetailsTemplate">
+            <StackPanel Spacing="6" MaxWidth="360" Padding="4,4,12,4">
+                <TextBlock Text="Fullscreen Exclusive (FSE)" FontWeight="SemiBold"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+
+                <TextBlock Text="The game takes direct ownership of the display's scanout, negotiating its own resolution, refresh rate, and buffer format with the GPU driver. Frames are delivered via a hardware flip directly to the display, bypassing the Desktop Window Manager (DWM) compositor entirely. Because DWM isn't involved in the present path, its compositor thread has minimal to no interaction with each frame the game produces."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="Alt-tabbing out of true FSE can trigger a display mode re-negotiation (resolution/refresh switch), which historically caused a noticeable delay. This has been reduced on modern systems using flip-model FSE, but isn't fully eliminated on all hardware/driver combinations."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="Overlays (Discord, GeForce Experience, Steam, capture software) generally can't draw directly on top of true FSE."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="Fullscreen Optimizations (FSO)" FontWeight="SemiBold"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+
+                <TextBlock Text="FSO is Microsoft's borderless-windowed substitute that Windows applies automatically to games that request fullscreen exclusive mode, unless it's explicitly disabled per-app. The game still thinks it's running in FSE (same API calls), but Windows quietly runs it as a borderless window under the hood, composited by DWM."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="Uses the flip-model swap chain (DXGI_SWAP_EFFECT_FLIP_DISCARD) with “independent flip,” which allows the game's buffer to reach the display with minimal compositor overhead in many cases — closing much of the historical performance gap with true FSE."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="DWM's compositor thread remains part of the present chain by design, since it owns final frame composition. This means it retains some scheduling involvement on every frame, which can be a source of frame-time variance under heavier system load or with certain overlays active."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="Alt-tab is fast and seamless since no true display mode switch occurs — the game is already just another window as far as Windows is concerned."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="Overlays, multi-monitor setups, and screen capture/streaming tools integrate cleanly, since DWM compositing stays active."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="Can be toggled per-game via the executable's Properties → Compatibility → “Disable fullscreen optimizations” checkbox, which forces true FSE behavior for that title if the engine supports it."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="Where the practical difference sits today" FontWeight="SemiBold"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+
+                <TextBlock Text="With Hardware-Accelerated GPU Scheduling (HAGS) and flip-model swap chains widely adopted, the measured latency and thread-scheduling gap between FSE and FSO has narrowed considerably compared to older DirectX 9/11-era titles. The difference tends to be more noticeable on:"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="• Older titles/engines without flip-model swap chain support"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="• Systems without HAGS enabled"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="• Configurations running heavier overlay or capture software"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+
+                <TextBlock Text="On modern engines with proper flip-model implementation, differences between the two can be small or within measurement noise."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+            </StackPanel>
+        </DataTemplate>
+    </Page.Resources>
+
+    <ScrollViewer Style="{StaticResource PageScrollStyle}">
+        <Grid>
+            <StackPanel Margin="{StaticResource PagePadding}" Spacing="{StaticResource SettingsCardSpacing}" MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Stretch">
+                <StackPanel.ChildrenTransitions>
+                    <EntranceThemeTransition FromVerticalOffset="50" IsStaggeringEnabled="False" />
+                    <RepositionThemeTransition IsStaggeringEnabled="False" />
+                </StackPanel.ChildrenTransitions>
+
+                <StackPanel Spacing="4" Margin="0,0,0,6">
+                    <TextBlock Text="Additional Tweaks" Style="{StaticResource PageTitleStyle}" />
+                </StackPanel>
+
+                <TextBlock Text="Connectivity" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
+
+                <controls:SettingsCard Header="Wi-Fi"
+                                       Description="{x:Bind ViewModel.WifiStatusText, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE701;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.WifiEnabled, Mode=TwoWay}"
+                                  MinWidth="0" />
+                </controls:SettingsCard>
+
+                <controls:SettingsCard Header="Bluetooth"
+                                       Description="{x:Bind ViewModel.BluetoothStatusText, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE702;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.BluetoothEnabled, Mode=TwoWay}"
+                                  MinWidth="0" />
+                </controls:SettingsCard>
+
+                <TextBlock Text="Performance" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
+
+                <controls:SettingsCard Header="CPU priority separation"
+                                       Description="{x:Bind ViewModel.PrioritySeparationDescription, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE950;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock Text="{x:Bind ViewModel.PrioritySeparationCurrentText, Mode=OneWay}"
+                                   VerticalAlignment="Center"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   FontSize="12" />
+                        <ComboBox ItemsSource="{x:Bind ViewModel.PrioritySeparationItems}"
+                                  SelectedItem="{x:Bind ViewModel.SelectedPrioritySeparation, Mode=TwoWay}"
+                                  DisplayMemberPath="Label"
+                                  MinWidth="280" />
+                        <Button Content="T"
+                                ToolTipService.ToolTip="Technical details"
+                                VerticalAlignment="Center">
+                            <Button.Flyout>
+                                <Flyout Placement="BottomEdgeAlignedRight">
+                                    <ScrollViewer MaxHeight="360" MaxWidth="380"
+                                                  Padding="0,0,12,0"
+                                                  FontSize="12"
+                                                  HorizontalScrollBarVisibility="Disabled"
+                                                  HorizontalScrollMode="Disabled"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  VerticalScrollMode="Auto"
+                                                  ZoomMode="Disabled">
+                                        <ContentControl ContentTemplate="{StaticResource TechnicalDetailsTemplate}" />
+                                    </ScrollViewer>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                    </StackPanel>
+                </controls:SettingsCard>
+
+                <TextBlock Text="Gaming" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
+
+                <controls:SettingsCard Header="Game fullscreen mode"
+                                       Description="{x:Bind ViewModel.FullscreenModeDescription, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE7FC;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock Text="{x:Bind ViewModel.FullscreenCurrentText, Mode=OneWay}"
+                                   VerticalAlignment="Center"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   FontSize="12" />
+                        <ToggleSwitch IsOn="{x:Bind ViewModel.FullscreenOptimizationsEnabled, Mode=TwoWay}"
+                                      OnContent="FSO"
+                                      OffContent="FSE"
+                                      MinWidth="0" />
+                        <Button Content="T"
+                                ToolTipService.ToolTip="Technical details"
+                                VerticalAlignment="Center">
+                            <Button.Flyout>
+                                <Flyout Placement="BottomEdgeAlignedRight">
+                                    <ScrollViewer MaxHeight="360" MaxWidth="380"
+                                                  Padding="0,0,12,0"
+                                                  FontSize="12"
+                                                  HorizontalScrollBarVisibility="Disabled"
+                                                  HorizontalScrollMode="Disabled"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  VerticalScrollMode="Auto"
+                                                  ZoomMode="Disabled">
+                                        <ContentControl ContentTemplate="{StaticResource FullscreenDetailsTemplate}" />
+                                    </ScrollViewer>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                    </StackPanel>
+                </controls:SettingsCard>
+
+                <TextBlock Text="Security" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
+
+                <controls:SettingsCard Header="User Account Control (UAC)"
+                                       Description="{x:Bind ViewModel.UacStatusText, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE7C3;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                        <TextBlock Text="{x:Bind ViewModel.UacCurrentText, Mode=OneWay}"
+                                   VerticalAlignment="Center"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   FontSize="12" />
+                        <ToggleSwitch IsOn="{x:Bind ViewModel.UacEnabled, Mode=TwoWay}"
+                                      MinWidth="0"
+                                      OnContent="On"
+                                      OffContent="Off" />
+                    </StackPanel>
+                </controls:SettingsCard>
+
+                <InfoBar IsOpen="{x:Bind ViewModel.UacDetectedNeedsReboot, Mode=OneWay}"
+                         Severity="Warning"
+                         Title="Reboot required"
+                         Message="UAC change will take effect after reboot."
+                         Margin="0,4,0,0" />
+
+                <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           TextWrapping="Wrap"
+                           Margin="1,8,0,0"
+                           Visibility="{x:Bind ViewModel.StatusText, Mode=OneWay, Converter={StaticResource StringNotEmptyToVis}}" />
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</Page>

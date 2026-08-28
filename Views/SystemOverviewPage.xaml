@@ -1,0 +1,217 @@
+<Page
+    x:Name="RootPage"
+    x:Class="KalOS.Views.SystemOverviewPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:vm="using:KalOS.ViewModels"
+    xmlns:local="using:KalOS.Views"
+    xmlns:services="using:KalOS.Services"
+    mc:Ignorable="d"
+    Background="Transparent">
+
+    <ScrollViewer Style="{StaticResource PageScrollStyle}">
+        <Grid>
+            <StackPanel MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Stretch"
+                        Spacing="12"
+                        Margin="{StaticResource PagePadding}">
+                <StackPanel.ChildrenTransitions>
+                    <EntranceThemeTransition FromVerticalOffset="50" IsStaggeringEnabled="False" />
+                    <RepositionThemeTransition IsStaggeringEnabled="False" />
+                </StackPanel.ChildrenTransitions>
+
+                <Grid Margin="0,0,0,8">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="System Overview" Style="{StaticResource PageTitleStyle}" />
+                        <TextBlock Text="A simple look at how your computer is doing right now."
+                                   Style="{StaticResource PageSubtitleStyle}" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8"
+                                 HorizontalAlignment="Right"
+                                 VerticalAlignment="Bottom"
+                                 Visibility="{x:Bind ViewModel.IsInstalled, Mode=OneWay, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="Refresh rate" VerticalAlignment="Center"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <ComboBox Width="150"
+                                   ItemsSource="{x:Bind ViewModel.RefreshRates}"
+                                   SelectedItem="{x:Bind ViewModel.SelectedRefreshRate, Mode=TwoWay}"
+                                   DisplayMemberPath="Label" />
+                        <Button Content="Refresh" Click="Rescan_Click"
+                                 IsEnabled="{x:Bind ViewModel.CanScan, Mode=OneWay}" />
+                        <Button Click="Uninstall_Click"
+                                IsEnabled="{x:Bind ViewModel.CanUninstall, Mode=OneWay}"
+                                ToolTipService.ToolTip="Uninstall LibreHardwareMonitor">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE74D;" FontSize="14" />
+                                <TextBlock Text="Uninstall Libre" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <InfoBar IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+                         Severity="Error"
+                         Title="System overview error"
+                         Message="{x:Bind ViewModel.ErrorText, Mode=OneWay}" />
+
+                <!-- Required dependency gate -->
+                <Border Visibility="{x:Bind ViewModel.IsInstalled, Mode=OneWay, Converter={StaticResource InverseBoolToVis}}"
+                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                        BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8"
+                        Padding="22">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="6" MaxWidth="620">
+                            <TextBlock Text="One more thing is needed" FontSize="20" FontWeight="SemiBold" />
+                            <TextBlock Text="LibreHardwareMonitor provides the live CPU, GPU, memory, temperature, and fan readings shown here. It is open source and will be installed through winget."
+                                       TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Text="{x:Bind ViewModel.InstallationProgressText, Mode=OneWay}"
+                                       Visibility="{x:Bind ViewModel.IsInstalling, Mode=OneWay, Converter={StaticResource BoolToVis}}"
+                                       Margin="0,6,0,0"
+                                       FontWeight="SemiBold" />
+                            <ProgressBar Value="{x:Bind ViewModel.InstallationProgress, Mode=OneWay}"
+                                         IsIndeterminate="{x:Bind ViewModel.InstallationProgressIndeterminate, Mode=OneWay}"
+                                         Visibility="{x:Bind ViewModel.IsInstalling, Mode=OneWay, Converter={StaticResource BoolToVis}}"
+                                         Maximum="100" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="Install monitor" Click="InstallMonitor_Click"
+                                VerticalAlignment="Center"
+                                Margin="24,0,0,0"
+                                IsEnabled="{x:Bind ViewModel.IsBusy, Mode=OneWay, Converter={StaticResource InverseBoolConverter}}"
+                                Style="{StaticResource AccentButtonStyle}" />
+                    </Grid>
+                </Border>
+
+                <!-- Main dashboard -->
+                <StackPanel Visibility="{x:Bind ViewModel.IsInstalled, Mode=OneWay, Converter={StaticResource BoolToVis}}"
+                            Spacing="18">
+                    <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                            BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="22,20,22,18">
+                        <StackPanel Spacing="16">
+                            <Grid HorizontalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="210" />
+                                    <ColumnDefinition Width="210" />
+                                    <ColumnDefinition Width="210" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" HorizontalAlignment="Center">
+                                    <local:MetricRing Value="{x:Bind ViewModel.CpuMetric.Value, Mode=OneWay}"
+                                                      Progress="{x:Bind ViewModel.CpuMetric.Progress, Mode=OneWay}"
+                                                      Unit="%"
+                                                      Label="CPU usage"
+                                                      RingBrush="{ThemeResource AccentFillColorDefaultBrush}" />
+                                    <TextBlock Text="{x:Bind ViewModel.CpuMetric.Description, Mode=OneWay}"
+                                               TextWrapping="Wrap" TextAlignment="Center" MaxWidth="180"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" HorizontalAlignment="Center">
+                                    <local:MetricRing Value="{x:Bind ViewModel.GpuMetric.Value, Mode=OneWay}"
+                                                      Progress="{x:Bind ViewModel.GpuMetric.Progress, Mode=OneWay}"
+                                                      Unit="%"
+                                                      Label="GPU usage"
+                                                      RingBrush="{ThemeResource AccentFillColorDefaultBrush}" />
+                                    <TextBlock Text="{x:Bind ViewModel.GpuMetric.Description, Mode=OneWay}"
+                                               TextWrapping="Wrap" TextAlignment="Center" MaxWidth="180"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" HorizontalAlignment="Center">
+                                    <local:MetricRing Value="{x:Bind ViewModel.RamMetric.Value, Mode=OneWay}"
+                                                      Progress="{x:Bind ViewModel.RamMetric.Progress, Mode=OneWay}"
+                                                      Unit="%"
+                                                      Label="RAM usage"
+                                                      RingBrush="{ThemeResource AccentFillColorDefaultBrush}" />
+                                    <TextBlock Text="{x:Bind ViewModel.RamMetric.Description, Mode=OneWay}"
+                                               TextWrapping="Wrap" TextAlignment="Center" MaxWidth="180"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Text="At a glance" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Margin="1,8,0,0" />
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Row="0" Grid.Column="0" Margin="0,0,6,6" Padding="16" MinHeight="92"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="CPU temperature" FontWeight="SemiBold" />
+                                <TextBlock Text="{x:Bind ViewModel.CpuTemperatureDetail.Value, Mode=OneWay}" FontSize="22" FontWeight="SemiBold" />
+                                <TextBlock Text="{x:Bind ViewModel.CpuTemperatureDetail.Hardware, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Row="0" Grid.Column="1" Margin="3,0,3,6" Padding="16" MinHeight="92"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="GPU temperature" FontWeight="SemiBold" />
+                                <TextBlock Text="{x:Bind ViewModel.GpuTemperatureDetail.Value, Mode=OneWay}" FontSize="22" FontWeight="SemiBold" />
+                                <TextBlock Text="{x:Bind ViewModel.GpuTemperatureDetail.Hardware, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </Border>                        <Border Grid.Row="0" Grid.Column="2" Margin="6,0,0,6" Padding="16" MinHeight="92"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="Total disk storage" FontWeight="SemiBold" />
+                                <TextBlock Text="{x:Bind ViewModel.DiskUsageDetail.SecondaryValue, Mode=OneWay}" FontSize="22" FontWeight="SemiBold" />
+                                <TextBlock Text="All available drives" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Row="1" Grid.Column="0" Margin="0,6,6,0" Padding="16" MinHeight="92"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="Disk usage" FontWeight="SemiBold" />
+                                <TextBlock Text="{x:Bind ViewModel.DiskUsageDetail.Value, Mode=OneWay}" FontSize="22" FontWeight="SemiBold" />
+                                <TextBlock Text="{x:Bind ViewModel.DiskUsageDetail.SecondaryValue, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <ProgressBar Value="{x:Bind ViewModel.DiskUsageDetail.Progress, Mode=OneWay}" Maximum="100" Height="6" Margin="0,6,0,0" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Row="1" Grid.Column="1" Margin="3,6,3,0" Padding="16" MinHeight="92"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6"
+                                Visibility="{x:Bind ViewModel.GpuFanDetail.IsAvailable, Mode=OneWay, Converter={StaticResource BoolToVis}}">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="GPU fan" FontWeight="SemiBold" />
+                                <TextBlock Text="{x:Bind ViewModel.GpuFanDetail.Value, Mode=OneWay}" FontSize="22" FontWeight="SemiBold" />
+                                <TextBlock Text="{x:Bind ViewModel.GpuFanDetail.Hardware, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </Border>
+                        <Border Grid.Row="1" Grid.Column="2" Margin="6,6,0,0" Padding="16" MinHeight="92"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6"
+                                Visibility="{x:Bind ViewModel.RamTemperatureDetail.IsAvailable, Mode=OneWay, Converter={StaticResource BoolToVis}}">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="RAM temperature" FontWeight="SemiBold" />
+                                <TextBlock Text="{x:Bind ViewModel.RamTemperatureDetail.Value, Mode=OneWay}" FontSize="22" FontWeight="SemiBold" />
+                                <TextBlock Text="{x:Bind ViewModel.RamTemperatureDetail.Hardware, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</Page>

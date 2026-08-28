@@ -1,0 +1,95 @@
+﻿<Page
+    x:Name="RootPage"
+    x:Class="KalOS.Views.WindhawkPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:KalOS.ViewModels"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    mc:Ignorable="d"
+    Background="Transparent"
+    NavigationCacheMode="Enabled">
+
+    <ScrollViewer Style="{StaticResource PageScrollStyle}">
+        <Grid>
+            <StackPanel Margin="{StaticResource PagePadding}" Spacing="{StaticResource SettingsCardSpacing}" MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Stretch">
+                <StackPanel.ChildrenTransitions>
+                    <EntranceThemeTransition FromVerticalOffset="50" IsStaggeringEnabled="False" />
+                    <RepositionThemeTransition IsStaggeringEnabled="False" />
+                </StackPanel.ChildrenTransitions>
+
+                <StackPanel Spacing="4" Margin="0,0,0,6">
+                    <Button Click="BackButton_Click" Style="{StaticResource SubtleButtonStyle}" Padding="8,4" Margin="-8,0,0,4" HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE72B;" FontSize="14" VerticalAlignment="Center"/>
+                            <TextBlock Text="Back" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <TextBlock Text="Windhawk" Style="{StaticResource PageTitleStyle}" />
+                    <TextBlock Text="Install Windhawk, deploy a curated set of mods, and back up or restore your configuration — unattended."
+                               Style="{StaticResource PageSubtitleStyle}" />
+                </StackPanel>
+
+                <TextBlock Text="Installation" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
+
+                <controls:SettingsCard Header="Application Status"
+                                       Description="{x:Bind ViewModel.StatusText, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE930;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                    </controls:SettingsCard.HeaderIcon>
+                    
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Border Style="{StaticResource StatusBadgeStyle}" Margin="0,0,8,0">
+                            <TextBlock x:Name="InstalledBadgeText" Text="{x:Bind ViewModel.InstalledStateText, Mode=OneWay}" FontSize="12" />
+                        </Border>
+                        <Button Content="Cancel" Command="{x:Bind ViewModel.CancelCommand}" Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+                        <Button x:Name="DeployButton" Content="{x:Bind ViewModel.DeployButtonText, Mode=OneWay}" Command="{x:Bind ViewModel.DeployCommand}" Style="{StaticResource AccentButtonStyle}" />
+                    </StackPanel>
+                </controls:SettingsCard>
+
+                <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                        BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="16">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="Configuration Backups" FontWeight="SemiBold" />
+                            <TextBlock Text="Backup or restore Windhawk settings and installed mods." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Button Content="Backup" Command="{x:Bind ViewModel.BackupCommand}" />
+                            <Button Content="Restore" Command="{x:Bind ViewModel.RestoreCommand}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <ProgressBar x:Name="ProgressBar" Value="{x:Bind ViewModel.ProgressValue, Mode=OneWay}" Visibility="{x:Bind ViewModel.ShowProgress, Mode=OneWay, Converter={StaticResource BoolToVis}}" Margin="0,4,0,16" />
+
+                <TextBlock Text="Mods" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
+
+                <ItemsControl ItemsSource="{x:Bind ViewModel.Mods}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:WindhawkModItem">
+                            <controls:SettingsCard Header="{x:Bind DisplayName}"
+                                                   Description="{x:Bind Description}"
+                                                   Margin="0,0,0,4">
+                                <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                                    <TextBlock Text="{x:Bind StateText, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                                    <Button Content="{x:Bind UpdateButtonText, Mode=OneWay}" Click="UpdateMod_Click" Visibility="{x:Bind HasUpdate, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+                                    <Button Content="Uninstall" Click="UninstallMod_Click" Visibility="{x:Bind IsDeployed, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+                                    
+                                    <ToggleSwitch IsOn="{x:Bind IsSelected, Mode=TwoWay}" Margin="8,0,0,0"/>
+                                </StackPanel>
+                            </controls:SettingsCard>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</Page>

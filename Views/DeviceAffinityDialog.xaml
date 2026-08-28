@@ -1,0 +1,110 @@
+﻿<ContentDialog
+    x:Class="KalOS.Views.DeviceAffinityDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewmodels="using:KalOS.ViewModels"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:sys="using:System"
+    mc:Ignorable="d"
+    Title="{x:Bind ViewModel.DeviceName, Mode=OneWay}"
+    PrimaryButtonText="Apply"
+    CloseButtonText="Cancel"
+    PrimaryButtonClick="SaveClick"
+    DefaultButton="Primary">
+
+
+
+    <Grid MaxWidth="720" HorizontalAlignment="Stretch">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        
+        <TextBlock Grid.Row="0" Text="{x:Bind ViewModel.DeviceId, Mode=OneWay}" 
+                   Style="{StaticResource CaptionTextBlockStyle}" 
+                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" 
+                   TextWrapping="Wrap" Margin="0,0,0,24" />
+
+        <ScrollViewer Grid.Row="1" Margin="0,0,0,0" Height="550" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="16">
+                <!-- MSI Policies Section -->
+                <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                        BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="16">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="MSI Policies — Message Signaled Interrupts" FontWeight="SemiBold" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="MSI Mode" VerticalAlignment="Center" />
+                            <CheckBox Content="Enabled" IsChecked="{x:Bind ViewModel.MsiEnabled, Mode=TwoWay}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="MSI Limit" VerticalAlignment="Center" />
+                            <NumberBox Width="140" Value="{x:Bind ViewModel.MsiLimit, Mode=TwoWay}" Minimum="1" Maximum="{x:Bind ViewModel.MaxMsiLimit}" SpinButtonPlacementMode="Inline" />
+                            <TextBlock Text="{x:Bind ViewModel.MaxMsiLimitText}" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Advanced Policies Section -->
+                <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                        BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="16">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Advanced Policies — Message Signaled Interrupts" FontWeight="SemiBold" />
+                        <TextBlock Text="{x:Bind ViewModel.PolicyDescription, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Device Priority" VerticalAlignment="Center" />
+                            <ComboBox MinWidth="200" ItemsSource="{x:Bind ViewModel.Priorities}" SelectedItem="{x:Bind ViewModel.DevicePriority, Mode=TwoWay}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Device Policy" VerticalAlignment="Center" />
+                            <ComboBox MinWidth="200" ItemsSource="{x:Bind ViewModel.Policies}" SelectedItem="{x:Bind ViewModel.DevicePolicy, Mode=TwoWay}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Cores Section -->
+                <Expander IsExpanded="True" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Margin="0,0,0,16">
+                    <Expander.Header>
+                        <StackPanel Orientation="Horizontal" Spacing="16" Padding="0,12">
+                            <FontIcon Glyph="&#xE968;" FontSize="16" />
+                            <StackPanel>
+                                <TextBlock Text="Processor Mask (P-Cores)" />
+                                <TextBlock Text="Assign hardware interrupts to specific logical processors" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Expander.Header>
+                    <Expander.Content>
+                        <StackPanel Padding="4,16">
+                            <GridView ItemsSource="{x:Bind ViewModel.Cores}" SelectionMode="None">
+                                <GridView.ItemTemplate>
+                                    <DataTemplate x:DataType="viewmodels:CpuCoreInfo">
+                                        <Border Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Margin="0,0,16,16" Width="140" Padding="0,0,0,8">
+                                            <StackPanel>
+                                                <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1" Padding="12,8" CornerRadius="8,8,0,0">
+                                                    <TextBlock Text="{x:Bind DisplayName}" FontSize="14" FontWeight="SemiBold" />
+                                                </Border>
+                                                <ItemsControl ItemsSource="{x:Bind Threads}" Margin="12,12,12,0">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate x:DataType="viewmodels:CpuThreadInfo">
+                                                            <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" Margin="0,0,0,4">
+                                                                <TextBlock Text="{x:Bind DisplayName}" FontSize="12" />
+                                                            </CheckBox>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </GridView.ItemTemplate>
+                            </GridView>
+                        </StackPanel>
+                    </Expander.Content>
+                </Expander>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</ContentDialog>

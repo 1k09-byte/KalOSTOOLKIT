@@ -1,0 +1,50 @@
+﻿<Page
+    x:Name="RootPage"
+    x:Class="KalOS.Views.PersonalizationPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    mc:Ignorable="d"
+    Background="Transparent"
+    NavigationCacheMode="Enabled">
+
+    <ScrollViewer Style="{StaticResource PageScrollStyle}">
+        <Grid>
+            <StackPanel Margin="{StaticResource PagePadding}" Spacing="{StaticResource SettingsCardSpacing}" MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Stretch">
+                <StackPanel.ChildrenTransitions>
+                    <EntranceThemeTransition FromVerticalOffset="50" IsStaggeringEnabled="False" />
+                    <RepositionThemeTransition IsStaggeringEnabled="False" />
+                </StackPanel.ChildrenTransitions>
+
+                <StackPanel Spacing="4" Margin="0,0,0,6">
+                    <TextBlock Text="Personalization" Style="{StaticResource PageTitleStyle}" />
+                    <TextBlock Text="Pick a section to customize."
+                               Style="{StaticResource PageSubtitleStyle}" />
+                </StackPanel>
+
+                <TextBlock Text="Windows Customization" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
+
+                <controls:SettingsCard Header="Visual Effects"
+                                       Description="Transparency, animations &amp; performance tuning."
+                                       IsClickEnabled="True" Click="VisualEffectsButton_Click" IsActionIconVisible="True">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE790;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                    </controls:SettingsCard.HeaderIcon>
+                </controls:SettingsCard>
+
+                <controls:SettingsCard Header="Windhawk"
+                                       Description="Curated desktop and taskbar mods."
+                                       IsClickEnabled="True" Click="WindhawkButton_Click" IsActionIconVisible="True">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE72E;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                    </controls:SettingsCard.HeaderIcon>
+                </controls:SettingsCard>
+
+                <!-- Additional Tweaks gets migrated directly into this Settings pattern later if desired -->
+                
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</Page>

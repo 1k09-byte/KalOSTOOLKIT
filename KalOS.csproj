@@ -1,0 +1,132 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows10.0.22621.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.22621.0</TargetPlatformMinVersion>
+    <RootNamespace>KalOS</RootNamespace>
+    <AssemblyName>KalOS</AssemblyName>
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version> 1.0.0.0</Version>
+    <Platform>x64</Platform>
+    <Platforms>x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <!-- Keep the RuntimeIdentifier in lockstep with the chosen platform so a
+         plain "dotnet build -p:Platform=ARM64" works (SelfContained=true makes
+         the SDK otherwise infer the host machine's win-x64 and then fail). -->
+    <RuntimeIdentifier Condition="'$(Platform)' == 'x64'">win-x64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(Platform)' == 'ARM64'">win-arm64</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <Nullable>enable</Nullable>
+    <NoWarn>$(NoWarn);MVVMTK0045</NoWarn>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained>true</SelfContained>
+    <PublishTrimmed>false</PublishTrimmed>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="tests\**" />
+    <EmbeddedResource Remove="tests\**" />
+    <None Remove="tests\**" />
+    <Page Remove="tests\**" />
+
+    <Compile Remove="tools\**" />
+    <EmbeddedResource Remove="tools\**" />
+    <None Remove="tools\**" />
+    <Page Remove="tools\**" />
+
+    <Compile Remove="scratch\**" />
+    <EmbeddedResource Remove="scratch\**" />
+    <None Remove="scratch\**" />
+    <Page Remove="scratch\**" />
+
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4654" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="System.Management" Version="10.0.9" />
+    <PackageReference Include="WinUIEx" Version="2.5.1" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
+    <PackageReference Include="FluentIcons.WinUI" Version="2.1.328" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
+    <PackageReference Include="FlaUI.UIA3" Version="4.0.0" />
+    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Let the unit-test project exercise internal members (e.g. driver API parsing). -->
+    <InternalsVisibleTo Include="KalOS.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Assets are auto-included by the WinUI SDK glob; explicit entries are kept
+         only for the ones that must ship (app icon + brand logos used at runtime). -->
+    <ProjectReference Include="tools\HardwareMonitorWorker.csproj" ReferenceOutputAssembly="false" />
+    <Content Include="Assets\AppIcon.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\icons8-brave-web-browser-48.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\librewolf.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\zen-browser-dark.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\thorium.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\discord.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\discord-mark.svg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\steam.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\spotify.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\7zip.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\windhawk_pins.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Assets\windhawk_mods.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <None Remove="THIRD-PARTY-NOTICES.md" />
+    <Content Include="THIRD-PARTY-NOTICES.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- BIOS export backend: SCEWIN + companion drivers live in tools\SCEWIN and are
+         copied to output\Tools (a ScewinService auto-detect path) so bin cleans or a
+         fresh clone never break BIOS-page detection. -->
+    <Content Remove="tools\SCEWIN\SCEWIN_64.exe;tools\SCEWIN\amifldrv64.sys;tools\SCEWIN\amigendrv64.sys" />
+    <Content Include="tools\SCEWIN\SCEWIN_64.exe;tools\SCEWIN\amifldrv64.sys;tools\SCEWIN\amigendrv64.sys">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Tools\%(Filename)%(Extension)</Link>
+    </Content>
+  </ItemGroup>
+
+  <!-- The hardware worker is a self-contained exe. The ProjectReference only copies a
+       few files, so copy its full output (HardwareMonitorWorker.dll + runtime) next to
+       KalOS.exe; without it the worker crashes at startup and every sensor reads N/A. -->
+  <Target Name="CopyHardwareMonitorWorker" AfterTargets="Build"
+          Condition="Exists('tools\bin\$(Platform)\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)')">
+    <ItemGroup>
+      <_HardwareWorkerFiles Include="tools\bin\$(Platform)\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\**\*"
+                            Exclude="tools\bin\$(Platform)\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\System.Management.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_HardwareWorkerFiles)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

@@ -1,0 +1,7 @@
+{
+  "installer": {
+    "version": "1.7.3",
+    "url": "https://github.com/ramensoftware/windhawk/releases/download/v1.7.3/windhawk_setup.exe",
+    "sha256": "5116CC1703384AAC88B8D7A3B57F172AEA5DA32B6DF7355FB2F8247D23813C8F"
+  }
+}

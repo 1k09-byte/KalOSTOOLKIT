@@ -1,0 +1,128 @@
+﻿<Page
+    x:Name="RootPage"
+    x:Class="KalOS.Views.GpuDriversPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:KalOS.ViewModels"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    mc:Ignorable="d"
+    Background="Transparent"
+    NavigationCacheMode="Enabled">
+
+    <Grid>
+        <ScrollViewer Style="{StaticResource PageScrollStyle}">
+            <Grid>
+                <StackPanel MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Stretch"
+                            Spacing="{StaticResource SettingsCardSpacing}"
+                            Margin="{StaticResource PagePadding}">
+                    <StackPanel.ChildrenTransitions>
+                        <EntranceThemeTransition FromVerticalOffset="50" IsStaggeringEnabled="False" />
+                        <RepositionThemeTransition IsStaggeringEnabled="False" />
+                    </StackPanel.ChildrenTransitions>
+
+                    <StackPanel Spacing="4" Margin="0,0,0,6">
+                        <TextBlock Text="GPU Drivers" Style="{StaticResource PageTitleStyle}" />
+                        <TextBlock Text="Check installed graphics adapters against vendor sources and update NVIDIA/AMD drivers silently — stripped display-only package with clean-install cleanup."
+                                   Style="{StaticResource PageSubtitleStyle}" />
+                    </StackPanel>
+
+                    <InfoBar
+                        x:Name="ErrorInfoBar"
+                        IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+                        Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
+                        Severity="Error"
+                        CloseButtonClick="ErrorInfoBar_CloseClick"
+                        Margin="0,0,0,6" />
+
+                    <!-- Scan Section -->
+                    <TextBlock Text="Checks" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
+
+                    <controls:SettingsCard Header="Check for driver updates"
+                                           Description="{x:Bind ViewModel.StatusText, Mode=OneWay}">
+                        <controls:SettingsCard.HeaderIcon>
+                            <FontIcon Glyph="&#xE895;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Cancel" Command="{x:Bind ViewModel.CancelCommand}"
+                                    Visibility="{x:Bind ViewModel.IsWorking, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+                            <Button Command="{x:Bind ViewModel.CheckForUpdatesCommand}"
+                                    IsEnabled="{x:Bind ViewModel.CanCheck, Mode=OneWay}"
+                                    Style="{StaticResource AccentButtonStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <ProgressRing Width="16" Height="16" IsActive="{x:Bind ViewModel.IsChecking, Mode=OneWay}"
+                                                  Visibility="{x:Bind ViewModel.IsChecking, Mode=OneWay, Converter={StaticResource BoolToVis}}"
+                                                  Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                                    <TextBlock Text="Check for updates" Visibility="{x:Bind ViewModel.CanCheck, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+                                    <TextBlock Text="Checking…" Visibility="{x:Bind ViewModel.IsChecking, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </controls:SettingsCard>
+
+                    <!-- Adapters List -->
+                    <TextBlock Text="Graphics Adapters" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
+
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.Gpus}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:GpuDriverItem">
+                                <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                        BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                                        BorderThickness="1" CornerRadius="8" Padding="16" Margin="0,0,0,4">
+                                    <StackPanel Spacing="6">
+                                        <Grid>
+                                            <StackPanel Spacing="2">
+                                                <TextBlock Text="{x:Bind Name, Mode=OneWay}" FontWeight="SemiBold" />
+                                                <TextBlock Text="{x:Bind InstalledText, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind HasLatestText, Mode=OneWay, Converter={StaticResource BoolToVis}}">
+                                            <TextBlock Text="{x:Bind LatestText, Mode=OneWay}" VerticalAlignment="Center" />
+                                            <Button Content="Open download page" Click="OpenPage_Click" Tag="{Binding}"
+                                                    Visibility="{x:Bind ShowOpenPage, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+                                            <Button Content="Install update" Click="Install_Click" Tag="{Binding}"
+                                                    Style="{StaticResource AccentButtonStyle}"
+                                                    Visibility="{x:Bind CanAutoInstall, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+                                        </StackPanel>
+
+                                        <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind IsNvidiaOrAmd, Mode=OneWay, Converter={StaticResource BoolToVis}}">
+                                            <TextBlock Text="DDU Cleanup" VerticalAlignment="Center" />
+                                            <Button Content="Uninstall &amp; Clean" Click="Cleanup_Click" Tag="{Binding}" IsEnabled="{x:Bind CanCleanup, Mode=OneWay}" />
+                                        </StackPanel>
+
+                                        <ProgressBar Maximum="100"
+                                                     Value="{x:Bind ProgressValue, Mode=OneWay}"
+                                                     IsIndeterminate="{x:Bind ProgressIndeterminate, Mode=OneWay}"
+                                                     Width="180"
+                                                     Visibility="{x:Bind IsBusy, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+
+                                        <Border Style="{StaticResource StatusBadgeStyle}" Visibility="{x:Bind ShowStatus, Mode=OneWay, Converter={StaticResource BoolToVis}}">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <FontIcon Glyph="{x:Bind StatusGlyph, Mode=OneWay}"
+                                                          FontSize="12"
+                                                          Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                                <TextBlock Text="{x:Bind StatusText, Mode=OneWay}"
+                                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                                           VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Text="No graphics adapters were detected. WMI may be unavailable on this system."
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap"
+                               Visibility="{x:Bind ViewModel.HasNoGpus, Mode=OneWay, Converter={StaticResource BoolToVis}}"
+                               Margin="1,8,0,0" />
+
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+    </Grid>
+</Page>

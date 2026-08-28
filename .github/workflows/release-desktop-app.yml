@@ -1,0 +1,120 @@
+# GitHub Actions release workflow — auto-detects Node/Electron or .NET projects.
+# Triggered automatically when App Publisher creates a GitHub Release.
+name: Release Desktop App
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows release
+    runs-on: windows-latest
+    steps:
+      - name: Check out source code
+        uses: actions/checkout@v4
+
+      # Detect project type and run the appropriate build.
+      - name: Detect project type
+        id: detect
+        shell: bash
+        run: |
+          if [ -f "package.json" ]; then
+            echo "project-type=node" >> $GITHUB_OUTPUT
+          elif ls *.csproj 1>/dev/null 2>&1; then
+            echo "project-type=dotnet" >> $GITHUB_OUTPUT
+          elif ls *.sln 1>/dev/null 2>&1; then
+            echo "project-type=dotnet" >> $GITHUB_OUTPUT
+          else
+            echo "project-type=unknown" >> $GITHUB_OUTPUT
+          fi
+
+      # --- Node / Electron build ---
+      - name: Set up Node.js
+        if: steps.detect.outputs.project-type == 'node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.detect.outputs.project-type == 'node'
+        run: npm ci
+
+      - name: Build Electron app
+        if: steps.detect.outputs.project-type == 'node'
+        run: npm run build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Windows installer (electron-builder)
+        if: steps.detect.outputs.project-type == 'node'
+        run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # --- .NET / WPF build ---
+      - name: Set up .NET
+        if: steps.detect.outputs.project-type == 'dotnet'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+      - name: Restore .NET dependencies
+        if: steps.detect.outputs.project-type == 'dotnet'
+        run: dotnet restore
+
+      - name: Build .NET project
+        if: steps.detect.outputs.project-type == 'dotnet'
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Publish .NET app
+        if: steps.detect.outputs.project-type == 'dotnet'
+        run: dotnet publish --configuration Release --output ./publish -r win-x64
+
+      - name: Zip .NET release
+        if: steps.detect.outputs.project-type == 'dotnet'
+        run: Compress-Archive -Path ./publish/* -DestinationPath ./app-release.zip
+        shell: pwsh
+
+      - name: Upload .NET release asset
+        if: steps.detect.outputs.project-type == 'dotnet'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./app-release.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify Discord about release
+        if: success() && secrets.DISCORD_RELEASE_WEBHOOK != ''
+        shell: pwsh
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_URL: ${{ github.event.release.html_url }}
+          RELEASE_NAME: ${{ github.event.release.name }}
+        run: |
+          $title = $env:RELEASE_NAME
+          if ([string]::IsNullOrWhiteSpace($title)) { $title = "KalOS $env:RELEASE_TAG" }
+          $payload = @{
+            username = "KalOS Releases"
+            embeds = @(
+              @{
+                title = $title
+                url = $env:RELEASE_URL
+                description = "A new KalOS release is available."
+                color = 7275225
+                fields = @(
+                  @{
+                    name = "Version"
+                    value = $env:RELEASE_TAG
+                    inline = $true
+                  }
+                )
+              }
+            )
+          } | ConvertTo-Json -Depth 5
+          Invoke-RestMethod -Uri $env:DISCORD_WEBHOOK -Method Post -ContentType "application/json" -Body $payload

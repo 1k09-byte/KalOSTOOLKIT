@@ -1,0 +1,112 @@
+﻿<Page
+    x:Name="RootPage"
+    x:Class="KalOS.Views.VisualEffectsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    mc:Ignorable="d"
+    Background="Transparent"
+    NavigationCacheMode="Enabled">
+
+    <ScrollViewer Style="{StaticResource PageScrollStyle}">
+        <Grid>
+            <StackPanel Margin="{StaticResource PagePadding}" Spacing="{StaticResource SettingsCardSpacing}" MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Stretch">
+                <StackPanel.ChildrenTransitions>
+                    <EntranceThemeTransition FromVerticalOffset="50" IsStaggeringEnabled="False" />
+                    <RepositionThemeTransition IsStaggeringEnabled="False" />
+                </StackPanel.ChildrenTransitions>
+
+                <StackPanel Spacing="4" Margin="0,0,0,6">
+                    <Button Click="BackButton_Click" Style="{StaticResource SubtleButtonStyle}" Padding="8,4" Margin="-8,0,0,4" HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE72B;" FontSize="14" VerticalAlignment="Center"/>
+                            <TextBlock Text="Back" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                    <TextBlock Text="Visual Effects" Style="{StaticResource PageTitleStyle}" />
+                    <TextBlock Text="Select the settings you want to use for the appearance and performance of Windows on this computer."
+                               Style="{StaticResource PageSubtitleStyle}" />
+                </StackPanel>
+
+                <!-- Status Feedback -->
+                <TextBlock x:Name="StatusText" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="13" Margin="0,0,0,12" />
+
+                <!-- Presets -->
+                <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                        BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="16" Margin="0,0,0,16">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Performance Profile" FontWeight="SemiBold" />
+                        <TextBlock Text="Automatically adjust settings for performance or appearance." FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <StackPanel Spacing="8" Margin="0,8,0,0">
+                            <RadioButton x:Name="WindowsChooseRadio" GroupName="Preset" Content="Let Windows choose what's best for my computer" Checked="Preset_Checked" Tag="Default" />
+                            <RadioButton x:Name="BestAppearanceRadio" GroupName="Preset" Content="Adjust for best appearance" Checked="Preset_Checked" Tag="BestAppearance" />
+                            <RadioButton x:Name="BestPerformanceRadio" GroupName="Preset" Content="Adjust for best performance" Checked="Preset_Checked" Tag="BestPerformance" />
+                            <RadioButton x:Name="RecommendedRadio" GroupName="Preset" Content="Recommended (KalOS)" Checked="Preset_Checked" Tag="Recommended" />
+                            <RadioButton x:Name="CustomRadio" GroupName="Preset" Content="Custom:" Checked="Preset_Checked" Tag="Custom" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock Text="Granular Effects" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
+
+                <StackPanel x:Name="EffectsListPanel" Spacing="2">
+                    <controls:SettingsCard Header="Animate controls and elements inside windows">
+                        <ToggleSwitch IsOn="True" Toggled="Effect_Changed" />
+                    </controls:SettingsCard>
+                    <controls:SettingsCard Header="Animate windows when minimizing and maximizing">
+                        <ToggleSwitch IsOn="True" Toggled="Effect_Changed" />
+                    </controls:SettingsCard>
+                    <controls:SettingsCard Header="Animations in the taskbar">
+                        <ToggleSwitch IsOn="True" Toggled="Effect_Changed" />
+                    </controls:SettingsCard>
+                    <controls:SettingsCard Header="Enable Peek">
+                        <ToggleSwitch IsOn="True" Toggled="Effect_Changed" />
+                    </controls:SettingsCard>
+                    <controls:SettingsCard Header="Fade or slide menus into view">
+                        <ToggleSwitch IsOn="True" Toggled="Effect_Changed" />
+                    </controls:SettingsCard>
+                    <controls:SettingsCard Header="Fade or slide ToolTips into view">
+                        <ToggleSwitch IsOn="True" Toggled="Effect_Changed" />
+                    </controls:SettingsCard>
+                    <controls:SettingsCard Header="Fade out menu items after clicking">
+                        <ToggleSwitch IsOn="True" Toggled="Effect_Changed" />
+                    </controls:SettingsCard>
+                    <controls:SettingsCard Header="Save taskbar thumbnail previews">
+                        <ToggleSwitch IsOn="True" Toggled="Effect_Changed" />
+                    </controls:SettingsCard>
+                    <controls:SettingsCard Header="Show shadows under mouse pointer">
+                        <ToggleSwitch IsOn="True" Toggled="Effect_Changed" />
+                    </controls:SettingsCard>
+                    <controls:SettingsCard Header="Show shadows under windows">
+                        <ToggleSwitch IsOn="True" Toggled="Effect_Changed" />
+                    </controls:SettingsCard>
+                    <controls:SettingsCard Header="Show thumbnails instead of icons">
+                        <ToggleSwitch IsOn="True" Toggled="Effect_Changed" />
+                    </controls:SettingsCard>
+                    <controls:SettingsCard Header="Show translucent selection rectangle">
+                        <ToggleSwitch IsOn="True" Toggled="Effect_Changed" />
+                    </controls:SettingsCard>
+                    <controls:SettingsCard Header="Show window contents while dragging">
+                        <ToggleSwitch IsOn="True" Toggled="Effect_Changed" />
+                    </controls:SettingsCard>
+                    <controls:SettingsCard Header="Slide open combo boxes">
+                        <ToggleSwitch IsOn="True" Toggled="Effect_Changed" />
+                    </controls:SettingsCard>
+                    <controls:SettingsCard Header="Smooth edges of screen fonts">
+                        <ToggleSwitch IsOn="True" Toggled="Effect_Changed" />
+                    </controls:SettingsCard>
+                    <controls:SettingsCard Header="Smooth-scroll list boxes">
+                        <ToggleSwitch IsOn="True" Toggled="Effect_Changed" />
+                    </controls:SettingsCard>
+                    <controls:SettingsCard Header="Use drop shadows for icon labels on the desktop">
+                        <ToggleSwitch IsOn="True" Toggled="Effect_Changed" />
+                    </controls:SettingsCard>
+                </StackPanel>
+
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</Page>
