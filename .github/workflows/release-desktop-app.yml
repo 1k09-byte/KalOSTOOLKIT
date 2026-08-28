@@ -60,7 +60,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # --- .NET / WPF build ---
-      - name: Set up .NET
+      # NOTE: App Publisher (publish-consumer.ps1) is the source of truth for
+      # KalOS releases — it builds dist/KalOS.zip and attaches it to the
+      # GitHub Release. The duplicate publish/zip/upload steps that created
+      # app-release.zip have been removed to avoid duplicate assets.
+      - name: Set up .NET (validation only — no artifact upload)
         if: steps.detect.outputs.project-type == 'dotnet'
         uses: actions/setup-dotnet@v4
         with:
@@ -72,23 +76,6 @@ jobs:
       - name: Build .NET project
         if: steps.detect.outputs.project-type == 'dotnet'
         run: dotnet build --configuration Release --no-restore
-
-      - name: Publish .NET app
-        if: steps.detect.outputs.project-type == 'dotnet'
-        run: dotnet publish --configuration Release --output ./publish -r win-x64
-
-      - name: Zip .NET release
-        if: steps.detect.outputs.project-type == 'dotnet'
-        run: Compress-Archive -Path ./publish/* -DestinationPath ./app-release.zip
-        shell: pwsh
-
-      - name: Upload .NET release asset
-        if: steps.detect.outputs.project-type == 'dotnet'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ./app-release.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Notify Discord about release
         if: success() && env.DISCORD_RELEASE_WEBHOOK != ''
