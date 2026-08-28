@@ -167,20 +167,20 @@ namespace KalOS
             ShowRollbackIfRequired();
         }
 
-        private void ShowRollbackIfRequired()
+        private void ShowRollbackIfRequired(UpdateInfo? update = null)
         {
 #if CONSUMER_BUILD
-            if (!File.Exists(UpdateService.RollbackStatePath)) return;
+            if (update == null && !File.Exists(UpdateService.RollbackStatePath)) return;
             var queue = _window?.DispatcherQueue;
             _ = Task.Run(async () =>
             {
                 await Task.Delay(1200);
-                queue?.TryEnqueue(() => ShowMandatoryRollbackDialog());
+                queue?.TryEnqueue(() => ShowMandatoryRollbackDialog(update));
             });
 #endif
         }
 
-        private void ShowMandatoryRollbackDialog()
+        private void ShowMandatoryRollbackDialog(UpdateInfo? preFetchedUpdate)
         {
             if (_window?.Content is not FrameworkElement root || root.XamlRoot == null) return;
             var settingsVm = Services.GetRequiredService<SettingsViewModel>();
@@ -197,15 +197,15 @@ namespace KalOS
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = root.XamlRoot
             };
-            _ = RunMandatoryRollbackAsync(dialog, settingsVm);
+            _ = RunMandatoryRollbackAsync(dialog, preFetchedUpdate);
         }
 
-        private async Task RunMandatoryRollbackAsync(ContentDialog dialog, SettingsViewModel settingsVm)
+        private async Task RunMandatoryRollbackAsync(ContentDialog dialog, UpdateInfo? preFetchedUpdate)
         {
             try
             {
                 await dialog.ShowAsync();
-                var update = await Services.GetRequiredService<UpdateService>().CheckForUpdatesAsync();
+                var update = preFetchedUpdate ?? await Services.GetRequiredService<UpdateService>().CheckForUpdatesAsync();
                 if (File.Exists(UpdateService.RollbackStatePath)) File.Delete(UpdateService.RollbackStatePath);
                 if (update == null) { RestartApp(); return; }
                 await Services.GetRequiredService<UpdateService>().DownloadAndApplyAsync(update);

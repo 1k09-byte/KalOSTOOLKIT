@@ -38,8 +38,10 @@ public sealed class UpdateService
     public const string DefaultOwner = "1k09-byte";
     public const string DefaultRepo = "KalOSTOOLKIT";
 
-    // Event raised immediately if the current version is detected as missing from the remote.
-    public event Action? RollbackRequired;
+    /// <summary>
+    /// Fires when the app must forcefully roll back (e.g. current tag was removed).
+    /// </summary>
+    public event Action<UpdateInfo>? RollbackRequired;
 
     private readonly LoggingService _log;
     private readonly HttpClient _http;
@@ -200,7 +202,7 @@ public sealed class UpdateService
                     if (update.IsRollback)
                     {
                         SaveRollbackState(CurrentVersion, $"Version {CurrentVersion} was superseded by an older stable build.");
-                        RollbackRequired?.Invoke();
+                        RollbackRequired?.Invoke(update);
                     }
                     return update;
                 }
