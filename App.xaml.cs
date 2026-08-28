@@ -184,34 +184,67 @@ namespace KalOS
         {
             if (_window?.Content is not FrameworkElement root || root.XamlRoot == null) return;
             var settingsVm = Services.GetRequiredService<SettingsViewModel>();
+            
+            var progressBar = new ProgressBar
+            {
+                IsIndeterminate = false, Maximum = 100, Value = 0,
+                Visibility = Visibility.Collapsed, Margin = new Thickness(0, 16, 0, 0)
+            };
+            var progressText = new TextBlock
+            {
+                Text = "Starting download...", Visibility = Visibility.Collapsed,
+                Margin = new Thickness(0, 4, 0, 0), FontSize = 12, Opacity = 0.7
+            };
+            var panel = new StackPanel
+            {
+                Children = 
+                {
+                    new TextBlock
+                    {
+                        Text = "This version of KalOS has been removed from GitHub because it is unstable. A rollback to the previous stable version is required. The app will close and install it now.",
+                        TextWrapping = TextWrapping.Wrap, MaxWidth = 440
+                    },
+                    progressBar, progressText
+                }
+            };
+
             var dialog = new ContentDialog
             {
                 Title = "KalOS version removed",
-                Content = new TextBlock
-                {
-                    Text = "This version of KalOS has been removed from GitHub because it is unstable. A rollback to the previous stable version is required. The app will close and install it now.",
-                    TextWrapping = TextWrapping.Wrap,
-                    MaxWidth = 440
-                },
+                Content = panel,
                 PrimaryButtonText = "Roll back now",
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = root.XamlRoot
             };
-            _ = RunMandatoryRollbackAsync(dialog, preFetchedUpdate);
-        }
 
-        private async Task RunMandatoryRollbackAsync(ContentDialog dialog, UpdateInfo? preFetchedUpdate)
-        {
-            try
+            dialog.PrimaryButtonClick += async (s, args) =>
             {
-                await dialog.ShowAsync();
-                var update = preFetchedUpdate ?? await Services.GetRequiredService<UpdateService>().CheckForUpdatesAsync();
-                if (File.Exists(UpdateService.RollbackStatePath)) File.Delete(UpdateService.RollbackStatePath);
-                if (update == null) { RestartApp(); return; }
-                await Services.GetRequiredService<UpdateService>().DownloadAndApplyAsync(update);
-                Environment.Exit(0);
-            }
-            catch { }
+                var deferral = args.GetDeferral();
+                args.Cancel = true;
+                dialog.IsPrimaryButtonEnabled = false;
+                progressBar.Visibility = Visibility.Visible;
+                progressText.Visibility = Visibility.Visible;
+
+                try
+                {
+                    var update = preFetchedUpdate ?? await Services.GetRequiredService<UpdateService>().CheckForUpdatesAsync();
+                    if (File.Exists(UpdateService.RollbackStatePath)) File.Delete(UpdateService.RollbackStatePath);
+                    if (update == null) { RestartApp(); return; }
+
+                    var progress = new Progress<double>(p => 
+                    {
+                        progressBar.Value = p * 100;
+                        progressText.Text = $"Downloading update: {progressBar.Value:0}%";
+                    });
+
+                    await Services.GetRequiredService<UpdateService>().DownloadAndApplyAsync(update, progress);
+                    Environment.Exit(0);
+                }
+                catch { }
+                finally { deferral.Complete(); }
+            };
+
+            _ = dialog.ShowAsync();
         }
 
         private void StartUpdateCheck()
