@@ -24,8 +24,11 @@ namespace KalOS.Views
         {
             base.OnNavigatedTo(e);
             ViewModel.LoadPrioritySeparation();
+            ViewModel.LoadSvcHostSplit();
             ViewModel.LoadFullscreenMode();
             ViewModel.LoadUac();
+            ViewModel.LoadVbs();
+            ViewModel.LoadHvci();
             _ = ViewModel.DetectAsync();
         }
     }

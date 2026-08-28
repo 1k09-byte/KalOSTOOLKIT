@@ -132,6 +132,54 @@
 
                 <TextBlock Text="On modern engines with proper flip-model implementation, differences between the two can be small or within measurement noise."
                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate x:Key="SvcHostDetailsTemplate">
+            <StackPanel Spacing="6" MaxWidth="360" Padding="4,4,12,4">
+                <TextBlock Text="SvcSplitThreshold is a Windows system setting that controls when Windows decides to split services into separate svchost.exe processes instead of running multiple services together in the same process. Windows uses svchost.exe to host background services that perform important tasks such as updates, networking, security, and other system functions. The threshold is mainly related to the amount of physical memory available on the computer, so Windows can adjust how services are grouped depending on the system’s resources. Separating services can improve stability and make it easier for Windows to isolate problems, but it can also use slightly more memory because each process has its own overhead. In general, SvcSplitThreshold is an internal Windows configuration designed to help Windows balance memory usage, performance, and service reliability, and it normally does not need to be changed manually."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate x:Key="VbsDetailsTemplate">
+            <StackPanel Spacing="6" MaxWidth="360" Padding="4,4,12,4">
+                <TextBlock Text="Virtualization-Based Security (VBS)" FontWeight="SemiBold"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                <TextBlock Text="VBS uses hardware virtualization to create an isolated memory region that Windows uses to protect security secrets, credentials, and kernel code. The hypervisor runs underneath Windows and isolates these assets so malware in the OS cannot easily tamper with them."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                <TextBlock Text="Registry: HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard\EnableVirtualizationBasedSecurity (DWORD). 1 = Enabled, 0 = Disabled. Requires reboot and UEFI Secure Boot + virtualization (Intel VT-x/AMD-V) enabled in BIOS."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                <TextBlock Text="Performance vs security: Enabling adds a tiny hypervisor overhead but hardens the kernel. Disabling may gain 1-3% in some benchmarks but weakens credential/Kernel protection."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                <TextBlock Text="Games: Some modern titles and anti-cheats REQUIRE VBS enabled. Examples: Valorant (Vanguard), some FaceIT/EAC titles, and games that enforce Windows 11 security baselines. If those games refuse to launch or show 'VBS required', leave VBS On. For older/offline titles you can test Off for max FPS."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate x:Key="HvciDetailsTemplate">
+            <StackPanel Spacing="6" MaxWidth="360" Padding="4,4,12,4">
+                <TextBlock Text="Hypervisor-Enforced Code Integrity (HVCI) — Memory Integrity" FontWeight="SemiBold"
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                <TextBlock Text="HVCI (also called Memory Integrity) is a VBS feature. It runs Windows Code Integrity inside the hypervisor to verify every kernel driver and binary before it loads, blocking unsigned or tampered drivers. Helps stop kernel exploits."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                <TextBlock Text="Registry: HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity\Enabled (DWORD). 1 = Enabled, 0 = Disabled. HVCI requires VBS to be on; disabling VBS usually disables HVCI as well. Requires reboot."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                <TextBlock Text="Performance vs security: HVCI adds driver verification overhead. Some competitive players disable it for marginal latency gains, but you lose driver tampering protection."
+                           Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                <TextBlock Text="Games: Several anti-cheats and newer titles REQUIRE HVCI/Memory Integrity enabled to launch (Valorant, COD with Ricochet, Destiny 2 with BattlEye updates, and Windows 11 certified titles). If a game shows 'Memory Integrity must be on' or anti-cheat errors after turning HVCI Off, re-enable it."
+                           Style="{StaticResource CaptionTextBlockStyle}"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
             </StackPanel>
         </DataTemplate>
@@ -206,6 +254,42 @@
                     </StackPanel>
                 </controls:SettingsCard>
 
+                <controls:SettingsCard Header="SvcHost split threshold (RAM)"
+                                       Description="{x:Bind ViewModel.SvcHostSplitDescription, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE770;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock Text="{x:Bind ViewModel.SvcHostSplitCurrentText, Mode=OneWay}"
+                                   VerticalAlignment="Center"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   FontSize="12" />
+                        <ComboBox ItemsSource="{x:Bind ViewModel.SvcHostSplitItems}"
+                                  SelectedItem="{x:Bind ViewModel.SelectedSvcHostSplit, Mode=TwoWay}"
+                                  DisplayMemberPath="Label"
+                                  MinWidth="260"
+                                  ToolTipService.ToolTip="HKLM\SYSTEM\CurrentControlSet\Control\ SvcHostSplitThresholdInKB (hex DWORD)" />
+                        <Button Content="T"
+                                ToolTipService.ToolTip="Technical details"
+                                VerticalAlignment="Center">
+                            <Button.Flyout>
+                                <Flyout Placement="BottomEdgeAlignedRight">
+                                    <ScrollViewer MaxHeight="360" MaxWidth="380"
+                                                  Padding="0,0,12,0"
+                                                  FontSize="12"
+                                                  HorizontalScrollBarVisibility="Disabled"
+                                                  HorizontalScrollMode="Disabled"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  VerticalScrollMode="Auto"
+                                                  ZoomMode="Disabled">
+                                        <ContentControl ContentTemplate="{StaticResource SvcHostDetailsTemplate}" />
+                                    </ScrollViewer>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                    </StackPanel>
+                </controls:SettingsCard>
+
                 <TextBlock Text="Gaming" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
 
                 <controls:SettingsCard Header="Game fullscreen mode"
@@ -245,8 +329,7 @@
 
                 <TextBlock Text="Security" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
 
-                <controls:SettingsCard Header="User Account Control (UAC)"
-                                       Description="{x:Bind ViewModel.UacStatusText, Mode=OneWay}">
+                  <controls:SettingsCard Header="User Account Control (UAC)">
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE7C3;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                     </controls:SettingsCard.HeaderIcon>
@@ -266,6 +349,86 @@
                          Severity="Warning"
                          Title="Reboot required"
                          Message="UAC change will take effect after reboot."
+                         Margin="0,4,0,0" />
+
+                <controls:SettingsCard Header="Virtualization-Based Security (VBS)">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE8A7;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock Text="{x:Bind ViewModel.VbsCurrentText, Mode=OneWay}"
+                                   VerticalAlignment="Center"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   FontSize="12" />
+                        <ToggleSwitch IsOn="{x:Bind ViewModel.VbsEnabled, Mode=TwoWay}"
+                                      MinWidth="0"
+                                      OnContent="On"
+                                      OffContent="Off" />
+                        <Button Content="T"
+                                ToolTipService.ToolTip="Technical details"
+                                VerticalAlignment="Center">
+                            <Button.Flyout>
+                                <Flyout Placement="BottomEdgeAlignedRight">
+                                    <ScrollViewer MaxHeight="360" MaxWidth="380"
+                                                  Padding="0,0,12,0"
+                                                  FontSize="12"
+                                                  HorizontalScrollBarVisibility="Disabled"
+                                                  HorizontalScrollMode="Disabled"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  VerticalScrollMode="Auto"
+                                                  ZoomMode="Disabled">
+                                        <ContentControl ContentTemplate="{StaticResource VbsDetailsTemplate}" />
+                                    </ScrollViewer>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                    </StackPanel>
+                </controls:SettingsCard>
+
+                <InfoBar IsOpen="{x:Bind ViewModel.VbsDetectedNeedsReboot, Mode=OneWay}"
+                         Severity="Warning"
+                         Title="Reboot required"
+                         Message="VBS change will take effect after reboot."
+                         Margin="0,4,0,0" />
+
+                <controls:SettingsCard Header="Hypervisor-Enforced Code Integrity (HVCI)">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE90F;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock Text="{x:Bind ViewModel.HvciCurrentText, Mode=OneWay}"
+                                   VerticalAlignment="Center"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   FontSize="12" />
+                        <ToggleSwitch IsOn="{x:Bind ViewModel.HvciEnabled, Mode=TwoWay}"
+                                      MinWidth="0"
+                                      OnContent="On"
+                                      OffContent="Off" />
+                        <Button Content="T"
+                                ToolTipService.ToolTip="Technical details"
+                                VerticalAlignment="Center">
+                            <Button.Flyout>
+                                <Flyout Placement="BottomEdgeAlignedRight">
+                                    <ScrollViewer MaxHeight="360" MaxWidth="380"
+                                                  Padding="0,0,12,0"
+                                                  FontSize="12"
+                                                  HorizontalScrollBarVisibility="Disabled"
+                                                  HorizontalScrollMode="Disabled"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  VerticalScrollMode="Auto"
+                                                  ZoomMode="Disabled">
+                                        <ContentControl ContentTemplate="{StaticResource HvciDetailsTemplate}" />
+                                    </ScrollViewer>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                    </StackPanel>
+                </controls:SettingsCard>
+
+                <InfoBar IsOpen="{x:Bind ViewModel.HvciDetectedNeedsReboot, Mode=OneWay}"
+                         Severity="Warning"
+                         Title="Reboot required"
+                         Message="HVCI change will take effect after reboot."
                          Margin="0,4,0,0" />
 
                 <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"

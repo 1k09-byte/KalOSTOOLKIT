@@ -97,6 +97,62 @@ namespace KalOS.ViewModels
     }
 
     /// <summary>
+    /// SvcHost split threshold option. Value is the DWORD (hex string from the guide,
+    /// e.g. 380000 = 0x380000 = 3670016 decimal). Displayed as "RAM — hex" exactly
+    /// matching the table the user provided.
+    /// </summary>
+    public sealed record SvcHostSplitOption(int Value, string RamLabel)
+    {
+        /// <summary>Hex without 0x, lower-case to match guide (e.g. c00000).</summary>
+        public string ValueHex => Value.ToString("x");
+
+        /// <summary>"4 GB — 400000" style label.</summary>
+        public string Label => $"{RamLabel} — {ValueHex}";
+
+        public override string ToString() => Label;
+    }
+
+    /// <summary>
+    /// SvcHostSplitThresholdInKB presets. Values are hex thresholds in KB at
+    /// HKLM\SYSTEM\CurrentControlSet\Control . Default 380000; increase to
+    /// isolate svchost.exe per service (stability) at the cost of RAM.
+    /// Table from TenForums/Win10 guide reproduced verbatim.
+    /// </summary>
+    public static class SvcHostSplitPresets
+    {
+        public static SvcHostSplitOption Default { get; } = new(0x380000, "(default)");
+
+        public static SvcHostSplitOption Ram4 { get; } = new(0x400000, "4 GB");
+
+        public static SvcHostSplitOption Ram6 { get; } = new(0x600000, "6 GB");
+
+        public static SvcHostSplitOption Ram8 { get; } = new(0x800000, "8 GB");
+
+        public static SvcHostSplitOption Ram12 { get; } = new(0xC00000, "12 GB");
+
+        public static SvcHostSplitOption Ram16 { get; } = new(0x1000000, "16 GB");
+
+        public static SvcHostSplitOption Ram24 { get; } = new(0x1800000, "24 GB");
+
+        public static SvcHostSplitOption Ram32 { get; } = new(0x2000000, "32 GB");
+
+        public static SvcHostSplitOption Ram64 { get; } = new(0x4000000, "64 GB");
+
+        public static IReadOnlyList<SvcHostSplitOption> Presets { get; } = new[]
+        {
+            Default,
+            Ram4,
+            Ram6,
+            Ram8,
+            Ram12,
+            Ram16,
+            Ram24,
+            Ram32,
+            Ram64,
+        };
+    }
+
+    /// <summary>
     /// Drives the Bluetooth and Wi-Fi toggles on the Additional Tweaks page, plus the
     /// Win32PrioritySeparation dropdown.
     /// Detection and live state sync use the same radio API as the Windows
@@ -109,6 +165,12 @@ namespace KalOS.ViewModels
     {
         private const string PriorityControlKey = @"HKLM\SYSTEM\CurrentControlSet\Control\PriorityControl";
         private const string Win32PrioritySeparationValueName = "Win32PrioritySeparation";
+        private const string SvcHostKey = @"HKLM\SYSTEM\CurrentControlSet\Control";
+        private const string SvcHostValueName = "SvcHostSplitThresholdInKB";
+        private const string DeviceGuardKey = @"HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard";
+        private const string VbsValueName = "EnableVirtualizationBasedSecurity";
+        private const string HvciKey = @"HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity";
+        private const string HvciValueName = "Enabled";
         private const string UacKey = @"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System";
         private const string UacValueName = "EnableLUA";
 
@@ -121,8 +183,14 @@ namespace KalOS.ViewModels
         private bool _syncing;
         private bool _loadingPriority;
         private bool _applyingPriority;
+        private bool _loadingSvcHost;
+        private bool _applyingSvcHost;
         private bool _loadingFullscreen;
         private bool _applyingFullscreen;
+        private bool _loadingVbs;
+        private bool _applyingVbs;
+        private bool _loadingHvci;
+        private bool _applyingHvci;
         private bool _loadingUac;
         private bool _applyingUac;
 
@@ -156,6 +224,18 @@ namespace KalOS.ViewModels
         [ObservableProperty]
         private string _prioritySeparationCurrentText = "Current: not loaded";
 
+        [ObservableProperty]
+        private SvcHostSplitOption? _selectedSvcHostSplit;
+
+        [ObservableProperty]
+        private IReadOnlyList<SvcHostSplitOption> _svcHostSplitItems = Array.Empty<SvcHostSplitOption>();
+
+        [ObservableProperty]
+        private string _svcHostSplitDescription = "Groups Windows services into svchost.exe. Higher RAM = larger threshold isolates services per-process for stability.";
+
+        [ObservableProperty]
+        private string _svcHostSplitCurrentText = "Current: not loaded";
+
         /// <summary>True = Fullscreen Optimizations (right), False = Fullscreen Exclusive (left).</summary>
         [ObservableProperty]
         private bool _fullscreenOptimizationsEnabled;
@@ -168,6 +248,24 @@ namespace KalOS.ViewModels
 
         [ObservableProperty]
         private bool _uacDetectedNeedsReboot;
+
+        [ObservableProperty]
+        private bool _vbsEnabled;
+
+        [ObservableProperty]
+        private string _vbsDetectedValueText = "Checking current state...";
+
+        [ObservableProperty]
+        private bool _vbsDetectedNeedsReboot;
+
+        [ObservableProperty]
+        private bool _hvciEnabled;
+
+        [ObservableProperty]
+        private string _hvciDetectedValueText = "Checking current state...";
+
+        [ObservableProperty]
+        private bool _hvciDetectedNeedsReboot;
 
         public string BluetoothStatusText => BluetoothEnabled ? "On" : "Off — services, registry, and adapter disabled";
 
@@ -183,11 +281,27 @@ namespace KalOS.ViewModels
 
         public string UacCurrentText => $"Current: {(UacEnabled ? "Enabled (1)" : "Disabled (0)")}";
 
+        public string VbsStatusText => VbsEnabled
+            ? "On — VBS enabled (EnableVirtualizationBasedSecurity=1). Reboot required."
+            : "Off — VBS disabled (EnableVirtualizationBasedSecurity=0). Reboot required.";
+
+        public string VbsCurrentText => $"Current: {(VbsEnabled ? "Enabled (1)" : "Disabled (0)")}";
+
+        public string HvciStatusText => HvciEnabled
+            ? "On — HVCI enabled (Enabled=1) under DeviceGuard\\Scenarios. Reboot required."
+            : "Off — HVCI disabled (Enabled=0). Reboot required.";
+
+        public string HvciCurrentText => $"Current: {(HvciEnabled ? "Enabled (1)" : "Disabled (0)")}";
+
         /// <summary>The popular Win32PrioritySeparation presets shown in the dropdown.</summary>
         public IReadOnlyList<PrioritySeparationOption> PrioritySeparationOptions => PrioritySeparationPresets.Presets;
 
         /// <summary>True once the current registry value has been loaded into the dropdown.</summary>
         public bool IsPrioritySeparationLoaded { get; private set; }
+
+        public IReadOnlyList<SvcHostSplitOption> SvcHostSplitOptions => SvcHostSplitPresets.Presets;
+
+        public bool IsSvcHostSplitLoaded { get; private set; }
 
         public AdditionalTweaksViewModel(RadioStackService radioStack)
         {
@@ -218,6 +332,12 @@ namespace KalOS.ViewModels
             _ = ApplyPrioritySeparationAsync(value);
         }
 
+        partial void OnSelectedSvcHostSplitChanged(SvcHostSplitOption? value)
+        {
+            if (_loadingSvcHost || _applyingSvcHost || value == null) return;
+            _ = ApplySvcHostSplitAsync(value);
+        }
+
         partial void OnFullscreenOptimizationsEnabledChanged(bool value)
         {
             OnPropertyChanged(nameof(FullscreenModeDescription));
@@ -232,6 +352,22 @@ namespace KalOS.ViewModels
             OnPropertyChanged(nameof(UacCurrentText));
             if (_loadingUac || _applyingUac) return;
             _ = ApplyUacAsync(value);
+        }
+
+        partial void OnVbsEnabledChanged(bool value)
+        {
+            OnPropertyChanged(nameof(VbsStatusText));
+            OnPropertyChanged(nameof(VbsCurrentText));
+            if (_loadingVbs || _applyingVbs) return;
+            _ = ApplyVbsAsync(value);
+        }
+
+        partial void OnHvciEnabledChanged(bool value)
+        {
+            OnPropertyChanged(nameof(HvciStatusText));
+            OnPropertyChanged(nameof(HvciCurrentText));
+            if (_loadingHvci || _applyingHvci) return;
+            _ = ApplyHvciAsync(value);
         }
 
         /// <summary>
@@ -370,6 +506,158 @@ namespace KalOS.ViewModels
             }
         }
 
+        public void LoadVbs()
+        {
+            _loadingVbs = true;
+            try
+            {
+                var enabled = false;
+                string detected;
+                try
+                {
+                    var raw = RegistryHelper.GetRegistryValue(DeviceGuardKey, VbsValueName);
+                    if (raw == null)
+                    {
+                        enabled = false;
+                        detected = "Detected: EnableVirtualizationBasedSecurity not set (missing) — treated as Disabled (0). Path: HKLM\\SYSTEM\\CurrentControlSet\\Control\\DeviceGuard";
+                    }
+                    else
+                    {
+                        var intVal = raw switch
+                        {
+                            int i => i,
+                            uint u => (int)u,
+                            _ => Convert.ToInt32(raw),
+                        };
+                        enabled = intVal != 0;
+                        var state = enabled ? "Enabled" : "Disabled";
+                        detected = $"Detected: EnableVirtualizationBasedSecurity={intVal} (DWORD) at HKLM\\...\\DeviceGuard\\EnableVirtualizationBasedSecurity — currently {state} (VBS={(enabled ? 1 : 0)})";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    enabled = false;
+                    detected = $"Detection failed: {ex.Message}";
+                }
+
+                VbsDetectedValueText = detected;
+                VbsDetectedNeedsReboot = false;
+                VbsEnabled = enabled;
+                OnPropertyChanged(nameof(VbsStatusText));
+            }
+            finally
+            {
+                _loadingVbs = false;
+            }
+        }
+
+        private async Task ApplyVbsAsync(bool enabled)
+        {
+            if (_applyingVbs) return;
+
+            _applyingVbs = true;
+            IsBusy = true;
+            try
+            {
+                var dword = enabled ? 1 : 0;
+                await Task.Run(() =>
+                {
+                    RegistryHelper.BackupRegistryKey(DeviceGuardKey);
+                    RegistryHelper.SetRegistryValue(DeviceGuardKey, VbsValueName, dword, RegistryValueKind.DWord);
+                });
+                VbsDetectedValueText = $"Set: EnableVirtualizationBasedSecurity={dword} written to HKLM\\...\\DeviceGuard. Reboot required.";
+                VbsDetectedNeedsReboot = true;
+                StatusText = string.Empty;
+                OnPropertyChanged(nameof(VbsStatusText));
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"Failed to set VBS: {ex.Message}";
+                LoadVbs();
+            }
+            finally
+            {
+                _applyingVbs = false;
+                IsBusy = false;
+            }
+        }
+
+        public void LoadHvci()
+        {
+            _loadingHvci = true;
+            try
+            {
+                var enabled = false;
+                string detected;
+                try
+                {
+                    var raw = RegistryHelper.GetRegistryValue(HvciKey, HvciValueName);
+                    if (raw == null)
+                    {
+                        enabled = false;
+                        detected = "Detected: Enabled not set (missing) — treated as Disabled (0). Path: HKLM\\SYSTEM\\CurrentControlSet\\Control\\DeviceGuard\\Scenarios\\HypervisorEnforcedCodeIntegrity";
+                    }
+                    else
+                    {
+                        var intVal = raw switch
+                        {
+                            int i => i,
+                            uint u => (int)u,
+                            _ => Convert.ToInt32(raw),
+                        };
+                        enabled = intVal != 0;
+                        var state = enabled ? "Enabled" : "Disabled";
+                        detected = $"Detected: Enabled={intVal} (DWORD) at HKLM\\...\\HypervisorEnforcedCodeIntegrity\\Enabled — currently {state} (HVCI={(enabled ? 1 : 0)})";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    enabled = false;
+                    detected = $"Detection failed: {ex.Message}";
+                }
+
+                HvciDetectedValueText = detected;
+                HvciDetectedNeedsReboot = false;
+                HvciEnabled = enabled;
+                OnPropertyChanged(nameof(HvciStatusText));
+            }
+            finally
+            {
+                _loadingHvci = false;
+            }
+        }
+
+        private async Task ApplyHvciAsync(bool enabled)
+        {
+            if (_applyingHvci) return;
+
+            _applyingHvci = true;
+            IsBusy = true;
+            try
+            {
+                var dword = enabled ? 1 : 0;
+                await Task.Run(() =>
+                {
+                    RegistryHelper.BackupRegistryKey(HvciKey);
+                    RegistryHelper.SetRegistryValue(HvciKey, HvciValueName, dword, RegistryValueKind.DWord);
+                });
+                HvciDetectedValueText = $"Set: Enabled={dword} written to HKLM\\...\\HypervisorEnforcedCodeIntegrity. Reboot required.";
+                HvciDetectedNeedsReboot = true;
+                StatusText = string.Empty;
+                OnPropertyChanged(nameof(HvciStatusText));
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"Failed to set HVCI: {ex.Message}";
+                LoadHvci();
+            }
+            finally
+            {
+                _applyingHvci = false;
+                IsBusy = false;
+            }
+        }
+
         /// <summary>
         /// Reads the current Win32PrioritySeparation value from the registry and
         /// selects the matching preset (or a "Custom" entry if it isn't one of
@@ -467,6 +755,93 @@ namespace KalOS.ViewModels
             finally
             {
                 _applyingPriority = false;
+                IsBusy = false;
+            }
+        }
+
+        public void LoadSvcHostSplit()
+        {
+            _loadingSvcHost = true;
+            try
+            {
+                int? current = null;
+                try
+                {
+                    var raw = RegistryHelper.GetRegistryValue(SvcHostKey, SvcHostValueName);
+                    current = raw switch
+                    {
+                        int i => i,
+                        uint u => (int)u,
+                        null => null,
+                        _ => Convert.ToInt32(raw),
+                    };
+                }
+                catch
+                {
+                }
+
+                var items = SvcHostSplitPresets.Presets.ToList();
+                SvcHostSplitOption? selected;
+                if (current is int c)
+                {
+                    SvcHostSplitDescription = "Groups Windows services into svchost.exe. Larger threshold isolates services per-process for stability (reboot required).";
+                    SvcHostSplitCurrentText = $"Current: {c:x} (0x{c:X}) — {c} KB";
+
+                    var match = items.FirstOrDefault(o => o.Value == c);
+                    if (match != null)
+                    {
+                        var idx = items.IndexOf(match);
+                        items[idx] = match with { RamLabel = match.RamLabel + " (current)" };
+                        selected = items[idx];
+                    }
+                    else
+                    {
+                        var custom = new SvcHostSplitOption(c, $"Custom ({c:x}) (current)");
+                        items.Insert(0, custom);
+                        selected = custom;
+                    }
+                }
+                else
+                {
+                    SvcHostSplitDescription = "Groups Windows services into svchost.exe. Larger threshold isolates services per-process for stability (reboot required).";
+                    SvcHostSplitCurrentText = "Current: not set (default 380000)";
+                    selected = null;
+                }
+
+                SvcHostSplitItems = items;
+                SelectedSvcHostSplit = selected;
+                IsSvcHostSplitLoaded = true;
+            }
+            finally
+            {
+                _loadingSvcHost = false;
+            }
+        }
+
+        private async Task ApplySvcHostSplitAsync(SvcHostSplitOption option)
+        {
+            if (_applyingSvcHost) return;
+
+            _applyingSvcHost = true;
+            IsBusy = true;
+            try
+            {
+                await Task.Run(() =>
+                {
+                    RegistryHelper.BackupRegistryKey(SvcHostKey);
+                    RegistryHelper.SetRegistryValue(SvcHostKey, SvcHostValueName, option.Value, RegistryValueKind.DWord);
+                });
+                StatusText = string.Empty;
+                LoadSvcHostSplit();
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"Failed to set SvcHost split threshold: {ex.Message}";
+                LoadSvcHostSplit();
+            }
+            finally
+            {
+                _applyingSvcHost = false;
                 IsBusy = false;
             }
         }
