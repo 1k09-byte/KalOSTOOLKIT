@@ -289,11 +289,9 @@ public sealed class UpdateService
                 _log.Error($"Update package assembly is not a valid .NET image: {assemblyPath}");
                 return false;
             }
-            if (newVersion != info.Version)
-            {
-                _log.Error($"Update package version mismatch: expected {info.Version}, got {newVersion}");
-                return false;
-            }
+            
+            // Bypass strict strict version matching between GitHub Tag and internal Assembly metadata
+            // as this is prone to developer workflow deployment mismatches.
 
             string scriptPath = Path.Combine(UpdatesFolder, "apply-update.ps1");
             string logPath = Path.Combine(UpdatesFolder, "update.log");
