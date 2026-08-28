@@ -28,9 +28,9 @@ $ProgressPreference = "SilentlyContinue"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $Owner = "1k09-byte"
-$Repo  = "KalOSTOOLKIT"
+$Repo = "KalOSTOOLKIT"
 $AssetPrefix = "KalOS-v"
-$ApiLatest = "https://api.github.com/repos/$Owner/$Repo/releases/latest"
+$ReleasesLatestUrl = "https://github.com/$Owner/$Repo/releases/latest"
 $DotNetRuntimeUrl = "https://dotnet.microsoft.com/download/dotnet/thank-you/runtime-desktop-9.0.0-windows-x64-installer"
 $RequiredOsBuild = 22621
 
@@ -56,7 +56,8 @@ function Invoke-Verb([string]$targetPath, [string]$pattern) {
         foreach ($verb in $item.Verbs()) {
             if ($verb.Name -match $pattern) { $verb.DoIt(); return $true }
         }
-    } catch { }
+    }
+    catch { }
     return $false
 }
 
@@ -68,16 +69,18 @@ function Test-Administrator {
 
 function Test-InternetConnection {
     try {
-        $response = Invoke-WebRequest -Uri "https://api.github.com" -Method Head -UseBasicParsing -TimeoutSec 15
+        $response = Invoke-WebRequest -Uri "https://github.com/status" -Method Head -UseBasicParsing -TimeoutSec 15
         return $response.StatusCode -ge 200 -and $response.StatusCode -lt 500
-    } catch { return $false }
+    }
+    catch { return $false }
 }
 
 function Test-DotNetDesktopRuntime {
     try {
         $runtimes = & dotnet --list-runtimes 2>$null
         return [bool]($runtimes -match "Microsoft\.WindowsDesktop\.App 9\.")
-    } catch { return $false }
+    }
+    catch { return $false }
 }
 
 function Ensure-RequiredRuntime {
@@ -112,9 +115,11 @@ function Ensure-RequiredRuntime {
         Invoke-WebRequest -Uri $DotNetRuntimeUrl -OutFile $runtimeInstaller -UseBasicParsing
         Write-Step "Installing .NET 9 Desktop Runtime ..."
         Start-Process -FilePath $runtimeInstaller -ArgumentList "/install", "/quiet", "/norestart" -Wait
-    } catch {
+    }
+    catch {
         Write-ErrorAndExit "Could not install .NET 9 Desktop Runtime: $($_.Exception.Message)"
-    } finally {
+    }
+    finally {
         Remove-Item $runtimeInstaller -Force -ErrorAction SilentlyContinue
     }
 
@@ -135,7 +140,8 @@ try {
     $parent = (Get-CimInstance Win32_Process -Filter "ProcessId = $currentPid").ParentProcessId
     $parentName = (Get-Process -Id $parent -ErrorAction SilentlyContinue).ProcessName
     $launchedByExplorer = $parentName -in @("explorer", "openwith")
-} catch { }
+}
+catch { }
 
 # --- Check dependencies before any release lookup ---------------------------
 if (-not $SkipDependencyCheck) {
@@ -144,24 +150,37 @@ if (-not $SkipDependencyCheck) {
 
 # --- Resolve latest release -------------------------------------------------
 Write-Step "Checking latest KalOS release on $Owner/$Repo ..."
-$release = Invoke-RestMethod -Uri $ApiLatest -Headers @{ "User-Agent" = "KalOS-Installer" }
-$asset = $release.assets | Where-Object { $_.name -like "$AssetPrefix*" } | Select-Object -First 1
-if (-not $asset) {
-    Write-ErrorAndExit "Latest release v$($release.tag_name) has no installable asset (expected a '$AssetPrefix*' zip)."
+try {
+    $req = [System.Net.WebRequest]::Create($ReleasesLatestUrl)
+    $req.AllowAutoRedirect = $false
+    $req.Timeout = 15000
+    $res = $req.GetResponse()
+    $redirectUrl = $res.Headers["Location"]
+    $res.Close()
+    
+    if (-not $redirectUrl) { throw "No redirect location returned from GitHub." }
+    
+    $versionMatch = [regex]::Match($redirectUrl, '/tag/v(.*)$')
+    if (-not $versionMatch.Success) { throw "Could not parse version from redirect URL: $redirectUrl" }
+    
+    $version = $versionMatch.Groups[1].Value
+    $downloadUrl = "https://github.com/$Owner/$Repo/releases/download/v$version/$AssetPrefix$version-win-x64.zip"
+    
+    Write-Host "Latest version: $version" -ForegroundColor Green
 }
-
-$version = $release.tag_name.TrimStart("v")
-Write-Host "Latest version: $version  (asset: $($asset.name))"
-Write-Host "Install folder: $InstallDir"
+catch {
+    Write-ErrorAndExit "Failed to fetch latest release from GitHub: $_"
+}
 
 Write-Host "Dependency check passed. Continuing with KalOS installation..." -ForegroundColor Green
 
 # --- Download and extract ---------------------------------------------------
 $tmpZip = Join-Path $env:TEMP "KalOS-$version.zip"
-Write-Step "Downloading $($asset.name) ..."
+Write-Step "Downloading KalOS v$version ..."
 try {
-    Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $tmpZip -UseBasicParsing
-} catch {
+    Invoke-WebRequest -Uri $downloadUrl -OutFile $tmpZip -UseBasicParsing
+}
+catch {
     Write-ErrorAndExit "Download failed: $($_.Exception.Message)"
 }
 
@@ -169,7 +188,8 @@ $staging = Join-Path $env:TEMP "KalOS-$version-staging"
 if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
 try {
     Expand-Archive -Path $tmpZip -DestinationPath $staging -Force
-} catch {
+}
+catch {
     Write-ErrorAndExit "Extract failed (corrupt download?): $($_.Exception.Message)"
 }
 
