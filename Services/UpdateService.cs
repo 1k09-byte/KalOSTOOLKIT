@@ -199,33 +199,11 @@ public sealed class UpdateService
                 {
                     if (update.IsRollback)
                     {
-                        // Cache the payload in case the array check verifies this is a true rollback,
-                        // otherwise we forcefully fall through to query the un-cached array.
-                        fallbackUpdate = update;
-                        update = null; 
+                        SaveRollbackState(CurrentVersion, $"Version {CurrentVersion} was superseded by an older stable build.");
+                        RollbackRequired?.Invoke();
                     }
-                    else
-                    {
-                        return update;
-                    }
+                    return update;
                 }
-            }
-
-            // A normal "no update" response (or a 404 with 0 releases) is not
-            // proof that the current release was deleted. We must check the
-            // complete release list explicitly for the running tag.
-            using var releasesResp = await _http.GetAsync(
-                $"https://api.github.com/repos/{DefaultOwner}/{DefaultRepo}/releases?per_page=100", cancellationToken);
-            releasesResp.EnsureSuccessStatusCode();
-            using var releasesDoc = JsonDocument.Parse(await releasesResp.Content.ReadAsStringAsync(cancellationToken));
-            bool currentExists = releasesDoc.RootElement.EnumerateArray().Any(r =>
-                r.TryGetProperty("tag_name", out var t) &&
-                TryParseReleaseVersion(t.GetString(), out var v) && v == CurrentVersion);
-            if (!currentExists || File.Exists(RollbackStatePath))
-            {
-                SaveRollbackState(CurrentVersion, $"Version {CurrentVersion} is no longer available on GitHub.");
-                RollbackRequired?.Invoke();
-                return fallbackUpdate; // Critically return the payload so the modal can actually download it.
             }
             return null;
         }
