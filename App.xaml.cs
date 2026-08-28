@@ -218,7 +218,11 @@ namespace KalOS
         {
 #if CONSUMER_BUILD
             var settingsVm = Services.GetRequiredService<SettingsViewModel>();
+            var updateService = Services.GetRequiredService<UpdateService>();
+            
             settingsVm.UpdateAvailable += OnUpdateAvailable;
+            updateService.RollbackRequired += ShowRollbackIfRequired;
+            
             // Delay briefly so the window is visible before the check runs, then
             // run the check ON THE UI THREAD. The view model raises
             // PropertyChanged (x:Bind requires the UI thread) and the update

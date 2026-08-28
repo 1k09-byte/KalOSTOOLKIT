@@ -38,6 +38,9 @@ public sealed class UpdateService
     public const string DefaultOwner = "1k09-byte";
     public const string DefaultRepo = "KalOSTOOLKIT";
 
+    // Event raised immediately if the current version is detected as missing from the remote.
+    public event Action? RollbackRequired;
+
     private readonly LoggingService _log;
     private readonly HttpClient _http;
 
@@ -207,6 +210,7 @@ public sealed class UpdateService
             if (!currentExists)
             {
                 SaveRollbackState(CurrentVersion, $"Version {CurrentVersion} is no longer available on GitHub.");
+                RollbackRequired?.Invoke();
             }
             return null;
         }
