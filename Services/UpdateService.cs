@@ -183,28 +183,45 @@ public sealed class UpdateService
     {
         try
         {
-            UpdateInfo? update = null;
-            UpdateInfo? fallbackUpdate = null;
-            using var resp = await _http.GetAsync(
-                $"https://api.github.com/repos/{DefaultOwner}/{DefaultRepo}/releases/latest", cancellationToken);
-            if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
+            // Use a custom handler to disable redirect. This bypasses the GitHub REST API rate limits
+            // completely by polling the standard public releases/latest page.
+            var handler = new HttpClientHandler { AllowAutoRedirect = false };
+            using var client = new HttpClient(handler);
+            client.Timeout = TimeSpan.FromSeconds(15);
+
+            // Fetch the /latest redirect URL. Add a cache-busting t parameter.
+            using var resp = await client.GetAsync(
+                $"https://github.com/{DefaultOwner}/{DefaultRepo}/releases/latest?t={DateTime.UtcNow.Ticks}", cancellationToken);
+
+            if (resp.StatusCode == System.Net.HttpStatusCode.Redirect ||
+                resp.StatusCode == System.Net.HttpStatusCode.MovedPermanently ||
+                resp.StatusCode == System.Net.HttpStatusCode.Found ||
+                resp.StatusCode == System.Net.HttpStatusCode.SeeOther)
             {
-                // No latest release (404). Do NOT instantly return; we still must check if our
-                // *current* version was eradicated to invoke the rollback state.
-            }
-            else
-            {
-                resp.EnsureSuccessStatusCode();
-                string json = await resp.Content.ReadAsStringAsync(cancellationToken);
-                update = ParseRelease(json, CurrentVersion);
-                if (update != null)
+                var location = resp.Headers.Location?.ToString();
+                if (!string.IsNullOrEmpty(location))
                 {
-                    if (update.IsRollback)
+                    // location will be like: https://github.com/1k09-byte/KalOSTOOLKIT/releases/tag/v1.0.0.1
+                    // or relative: /1k09-byte/KalOSTOOLKIT/releases/tag/v1.0.0.1
+                    var match = System.Text.RegularExpressions.Regex.Match(location, @"/tag/v?([^/]+)/?$");
+                    if (match.Success)
                     {
-                        SaveRollbackState(CurrentVersion, $"Version {CurrentVersion} was superseded by an older stable build.");
-                        RollbackRequired?.Invoke(update);
+                        var tag = "v" + match.Groups[1].Value.Trim();
+                        if (TryParseReleaseVersion(tag, out var latest) && latest != CurrentVersion)
+                        {
+                            var zipUrl = $"https://github.com/{DefaultOwner}/{DefaultRepo}/releases/download/{tag}/KalOS.zip";
+                            var pageUrl = $"https://github.com/{DefaultOwner}/{DefaultRepo}/releases/tag/{tag}";
+                            var notes = $"New version {tag} is available. View release notes at {pageUrl}";
+                            var update = new UpdateInfo(latest, tag, zipUrl, pageUrl, notes, latest < CurrentVersion);
+
+                            if (update.IsRollback)
+                            {
+                                SaveRollbackState(CurrentVersion, $"Version {CurrentVersion} was superseded by an older stable build.");
+                                RollbackRequired?.Invoke(update);
+                            }
+                            return update;
+                        }
                     }
-                    return update;
                 }
             }
             return null;
