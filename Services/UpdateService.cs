@@ -137,7 +137,7 @@ public sealed class UpdateService
             a.Name.Equals($"KalOS-v{version}-win-x64.zip", StringComparison.OrdinalIgnoreCase));
         if (preferred != null) return preferred.BrowserDownloadUrl;
         var any = list.FirstOrDefault(a =>
-            a.Name.StartsWith("KalOS-", StringComparison.OrdinalIgnoreCase) &&
+            a.Name.StartsWith("KalOS", StringComparison.OrdinalIgnoreCase) &&
             a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase));
         return any?.BrowserDownloadUrl;
     }

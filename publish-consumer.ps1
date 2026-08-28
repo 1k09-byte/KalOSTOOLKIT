@@ -34,8 +34,8 @@ $dist = Join-Path $PSScriptRoot "dist"
 New-Item -ItemType Directory -Path $dist -Force | Out-Null
 # Keep only this version's package — stale zips from older builds can linger
 # and get swept onto a release by a broad upload glob.
-Get-ChildItem -Path $dist -Filter "KalOS-Win64.zip" -ErrorAction SilentlyContinue | Remove-Item -Force
-$zip = Join-Path $dist "KalOS-Win64.zip"
+Get-ChildItem -Path $dist -Filter "KalOS.zip" -ErrorAction SilentlyContinue | Remove-Item -Force
+$zip = Join-Path $dist "KalOS.zip"
 
 Write-Host "Packaging $zip ..."
 Compress-Archive -Path (Join-Path $out "*") -DestinationPath $zip -CompressionLevel Optimal
