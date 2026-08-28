@@ -14,6 +14,8 @@ jobs:
   build-windows:
     name: Build Windows release
     runs-on: windows-latest
+    env:
+      DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
     steps:
       - name: Check out source code
         uses: actions/checkout@v4
@@ -89,7 +91,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Notify Discord about release
-        if: success() && secrets.DISCORD_RELEASE_WEBHOOK != ''
+        if: success() && env.DISCORD_RELEASE_WEBHOOK != ''
         shell: pwsh
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
