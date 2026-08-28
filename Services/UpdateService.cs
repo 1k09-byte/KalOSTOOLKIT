@@ -182,6 +182,7 @@ public sealed class UpdateService
         try
         {
             UpdateInfo? update = null;
+            UpdateInfo? fallbackUpdate = null;
             using var resp = await _http.GetAsync(
                 $"https://api.github.com/repos/{DefaultOwner}/{DefaultRepo}/releases/latest", cancellationToken);
             if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -198,10 +199,15 @@ public sealed class UpdateService
                 {
                     if (update.IsRollback)
                     {
-                        SaveRollbackState(CurrentVersion, $"Version {CurrentVersion} was superseded by an older stable build.");
-                        RollbackRequired?.Invoke();
+                        // Cache the payload in case the array check verifies this is a true rollback,
+                        // otherwise we forcefully fall through to query the un-cached array.
+                        fallbackUpdate = update;
+                        update = null; 
                     }
-                    return update;
+                    else
+                    {
+                        return update;
+                    }
                 }
             }
 
@@ -219,6 +225,7 @@ public sealed class UpdateService
             {
                 SaveRollbackState(CurrentVersion, $"Version {CurrentVersion} is no longer available on GitHub.");
                 RollbackRequired?.Invoke();
+                return fallbackUpdate; // Critically return the payload so the modal can actually download it.
             }
             return null;
         }
