@@ -178,17 +178,25 @@ public sealed class UpdateService
     {
         try
         {
+            UpdateInfo? update = null;
             using var resp = await _http.GetAsync(
                 $"https://api.github.com/repos/{DefaultOwner}/{DefaultRepo}/releases/latest", cancellationToken);
-            if (resp.StatusCode == System.Net.HttpStatusCode.NotFound) return null; // no releases published yet
-            resp.EnsureSuccessStatusCode();
-            string json = await resp.Content.ReadAsStringAsync(cancellationToken);
-            var update = ParseRelease(json, CurrentVersion);
-            if (update != null) return update;
+            if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                // No latest release (404). Do NOT instantly return; we still must check if our
+                // *current* version was eradicated to invoke the rollback state.
+            }
+            else
+            {
+                resp.EnsureSuccessStatusCode();
+                string json = await resp.Content.ReadAsStringAsync(cancellationToken);
+                update = ParseRelease(json, CurrentVersion);
+                if (update != null) return update;
+            }
 
-            // A normal "no update" response is not proof that the current
-            // release was deleted. The releases API is checked separately for
-            // the exact installed tag before declaring a mandatory rollback.
+            // A normal "no update" response (or a 404 with 0 releases) is not
+            // proof that the current release was deleted. We must check the
+            // complete release list explicitly for the running tag.
             using var releasesResp = await _http.GetAsync(
                 $"https://api.github.com/repos/{DefaultOwner}/{DefaultRepo}/releases?per_page=100", cancellationToken);
             releasesResp.EnsureSuccessStatusCode();
