@@ -164,7 +164,7 @@ try {
     if (-not $versionMatch.Success) { throw "Could not parse version from redirect URL: $redirectUrl" }
     
     $version = $versionMatch.Groups[1].Value
-    $downloadUrl = "https://github.com/$Owner/$Repo/releases/download/v$version/$AssetPrefix$version-win-x64.zip"
+    $downloadUrl = "https://github.com/$Owner/$Repo/releases/download/v$version/KalOS.zip"
     
     Write-Host "Latest version: $version" -ForegroundColor Green
 }
