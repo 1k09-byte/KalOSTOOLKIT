@@ -77,6 +77,10 @@ public partial class SystemOverviewViewModel : ObservableObject
     public bool CanUninstall => IsInstalled && !IsInstalling;
     public int RefreshIntervalSeconds => SelectedRefreshRate.Seconds;
 
+    // Only the very first scan shows the skeleton — refresh loops keep the dashboard visible
+    public bool IsInitialLoading => IsInstalled && IsChecking && SensorCount == 0;
+    public bool IsDashboardReady => IsInstalled && !IsInitialLoading;
+
     public SystemOverviewViewModel(HardwareMonitorService hardwareMonitor, LoggingService log, SystemRefreshService refreshService)
     {
         _hardwareMonitor = hardwareMonitor;
@@ -555,12 +559,28 @@ public partial class SystemOverviewViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(CanScan));
         OnPropertyChanged(nameof(CanUninstall));
+        OnPropertyChanged(nameof(IsInitialLoading));
+        OnPropertyChanged(nameof(IsDashboardReady));
     }
 
     partial void OnIsCheckingChanged(bool value)
     {
         OnPropertyChanged(nameof(IsBusy));
         OnPropertyChanged(nameof(CanScan));
+        OnPropertyChanged(nameof(IsInitialLoading));
+        OnPropertyChanged(nameof(IsDashboardReady));
+    }
+
+    partial void OnSensorCountChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsInitialLoading));
+        OnPropertyChanged(nameof(IsDashboardReady));
+    }
+
+    partial void OnHardwareCountChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsInitialLoading));
+        OnPropertyChanged(nameof(IsDashboardReady));
     }
 
     partial void OnIsInstallingChanged(bool value)

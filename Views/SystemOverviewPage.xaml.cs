@@ -4,6 +4,7 @@ using KalOS.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 
 namespace KalOS.Views;
@@ -11,6 +12,7 @@ namespace KalOS.Views;
 public sealed partial class SystemOverviewPage : Page
 {
     public SystemOverviewViewModel ViewModel { get; }
+    private Storyboard? _shimmerStoryboard;
 
     public SystemOverviewPage()
     {
@@ -21,6 +23,7 @@ public sealed partial class SystemOverviewPage : Page
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
+        StartShimmer();
         await ViewModel.LoadAsync();
         if (!ViewModel.IsInstalled)
         {
@@ -36,7 +39,37 @@ public sealed partial class SystemOverviewPage : Page
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         ViewModel.StopLiveUpdates();
+        StopShimmer();
         base.OnNavigatedFrom(e);
+    }
+
+    private void StartShimmer()
+    {
+        var transforms = new[] { ShimmerTransformRings, ShimmerTransformCard1, ShimmerTransformCard2, ShimmerTransformCard3, ShimmerTransformCard4, ShimmerTransformCard5, ShimmerTransformCard6 };
+        if (transforms[0] == null) return;
+        StopShimmer();
+        _shimmerStoryboard = new Storyboard { RepeatBehavior = RepeatBehavior.Forever };
+        foreach (var t in transforms)
+        {
+            if (t == null) continue;
+            var anim = new DoubleAnimation
+            {
+                From = -180,
+                To = 180,
+                Duration = TimeSpan.FromMilliseconds(1100),
+                EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+            };
+            Storyboard.SetTarget(anim, t);
+            Storyboard.SetTargetProperty(anim, "X");
+            _shimmerStoryboard.Children.Add(anim);
+        }
+        _shimmerStoryboard.Begin();
+    }
+
+    private void StopShimmer()
+    {
+        _shimmerStoryboard?.Stop();
+        _shimmerStoryboard = null;
     }
 
     private async void InstallMonitor_Click(object sender, RoutedEventArgs e)

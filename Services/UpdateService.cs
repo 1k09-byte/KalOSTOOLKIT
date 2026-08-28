@@ -211,7 +211,37 @@ public sealed class UpdateService
                         {
                             var zipUrl = $"https://github.com/{DefaultOwner}/{DefaultRepo}/releases/download/{tag}/KalOS.zip";
                             var pageUrl = $"https://github.com/{DefaultOwner}/{DefaultRepo}/releases/tag/{tag}";
-                            var notes = $"New version {tag} is available. View release notes at {pageUrl}";
+                            var notes = $"New version {tag} is available.\n\n{pageUrl}";
+                            // Try to fetch the real release body so the update log shows actual notes, not just a link
+                            try
+                            {
+                                using var apiClient = new HttpClient();
+                                apiClient.DefaultRequestHeaders.UserAgent.ParseAdd("KalOS-Updater/1.0");
+                                apiClient.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+                                string? bodyStr = null;
+                                foreach (var tryTag in new[] { tag, tag.TrimStart('v', 'V') })
+                                {
+                                    try
+                                    {
+                                        var apiUrl = $"https://api.github.com/repos/{DefaultOwner}/{DefaultRepo}/releases/tags/{tryTag}";
+                                        var apiResp = await apiClient.GetStringAsync(apiUrl, cancellationToken);
+                                        using var apiDoc = JsonDocument.Parse(apiResp);
+                                        if (apiDoc.RootElement.TryGetProperty("body", out var b) && b.GetString() is { } s && !string.IsNullOrWhiteSpace(s))
+                                        {
+                                            bodyStr = s;
+                                            break;
+                                        }
+                                    }
+                                    catch { /* try next */ }
+                                }
+                                if (!string.IsNullOrWhiteSpace(bodyStr))
+                                {
+                                    // Strip hidden discord marker if present
+                                    notes = System.Text.RegularExpressions.Regex.Replace(bodyStr.Trim(), @"<!-- discord-msg:\d+ -->\s*", "").Trim();
+                                    if (string.IsNullOrWhiteSpace(notes)) notes = $"New version {tag} is available.\n\n{pageUrl}";
+                                }
+                            }
+                            catch { /* keep generic notes with link on failure (rate limit/offline) */ }
                             var update = new UpdateInfo(latest, tag, zipUrl, pageUrl, notes, latest < CurrentVersion);
 
                             if (update.IsRollback)

@@ -90,8 +90,241 @@
                     </Grid>
                 </Border>
 
+                <!-- Skeleton — blurred placeholders like the Watch/Search image, only on first load -->
+                <StackPanel Visibility="{x:Bind ViewModel.IsInitialLoading, Mode=OneWay, Converter={StaticResource BoolToVis}}"
+                            Spacing="18">
+                    <!-- Rings skeleton -->
+                    <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                            BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="22,20,22,18">
+                        <Grid>
+                            <Grid HorizontalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="210" />
+                                    <ColumnDefinition Width="210" />
+                                    <ColumnDefinition Width="210" />
+                                </Grid.ColumnDefinitions>
+                                <!-- CPU ring skeleton -->
+                                <StackPanel Grid.Column="0" HorizontalAlignment="Center" Spacing="10">
+                                    <Grid Width="88" Height="88" HorizontalAlignment="Center">
+                                        <Ellipse Fill="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.55" />
+                                        <Ellipse Stroke="{ThemeResource ControlStrokeColorDefaultBrush}" StrokeThickness="1" Opacity="0.25" />
+                                        <Border Width="44" Height="10" CornerRadius="5" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.45" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Grid>
+                                    <Border Height="10" Width="70" CornerRadius="5" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.6" HorizontalAlignment="Center" />
+                                    <Border Height="8" Width="110" CornerRadius="4" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.35" HorizontalAlignment="Center" />
+                                </StackPanel>
+                                <!-- GPU ring skeleton -->
+                                <StackPanel Grid.Column="1" HorizontalAlignment="Center" Spacing="10">
+                                    <Grid Width="88" Height="88" HorizontalAlignment="Center">
+                                        <Ellipse Fill="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.55" />
+                                        <Ellipse Stroke="{ThemeResource ControlStrokeColorDefaultBrush}" StrokeThickness="1" Opacity="0.25" />
+                                        <Border Width="44" Height="10" CornerRadius="5" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.45" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Grid>
+                                    <Border Height="10" Width="70" CornerRadius="5" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.6" HorizontalAlignment="Center" />
+                                    <Border Height="8" Width="110" CornerRadius="4" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.35" HorizontalAlignment="Center" />
+                                </StackPanel>
+                                <!-- RAM ring skeleton -->
+                                <StackPanel Grid.Column="2" HorizontalAlignment="Center" Spacing="10">
+                                    <Grid Width="88" Height="88" HorizontalAlignment="Center">
+                                        <Ellipse Fill="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.55" />
+                                        <Ellipse Stroke="{ThemeResource ControlStrokeColorDefaultBrush}" StrokeThickness="1" Opacity="0.25" />
+                                        <Border Width="44" Height="10" CornerRadius="5" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.45" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Grid>
+                                    <Border Height="10" Width="70" CornerRadius="5" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.6" HorizontalAlignment="Center" />
+                                    <Border Height="8" Width="110" CornerRadius="4" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.35" HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Grid>
+                            <Rectangle IsHitTestVisible="False" Opacity="0.28" RadiusX="8" RadiusY="8">
+                                <Rectangle.Fill>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                        <GradientStop Color="#00FFFFFF" Offset="0.0" />
+                                        <GradientStop Color="#00FFFFFF" Offset="0.32" />
+                                        <GradientStop Color="#33FFFFFF" Offset="0.50" />
+                                        <GradientStop Color="#00FFFFFF" Offset="0.68" />
+                                        <GradientStop Color="#00FFFFFF" Offset="1.0" />
+                                    </LinearGradientBrush>
+                                </Rectangle.Fill>
+                                <Rectangle.RenderTransform>
+                                    <TranslateTransform x:Name="ShimmerTransformRings" X="-200" />
+                                </Rectangle.RenderTransform>
+                            </Rectangle>
+                        </Grid>
+                    </Border>
+
+                    <TextBlock Text="At a glance" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Margin="1,8,0,0" Opacity="0.5" />
+
+                    <!-- Detail cards skeleton — same 2x3 grid as real dashboard -->
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Row="0" Grid.Column="0" Margin="0,0,6,6" Padding="16" MinHeight="92"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6" Opacity="0.95">
+                            <Grid>
+                                <StackPanel Spacing="8">
+                                    <Border Height="12" Width="108" CornerRadius="4" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.6" HorizontalAlignment="Left" />
+                                    <Border Height="20" Width="64" CornerRadius="6" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.5" HorizontalAlignment="Left" />
+                                    <Border Height="10" Width="140" CornerRadius="4" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.35" HorizontalAlignment="Left" />
+                                </StackPanel>
+                                <Rectangle IsHitTestVisible="False" Opacity="0.28" RadiusX="6" RadiusY="6">
+                                    <Rectangle.Fill>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#00FFFFFF" Offset="0.0" />
+                                            <GradientStop Color="#00FFFFFF" Offset="0.32" />
+                                            <GradientStop Color="#33FFFFFF" Offset="0.50" />
+                                            <GradientStop Color="#00FFFFFF" Offset="0.68" />
+                                            <GradientStop Color="#00FFFFFF" Offset="1.0" />
+                                        </LinearGradientBrush>
+                                    </Rectangle.Fill>
+                                    <Rectangle.RenderTransform>
+                                        <TranslateTransform x:Name="ShimmerTransformCard1" X="-200" />
+                                    </Rectangle.RenderTransform>
+                                </Rectangle>
+                            </Grid>
+                        </Border>
+                        <Border Grid.Row="0" Grid.Column="1" Margin="3,0,3,6" Padding="16" MinHeight="92"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6" Opacity="0.95">
+                            <Grid>
+                                <StackPanel Spacing="8">
+                                    <Border Height="12" Width="108" CornerRadius="4" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.6" HorizontalAlignment="Left" />
+                                    <Border Height="20" Width="64" CornerRadius="6" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.5" HorizontalAlignment="Left" />
+                                    <Border Height="10" Width="120" CornerRadius="4" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.35" HorizontalAlignment="Left" />
+                                </StackPanel>
+                                <Rectangle IsHitTestVisible="False" Opacity="0.28" RadiusX="6" RadiusY="6">
+                                    <Rectangle.Fill>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#00FFFFFF" Offset="0.0" />
+                                            <GradientStop Color="#00FFFFFF" Offset="0.32" />
+                                            <GradientStop Color="#33FFFFFF" Offset="0.50" />
+                                            <GradientStop Color="#00FFFFFF" Offset="0.68" />
+                                            <GradientStop Color="#00FFFFFF" Offset="1.0" />
+                                        </LinearGradientBrush>
+                                    </Rectangle.Fill>
+                                    <Rectangle.RenderTransform>
+                                        <TranslateTransform x:Name="ShimmerTransformCard2" X="-200" />
+                                    </Rectangle.RenderTransform>
+                                </Rectangle>
+                            </Grid>
+                        </Border>
+                        <Border Grid.Row="0" Grid.Column="2" Margin="6,0,0,6" Padding="16" MinHeight="92"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6" Opacity="0.95">
+                            <Grid>
+                                <StackPanel Spacing="8">
+                                    <Border Height="12" Width="120" CornerRadius="4" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.6" HorizontalAlignment="Left" />
+                                    <Border Height="20" Width="80" CornerRadius="6" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.5" HorizontalAlignment="Left" />
+                                    <Border Height="10" Width="100" CornerRadius="4" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.35" HorizontalAlignment="Left" />
+                                </StackPanel>
+                                <Rectangle IsHitTestVisible="False" Opacity="0.28" RadiusX="6" RadiusY="6">
+                                    <Rectangle.Fill>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#00FFFFFF" Offset="0.0" />
+                                            <GradientStop Color="#00FFFFFF" Offset="0.32" />
+                                            <GradientStop Color="#33FFFFFF" Offset="0.50" />
+                                            <GradientStop Color="#00FFFFFF" Offset="0.68" />
+                                            <GradientStop Color="#00FFFFFF" Offset="1.0" />
+                                        </LinearGradientBrush>
+                                    </Rectangle.Fill>
+                                    <Rectangle.RenderTransform>
+                                        <TranslateTransform x:Name="ShimmerTransformCard3" X="-200" />
+                                    </Rectangle.RenderTransform>
+                                </Rectangle>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Row="1" Grid.Column="0" Margin="0,6,6,0" Padding="16" MinHeight="92"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6" Opacity="0.95">
+                            <Grid>
+                                <StackPanel Spacing="8">
+                                    <Border Height="12" Width="80" CornerRadius="4" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.6" HorizontalAlignment="Left" />
+                                    <Border Height="20" Width="56" CornerRadius="6" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.5" HorizontalAlignment="Left" />
+                                    <Border Height="8" Width="90" CornerRadius="4" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.35" HorizontalAlignment="Left" />
+                                    <Border Height="6" CornerRadius="3" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.25" Margin="0,6,0,0" />
+                                </StackPanel>
+                                <Rectangle IsHitTestVisible="False" Opacity="0.28" RadiusX="6" RadiusY="6">
+                                    <Rectangle.Fill>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#00FFFFFF" Offset="0.0" />
+                                            <GradientStop Color="#00FFFFFF" Offset="0.32" />
+                                            <GradientStop Color="#33FFFFFF" Offset="0.50" />
+                                            <GradientStop Color="#00FFFFFF" Offset="0.68" />
+                                            <GradientStop Color="#00FFFFFF" Offset="1.0" />
+                                        </LinearGradientBrush>
+                                    </Rectangle.Fill>
+                                    <Rectangle.RenderTransform>
+                                        <TranslateTransform x:Name="ShimmerTransformCard4" X="-200" />
+                                    </Rectangle.RenderTransform>
+                                </Rectangle>
+                            </Grid>
+                        </Border>
+                        <Border Grid.Row="1" Grid.Column="1" Margin="3,6,3,0" Padding="16" MinHeight="92"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6" Opacity="0.95">
+                            <Grid>
+                                <StackPanel Spacing="8">
+                                    <Border Height="12" Width="64" CornerRadius="4" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.6" HorizontalAlignment="Left" />
+                                    <Border Height="20" Width="48" CornerRadius="6" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.5" HorizontalAlignment="Left" />
+                                    <Border Height="10" Width="120" CornerRadius="4" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.35" HorizontalAlignment="Left" />
+                                </StackPanel>
+                                <Rectangle IsHitTestVisible="False" Opacity="0.28" RadiusX="6" RadiusY="6">
+                                    <Rectangle.Fill>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#00FFFFFF" Offset="0.0" />
+                                            <GradientStop Color="#00FFFFFF" Offset="0.32" />
+                                            <GradientStop Color="#33FFFFFF" Offset="0.50" />
+                                            <GradientStop Color="#00FFFFFF" Offset="0.68" />
+                                            <GradientStop Color="#00FFFFFF" Offset="1.0" />
+                                        </LinearGradientBrush>
+                                    </Rectangle.Fill>
+                                    <Rectangle.RenderTransform>
+                                        <TranslateTransform x:Name="ShimmerTransformCard5" X="-200" />
+                                    </Rectangle.RenderTransform>
+                                </Rectangle>
+                            </Grid>
+                        </Border>
+                        <Border Grid.Row="1" Grid.Column="2" Margin="6,6,0,0" Padding="16" MinHeight="92"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6" Opacity="0.95">
+                            <Grid>
+                                <StackPanel Spacing="8">
+                                    <Border Height="12" Width="110" CornerRadius="4" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.6" HorizontalAlignment="Left" />
+                                    <Border Height="20" Width="56" CornerRadius="6" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.5" HorizontalAlignment="Left" />
+                                    <Border Height="10" Width="100" CornerRadius="4" Background="{ThemeResource ControlAltFillColorTertiaryBrush}" Opacity="0.35" HorizontalAlignment="Left" />
+                                </StackPanel>
+                                <Rectangle IsHitTestVisible="False" Opacity="0.28" RadiusX="6" RadiusY="6">
+                                    <Rectangle.Fill>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#00FFFFFF" Offset="0.0" />
+                                            <GradientStop Color="#00FFFFFF" Offset="0.32" />
+                                            <GradientStop Color="#33FFFFFF" Offset="0.50" />
+                                            <GradientStop Color="#00FFFFFF" Offset="0.68" />
+                                            <GradientStop Color="#00FFFFFF" Offset="1.0" />
+                                        </LinearGradientBrush>
+                                    </Rectangle.Fill>
+                                    <Rectangle.RenderTransform>
+                                        <TranslateTransform x:Name="ShimmerTransformCard6" X="-200" />
+                                    </Rectangle.RenderTransform>
+                                </Rectangle>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </StackPanel>
+
                 <!-- Main dashboard -->
-                <StackPanel Visibility="{x:Bind ViewModel.IsInstalled, Mode=OneWay, Converter={StaticResource BoolToVis}}"
+                <StackPanel Visibility="{x:Bind ViewModel.IsDashboardReady, Mode=OneWay, Converter={StaticResource BoolToVis}}"
                             Spacing="18">
                     <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                             BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
