@@ -1,0 +1,81 @@
+# Auto-cleanup Discord announcement when a GitHub Release is deleted
+# Works with release-desktop-app.yml which stores the Discord message id
+# as <!-- discord-msg:123456789 --> at the top of the release body
+name: Cleanup Discord on release delete
+
+on:
+  release:
+    types: [deleted]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to clean up (manual fallback, e.g. v1.0.0.2)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  delete-discord:
+    runs-on: windows-latest
+    env:
+      DISCORD_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+    steps:
+      - name: Delete Discord webhook message for deleted release
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          RELEASE_BODY: ${{ toJson(github.event.release.body) }}
+          RELEASE_NAME: ${{ github.event.release.name }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:DISCORD_WEBHOOK)) {
+            Write-Host "DISCORD_RELEASE_WEBHOOK not set — skipping"
+            exit 0
+          }
+
+          $tag = $env:RELEASE_TAG
+          $bodyJson = $env:RELEASE_BODY
+          $body = ""
+          if ($bodyJson -and $bodyJson -ne "null") {
+            try { $body = $bodyJson | ConvertFrom-Json } catch { $body = $bodyJson }
+            if ($null -eq $body) { $body = "" }
+          }
+
+          # 1) Try hidden marker <!-- discord-msg:ID -->
+          $msgId = $null
+          if ($body -match '<!-- discord-msg:(\d+) -->') {
+            $msgId = $Matches[1]
+            Write-Host "Found stored discord id $msgId for $tag"
+          } elseif ($tag) {
+            Write-Host "No stored id for $tag — will try fallback search is not possible with webhook alone"
+          }
+
+          if ($msgId) {
+            $url = "$env:DISCORD_WEBHOOK/messages/$msgId"
+            Write-Host "Deleting $url"
+            try {
+              Invoke-RestMethod -Uri $url -Method Delete -ErrorAction Stop
+              Write-Host "Deleted Discord message $msgId for $tag"
+              exit 0
+            } catch {
+              Write-Host "Delete by id failed: $_"
+              Write-Host $_.ErrorDetails.Message
+              # fall through to announcement
+            }
+          }
+
+          # 2) Fallback: post retraction notice (webhooks can't list messages without bot token)
+          $title = $env:RELEASE_NAME
+          if ([string]::IsNullOrWhiteSpace($title)) { $title = $tag }
+          if ([string]::IsNullOrWhiteSpace($title)) { $title = "release" }
+          $payload = @{
+            username = "KalOS Releases"
+            content = ":wastebasket: Release $tag was deleted — the previous announcement for $title has been removed. (Original Discord message could not be auto-deleted because no stored id was found; please delete it manually if still visible.)"
+          } | ConvertTo-Json -Depth 3
+          try {
+            Invoke-RestMethod -Uri $env:DISCORD_WEBHOOK -Method Post -ContentType "application/json" -Body $payload | Out-Null
+            Write-Host "Posted fallback retraction notice for $tag"
+          } catch {
+            Write-Host "Failed to post fallback: $_"
+          }
