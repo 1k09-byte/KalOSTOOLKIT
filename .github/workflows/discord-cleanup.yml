@@ -21,6 +21,8 @@ jobs:
     runs-on: windows-latest
     env:
       DISCORD_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+      DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+      DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_CHANNEL_ID }}
     steps:
       - name: Delete Discord webhook message for deleted release
         shell: pwsh
@@ -28,9 +30,12 @@ jobs:
           RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
           RELEASE_BODY: ${{ toJson(github.event.release.body) }}
           RELEASE_NAME: ${{ github.event.release.name }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_CHANNEL_ID: ${{ secrets.DISCORD_CHANNEL_ID }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
         run: |
-          if ([string]::IsNullOrWhiteSpace($env:DISCORD_WEBHOOK)) {
-            Write-Host "DISCORD_RELEASE_WEBHOOK not set — skipping"
+          if ([string]::IsNullOrWhiteSpace($env:DISCORD_WEBHOOK) -and [string]::IsNullOrWhiteSpace($env:DISCORD_BOT_TOKEN)) {
+            Write-Host "No Discord secrets set — skipping"
             exit 0
           }
 
@@ -42,40 +47,82 @@ jobs:
             if ($null -eq $body) { $body = "" }
           }
 
-          # 1) Try hidden marker <!-- discord-msg:ID -->
+          # 1) Try hidden marker <!-- discord-msg:ID --> (new releases after a9f014e)
           $msgId = $null
           if ($body -match '<!-- discord-msg:(\d+) -->') {
             $msgId = $Matches[1]
             Write-Host "Found stored discord id $msgId for $tag"
           } elseif ($tag) {
-            Write-Host "No stored id for $tag — will try fallback search is not possible with webhook alone"
+            Write-Host "No stored id for $tag — will try channel history search"
           }
 
-          if ($msgId) {
+          if ($msgId -and $env:DISCORD_WEBHOOK) {
             $url = "$env:DISCORD_WEBHOOK/messages/$msgId"
-            Write-Host "Deleting $url"
+            Write-Host "Deleting via webhook $url"
             try {
               Invoke-RestMethod -Uri $url -Method Delete -ErrorAction Stop
-              Write-Host "Deleted Discord message $msgId for $tag"
+              Write-Host "Deleted Discord message $msgId for $tag via webhook"
               exit 0
             } catch {
-              Write-Host "Delete by id failed: $_"
+              Write-Host "Delete by webhook id failed: $_"
               Write-Host $_.ErrorDetails.Message
-              # fall through to announcement
             }
           }
 
-          # 2) Fallback: post retraction notice (webhooks can't list messages without bot token)
-          $title = $env:RELEASE_NAME
-          if ([string]::IsNullOrWhiteSpace($title)) { $title = $tag }
-          if ([string]::IsNullOrWhiteSpace($title)) { $title = "release" }
-          $payload = @{
-            username = "KalOS Releases"
-            content = ":wastebasket: Release $tag was deleted — the previous announcement for $title has been removed. (Original Discord message could not be auto-deleted because no stored id was found; please delete it manually if still visible.)"
-          } | ConvertTo-Json -Depth 3
-          try {
-            Invoke-RestMethod -Uri $env:DISCORD_WEBHOOK -Method Post -ContentType "application/json" -Body $payload | Out-Null
-            Write-Host "Posted fallback retraction notice for $tag"
-          } catch {
-            Write-Host "Failed to post fallback: $_"
+          # 2) Try bot token + channel history search (works for old messages like v1.0.0.3)
+          # Channel from your link: 1542719512330240100 (guild 1369748205465632798) — set as DISCORD_CHANNEL_ID secret, or defaults to that
+          $channelId = $env:DISCORD_CHANNEL_ID
+          if ([string]::IsNullOrWhiteSpace($channelId)) { $channelId = "1542719512330240100" }
+          $botToken = $env:DISCORD_BOT_TOKEN
+          if (-not [string]::IsNullOrWhiteSpace($botToken) -and -not [string]::IsNullOrWhiteSpace($channelId) -and $tag) {
+            Write-Host "Trying bot search in channel $channelId for tag $tag"
+            try {
+              $headers = @{ Authorization = "Bot $botToken"; "User-Agent" = "KalOS-cleanup" }
+              $msgs = Invoke-RestMethod -Uri "https://discord.com/api/v10/channels/$channelId/messages?limit=100" -Headers $headers -ErrorAction Stop
+              $found = 0
+              foreach ($m in $msgs) {
+                $hit = $false
+                if ($m.content -and $m.content -like "*$tag*") { $hit = $true }
+                foreach ($e in $m.embeds) {
+                  if ($e.title -like "*$tag*" -or $e.url -like "*$tag*") { $hit = $true }
+                  foreach ($f in $e.fields) { if ($f.value -like "*$tag*") { $hit = $true } }
+                }
+                if ($hit) {
+                  Write-Host "Found matching message $($m.id) author $($m.author.username) — deleting"
+                  try {
+                    Invoke-RestMethod -Uri "https://discord.com/api/v10/channels/$channelId/messages/$($m.id)" -Method Delete -Headers $headers -ErrorAction Stop
+                    Write-Host "Deleted $($m.id)"
+                    $found++
+                  } catch { Write-Host "Failed to delete $($m.id): $_" }
+                }
+              }
+              if ($found -gt 0) {
+                Write-Host "Deleted $found message(s) for $tag via bot — done"
+                exit 0
+              } else {
+                Write-Host "No matching messages found for $tag in last 100 (try increasing limit or check tag)"
+              }
+            } catch {
+              Write-Host "Bot search failed: $_"
+              Write-Host $_.ErrorDetails.Message
+            }
+          } elseif (-not $botToken) {
+            Write-Host "DISCORD_BOT_TOKEN not set — cannot search channel history (webhook alone can't list messages)"
+          }
+
+          # 3) Fallback: post retraction notice
+          if ($env:DISCORD_WEBHOOK) {
+            $title = $env:RELEASE_NAME
+            if ([string]::IsNullOrWhiteSpace($title)) { $title = $tag }
+            if ([string]::IsNullOrWhiteSpace($title)) { $title = "release" }
+            $payload = @{
+              username = "KalOS Releases"
+              content = ":wastebasket: Release $tag was deleted — the previous announcement for $title has been removed. (Original Discord message could not be auto-deleted; please delete it manually if still visible. Add DISCORD_BOT_TOKEN + DISCORD_CHANNEL_ID secrets to enable auto-delete for old messages.)"
+            } | ConvertTo-Json -Depth 3
+            try {
+              Invoke-RestMethod -Uri $env:DISCORD_WEBHOOK -Method Post -ContentType "application/json" -Body $payload | Out-Null
+              Write-Host "Posted fallback retraction notice for $tag"
+            } catch {
+              Write-Host "Failed to post fallback: $_"
+            }
           }
