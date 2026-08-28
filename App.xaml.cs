@@ -205,8 +205,8 @@ namespace KalOS
             try
             {
                 await dialog.ShowAsync();
-                if (File.Exists(UpdateService.RollbackStatePath)) File.Delete(UpdateService.RollbackStatePath);
                 var update = await Services.GetRequiredService<UpdateService>().CheckForUpdatesAsync();
+                if (File.Exists(UpdateService.RollbackStatePath)) File.Delete(UpdateService.RollbackStatePath);
                 if (update == null) { RestartApp(); return; }
                 await Services.GetRequiredService<UpdateService>().DownloadAndApplyAsync(update);
                 Environment.Exit(0);

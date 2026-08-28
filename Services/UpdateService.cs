@@ -221,7 +221,7 @@ public sealed class UpdateService
             bool currentExists = releasesDoc.RootElement.EnumerateArray().Any(r =>
                 r.TryGetProperty("tag_name", out var t) &&
                 TryParseReleaseVersion(t.GetString(), out var v) && v == CurrentVersion);
-            if (!currentExists)
+            if (!currentExists || File.Exists(RollbackStatePath))
             {
                 SaveRollbackState(CurrentVersion, $"Version {CurrentVersion} is no longer available on GitHub.");
                 RollbackRequired?.Invoke();
