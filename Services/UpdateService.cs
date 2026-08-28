@@ -194,7 +194,16 @@ public sealed class UpdateService
                 resp.EnsureSuccessStatusCode();
                 string json = await resp.Content.ReadAsStringAsync(cancellationToken);
                 update = ParseRelease(json, CurrentVersion);
-                if (update != null) return update;
+                if (update != null)
+                {
+                    if (update.IsRollback)
+                    {
+                        SaveRollbackState(CurrentVersion, $"Version {CurrentVersion} was superseded by an older stable build.");
+                        RollbackRequired?.Invoke();
+                        return null; // Return null so the standard popup handles it transparently via App.xaml.cs interceptions.
+                    }
+                    return update;
+                }
             }
 
             // A normal "no update" response (or a 404 with 0 releases) is not
