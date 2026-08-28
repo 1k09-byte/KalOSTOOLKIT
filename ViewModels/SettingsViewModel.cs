@@ -153,7 +153,7 @@ namespace KalOS.ViewModels
                     OnPropertyChanged(nameof(PendingUpdateIsRollback));
                     HasUpdate = true;
                     UpdateStatusText = $"KalOS {info.Version} is available.";
-                    if (raiseEvent) UpdateAvailable?.Invoke(info.Version);
+                    if (raiseEvent && !info.IsRollback) UpdateAvailable?.Invoke(info.Version);
                 }
                 LastCheckedText = $"Last checked {DateTime.Now:HH:mm}";
             }

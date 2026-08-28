@@ -200,7 +200,6 @@ public sealed class UpdateService
                     {
                         SaveRollbackState(CurrentVersion, $"Version {CurrentVersion} was superseded by an older stable build.");
                         RollbackRequired?.Invoke();
-                        return null; // Return null so the standard popup handles it transparently via App.xaml.cs interceptions.
                     }
                     return update;
                 }
