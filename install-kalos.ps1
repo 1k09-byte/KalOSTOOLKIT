@@ -164,8 +164,9 @@ try {
     if (-not $versionMatch.Success) { throw "Could not parse version from redirect URL: $redirectUrl" }
     $version = $versionMatch.Groups[1].Value
     
-    # Follow the redirect to grab the actual release page HTML and extract the dynamic ZIP path
-    $html = (Invoke-WebRequest -Uri $redirectUrl -UseBasicParsing -TimeoutSec 15).Content
+    # Fetch the dynamically rendered expanded_assets DOM fragment directly
+    $assetsUrl = "https://github.com/$Owner/$Repo/releases/expanded_assets/v$version"
+    $html = (Invoke-WebRequest -Uri $assetsUrl -UseBasicParsing -TimeoutSec 15 -Headers @{ "Accept" = "text/html" }).Content
     $zipAssetMatch = [regex]::Match($html, 'href="(/[^"]+/releases/download/[^"]+\.zip)"')
     
     if (-not $zipAssetMatch.Success) {
