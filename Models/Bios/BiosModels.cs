@@ -67,7 +67,32 @@ public sealed record BiosSystemInfo(
     bool IsVirtualMachine,
     string FirmwareVendor = "Unknown",
     string BaseBoardManufacturer = "Unknown",
-    string BaseBoardProduct = "Unknown")
+    string BaseBoardProduct = "Unknown",
+    string BiosReleaseDate = "Unknown",
+    string SmbiosVersion = "Unknown",
+    string SystemSku = "Unknown",
+    string BaseBoardVersion = "Unknown")
 {
-    public static BiosSystemInfo Unknown { get; } = new("Unknown", "Unknown", "Unknown", false, "Unknown", "Unknown", "Unknown");
+    public static BiosSystemInfo Unknown { get; } = new("Unknown", "Unknown", "Unknown", false, "Unknown", "Unknown", "Unknown", "Unknown", "Unknown", "Unknown", "Unknown");
 }
+
+/// <summary>Status of the BIOS version update check.</summary>
+public enum BiosUpdateStatus
+{
+    Unknown,
+    Checking,
+    UpToDate,
+    UpdateAvailable,
+    ManualCheck,
+    Error,
+}
+
+/// <summary>Result of querying vendor/capsule/online services for BIOS version updates.</summary>
+public sealed record BiosUpdateCheckResult(
+    BiosUpdateStatus Status,
+    string InstalledVersion,
+    string? LatestVersion = null,
+    string? ReleaseDate = null,
+    string? LatestReleaseDate = null,
+    string? StatusMessage = null,
+    string? Notes = null);
