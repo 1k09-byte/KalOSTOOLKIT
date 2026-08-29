@@ -41,6 +41,11 @@ internal sealed class WmiObjectRow : IWmiRow
             null => null,
             int i => i,
             uint u => (int)u,
+            short s => (int)s,
+            ushort us => (int)us,
+            byte b => (int)b,
+            long l => (int)l,
+            ulong ul => (int)ul,
             string s when int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) => parsed,
             _ => null,
         };
