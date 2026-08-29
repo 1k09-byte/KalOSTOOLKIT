@@ -47,7 +47,7 @@ namespace KalOS
             ExtendsContentIntoTitleBar = true;
             SetTitleBar(AppTitleBar);
 
-            // Show the app version in the title bar and window title (e.g. "KalOS 1.1.4.0" or "KalOS Edit App").
+            // Show the app version in the title bar and window title (e.g. "KalOS 1.1.4.0" or "KalOS Edit Toolkit").
             AppTitleBar.Title = $"KalOS {App.AppVersion}";
             Title = $"KalOS {App.AppVersion}";
 

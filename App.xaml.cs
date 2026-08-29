@@ -36,7 +36,7 @@ namespace KalOS
 #if CONSUMER_BUILD
             typeof(App).Assembly.GetName().Version?.ToString() ?? "unknown";
 #else
-            "Edit App";
+            "Edit Toolkit";
 #endif
 
         /// <summary>Display name, version, OS, and architecture of this build — used by startup/crash diagnostics.</summary>

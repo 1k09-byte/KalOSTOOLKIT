@@ -54,6 +54,18 @@ namespace KalOS.Views
             }
         }
 
+        private async void OpenRestoreManager_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            // Ensure list is fresh
+            await ViewModel.LoadRestorePointsAsync();
+            var root = (App.Current as App)?.MainWindow?.Content?.XamlRoot ?? this.XamlRoot;
+            var dialog = new SystemRestoreDialog(ViewModel)
+            {
+                XamlRoot = root
+            };
+            await dialog.ShowAsync();
+        }
+
         private async void RestoreButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {
             if (sender is Button btn && btn.DataContext is RestorePointItem item)

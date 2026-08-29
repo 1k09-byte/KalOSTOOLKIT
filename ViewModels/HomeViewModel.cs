@@ -127,13 +127,21 @@ namespace KalOS.ViewModels
         [RelayCommand]
         private async Task CreateRestorePointAsync()
         {
-            RestorePointStatus = "Creating system restore point. Approve the UAC prompt to continue...";
+            await CreateRestorePointWithDescriptionAsync("KalOS App Restore Point");
+        }
+
+        public async Task<bool> CreateRestorePointWithDescriptionAsync(string description)
+        {
+            if (string.IsNullOrWhiteSpace(description)) description = "KalOS App Restore Point";
+            // Sanitize for PowerShell single quotes
+            var safeDesc = description.Replace("'", "''");
+            RestorePointStatus = $"Creating restore point '{safeDesc}'. Approve the UAC prompt to continue...";
             bool success = await Task.Run(() =>
             {
                 var psi = new ProcessStartInfo
                 {
                     FileName = "powershell.exe",
-                    Arguments = "-NoProfile -ExecutionPolicy Bypass -Command \"Enable-ComputerRestore -Drive 'C:\'; Checkpoint-Computer -Description 'KalOS App Restore Point' -RestorePointType 'MODIFY_SETTINGS'\"",
+                    Arguments = $"-NoProfile -ExecutionPolicy Bypass -Command \"Enable-ComputerRestore -Drive 'C:\\'; Checkpoint-Computer -Description '{safeDesc}' -RestorePointType 'MODIFY_SETTINGS'\"",
                     UseShellExecute = true,
                     Verb = "runas",
                     CreateNoWindow = true,
@@ -164,8 +172,9 @@ namespace KalOS.ViewModels
 
             if (success)
             {
-                RestorePointStatus = "Restore point created successfully.";
+                RestorePointStatus = $"Restore point '{description}' created successfully.";
                 _ = LoadRestorePointsAsync();
+                return true;
             }
             else
             {
@@ -173,7 +182,67 @@ namespace KalOS.ViewModels
                 {
                     RestorePointStatus = "Failed to create restore point (You may need to enable System Restore for C: or approve the UAC prompt).";
                 }
+                return false;
             }
+        }
+
+        public async Task<bool> DeleteRestorePointAsync(uint sequenceNumber)
+        {
+            RestorePointStatus = $"Deleting restore point {sequenceNumber}. Approve the UAC prompt to continue...";
+            bool success = await Task.Run(() =>
+            {
+                try
+                {
+                    using var searcher = new ManagementObjectSearcher(@"root\default", $"SELECT * FROM SystemRestore WHERE SequenceNumber = {sequenceNumber}");
+                    foreach (ManagementObject mo in searcher.Get())
+                    {
+                        // SystemRestore WMI Delete via PowerShell elevated
+                        var psi = new ProcessStartInfo
+                        {
+                            FileName = "powershell.exe",
+                            Arguments = $"-NoProfile -ExecutionPolicy Bypass -Command \"Get-ComputerRestorePoint | Where-Object {{ $_.SequenceNumber -eq {sequenceNumber} }} | ForEach-Object {{ $_.Delete() }}; vssadmin delete shadows /for=C: /oldest /quiet 2>$null; exit 0\"",
+                            UseShellExecute = true,
+                            Verb = "runas",
+                            CreateNoWindow = true,
+                            WindowStyle = ProcessWindowStyle.Hidden
+                        };
+                        using var proc = Process.Start(psi);
+                        if (proc == null) return false;
+                        proc.WaitForExit();
+                        return proc.ExitCode == 0;
+                    }
+                    // Fallback: try direct WMI Delete
+                    using var s2 = new ManagementObjectSearcher(@"root\default", $"SELECT * FROM SystemRestore WHERE SequenceNumber = {sequenceNumber}");
+                    foreach (ManagementObject mo2 in s2.Get())
+                    {
+                        try { mo2.Delete(); return true; } catch { }
+                    }
+                    return false;
+                }
+                catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
+                {
+                    var dispatcher = DispatcherQueue.GetForCurrentThread();
+                    dispatcher?.TryEnqueue(() => RestorePointStatus = "Delete cancelled at the UAC prompt.");
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    _logging.Error($"Failed to delete restore point {sequenceNumber}: {ex.Message}");
+                    return false;
+                }
+            });
+
+            if (success)
+            {
+                RestorePointStatus = $"Restore point {sequenceNumber} deleted.";
+                _ = LoadRestorePointsAsync();
+            }
+            else
+            {
+                if (!RestorePointStatus.Contains("cancelled", StringComparison.OrdinalIgnoreCase))
+                    RestorePointStatus = $"Failed to delete restore point {sequenceNumber}. Try running as administrator.";
+            }
+            return success;
         }
 
         public void RestoreSystem(uint sequenceNumber)
