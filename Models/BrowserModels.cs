@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.ComponentModel;
 using FluentIcons.Common;
 using System.Collections.ObjectModel;
 
@@ -118,6 +118,10 @@ namespace KalOS.ViewModels
     }
 
     public partial class SoftwareItem : InstallableItem
+    {
+    }
+
+    public partial class RuntimeItem : InstallableItem
     {
     }
 

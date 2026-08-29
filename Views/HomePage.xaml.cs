@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -58,12 +58,24 @@ namespace KalOS.Views
         {
             // Ensure list is fresh
             await ViewModel.LoadRestorePointsAsync();
-            var root = (App.Current as App)?.MainWindow?.Content?.XamlRoot ?? this.XamlRoot;
-            var dialog = new SystemRestoreDialog(ViewModel)
+            
+            if (App.Current is App { MainWindow: MainWindow window })
             {
-                XamlRoot = root
-            };
-            await dialog.ShowAsync();
+                var modal = new SystemRestoreModal(ViewModel);
+                window.ShowModalOverlay(modal);
+            }
+            else
+            {
+                var xamlRoot = (App.Current as App)?.MainWindow?.Content?.XamlRoot 
+                            ?? this.XamlRoot 
+                            ?? this.Content?.XamlRoot;
+
+                var dialog = new SystemRestoreDialog(ViewModel)
+                {
+                    XamlRoot = xamlRoot
+                };
+                await dialog.ShowAsync();
+            }
         }
 
         private async void RestoreButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)

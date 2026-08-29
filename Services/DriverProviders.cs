@@ -210,6 +210,7 @@ namespace KalOS.Services
             {
                 Version = "25.10.1",
                 DownloadUrl = "https://drivers.amd.com/drivers/whql-amd-software-adrenalin-edition-25.10.1-win10-win11-may-rdna.exe",
+                SupportUrl = "https://www.amd.com/en/support/download/drivers.html",
                 ReleaseDate = new DateTime(2026, 8, 5),
                 DisplayString = "AMD Adrenalin 25.10.1"
             };

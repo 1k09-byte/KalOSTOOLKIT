@@ -40,6 +40,8 @@ namespace KalOS.Models
     {
         public string Version { get; init; } = "";
         public string DownloadUrl { get; init; } = "";
+        /// <summary>Human-facing vendor driver/support page opened by the "Open download page" button.</summary>
+        public string SupportUrl { get; init; } = "";
         public DateTime? ReleaseDate { get; init; }
         public string? DisplayString { get; set; }
     }

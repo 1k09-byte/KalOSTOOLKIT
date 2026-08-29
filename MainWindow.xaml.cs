@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -35,6 +35,18 @@ namespace KalOS
 
         private readonly ThemeService _themeService;
         private readonly BackdropService _backdropService;
+
+        public void ShowModalOverlay(UIElement content)
+        {
+            AppModalContent.Content = content;
+            AppModalOverlay.Visibility = Visibility.Visible;
+        }
+
+        public void HideModalOverlay()
+        {
+            AppModalOverlay.Visibility = Visibility.Collapsed;
+            AppModalContent.Content = null;
+        }
         /// <summary>
         /// Initializes a new instance of the <see cref="MainWindow"/> class.
         /// </summary>

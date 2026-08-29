@@ -1,4 +1,4 @@
-﻿using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,19 +22,45 @@ namespace KalOS.Views
 
         private void CategorySelector_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
         {
-            bool showBrowsers = sender.SelectedItem == BrowsersSelectorItem;
-            BrowsersSection.Visibility = showBrowsers ? Visibility.Visible : Visibility.Collapsed;
-            SoftwareSection.Visibility = showBrowsers ? Visibility.Collapsed : Visibility.Visible;
+            BrowsersSection.Visibility = sender.SelectedItem == BrowsersSelectorItem ? Visibility.Visible : Visibility.Collapsed;
+            SoftwareSection.Visibility = sender.SelectedItem == SoftwareSelectorItem ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        protected override void OnNavigatedTo(NavigationEventArgs e)
+        protected override async void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
             
             if (!ViewModel.HasScanned && !ViewModel.IsScanning)
             {
-                _ = ViewModel.ScanForInstalledBrowsersAsync();
+                // Await the scan so installed-state is accurate before the
+                // Runtimes popup renders (otherwise every runtime shows an
+                // Install button because nothing is marked installed yet).
+                await ViewModel.ScanForInstalledBrowsersAsync();
             }
+
+            // Show Runtimes popup exactly like the tab would have looked, as soon as the page opens
+            if (!_runtimesPopupShown)
+            {
+                _runtimesPopupShown = true;
+                ShowRuntimesPopupAsync();
+            }
+        }
+
+        private static bool _runtimesPopupShown = false;
+
+        private void RuntimesCloseButton_Click(object sender, RoutedEventArgs e)
+        {
+            RuntimesOverlay.Visibility = Visibility.Collapsed;
+        }
+
+        private void ShowRuntimesPopupAsync()
+        {
+            if ((App.Current as App)?.MainWindow?.Content == null) return;
+            RuntimesList.ItemsSource = ViewModel.Runtimes;
+            // A full-page centered overlay never has the XamlRoot/positioning
+            // problems of a ContentDialog, so the popup is always centered.
+            RuntimesOverlay.Opacity = 1.0;
+            RuntimesOverlay.Visibility = Visibility.Visible;
         }
 
         private void InstallButton_Click(object sender, RoutedEventArgs e)
