@@ -1,0 +1,117 @@
+<ContentDialog
+    x:Class="KalOS.Views.SystemRestoreDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewModels="using:KalOS.ViewModels"
+    mc:Ignorable="d"
+    Title="System Restore Manager"
+    PrimaryButtonText="Close"
+    DefaultButton="Primary"
+    MaxWidth="560">
+
+    <Grid RowSpacing="12" HorizontalAlignment="Stretch">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Create new point with editable description -->
+        <Border Grid.Row="0" Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Spacing="4">
+                    <TextBlock Text="New restore point" FontWeight="SemiBold"/>
+                    <TextBox x:Name="NewDescriptionBox" PlaceholderText="e.g. Before KalOS tweaks — 28 Aug" Text="KalOS App Restore Point"/>
+                    <TextBlock Text="Requires admin + System Restore enabled for C:" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+                <Button Grid.Column="1" Content="Create" Click="Create_Click" VerticalAlignment="Bottom" Style="{StaticResource AccentButtonStyle}"/>
+                <Button Grid.Column="2" Content="Refresh" Click="Refresh_Click" VerticalAlignment="Bottom"/>
+            </Grid>
+        </Border>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="4">
+            <TextBlock Text="Restore points (" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
+            <TextBlock Text="{x:Bind ViewModel.RestorePointCount, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
+            <TextBlock Text=") — select to restore or delete" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12"/>
+        </StackPanel>
+
+        <!-- List -->
+        <Border Grid.Row="2" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" MaxHeight="360">
+            <Grid>
+                <ListView x:Name="RestoreList" ItemsSource="{x:Bind ViewModel.RestorePoints, Mode=OneWay}" SelectionMode="Single" SelectionChanged="RestoreList_SelectionChanged">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="viewModels:RestorePointItem">
+                            <Grid ColumnSpacing="12" Padding="0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Spacing="2">
+                                    <TextBlock Text="{x:Bind Description}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{x:Bind CreationTime}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        <TextBlock FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}">
+                                            <Run Text="# "/><Run Text="{x:Bind SequenceNumber}"/>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" Text="●" Foreground="{ThemeResource AccentFillColorDefaultBrush}" VerticalAlignment="Center" FontSize="10" Opacity="0.7"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <StackPanel x:Name="EmptyPlaceholder" Padding="24" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed">
+                    <FontIcon Glyph="&#xE81C;" FontSize="32" Foreground="{ThemeResource TextFillColorTertiaryBrush}" HorizontalAlignment="Center"/>
+                    <TextBlock Text="No restore points found" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Create one above or enable System Restore for C: in System Properties." Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="400"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Edit + actions for selected -->
+        <StackPanel Grid.Row="3" Spacing="10">
+            <Border x:Name="SelectedPanel" Background="{ThemeResource SubtleFillColorSecondaryBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="12" Visibility="Collapsed">
+                <Grid ColumnSpacing="10" RowSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
+                        <TextBlock Text="Selected point" FontWeight="SemiBold"/>
+                        <TextBlock x:Name="SelectedDescText" TextWrapping="Wrap"/>
+                        <TextBlock x:Name="SelectedTimeText" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Row="0" Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+                        <Button Content="Restore from this point" Click="Restore_Click" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Stretch"/>
+                        <Button Content="Delete this point" Click="Delete_Click" HorizontalAlignment="Stretch"/>
+                    </StackPanel>
+                    <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Spacing="4" Margin="0,6,0,0">
+                        <TextBlock Text="Edit description (creates a new point with edited name — Windows does not allow renaming an existing point)" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="EditDescriptionBox" Grid.Column="0" PlaceholderText="Edited description"/>
+                            <Button Grid.Column="1" Content="Save as new point" Click="EditSave_Click"/>
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+            </Border>
+            <TextBlock Text="{x:Bind ViewModel.RestorePointStatus, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" TextWrapping="Wrap" Visibility="{x:Bind ViewModel.RestorePointStatus, Mode=OneWay, Converter={StaticResource StringNotEmptyToVis}}"/>
+            <TextBlock Text="Restoring will restart the computer automatically. Approve the UAC prompt to continue." FontSize="11" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextWrapping="Wrap"/>
+        </StackPanel>
+    </Grid>
+</ContentDialog>

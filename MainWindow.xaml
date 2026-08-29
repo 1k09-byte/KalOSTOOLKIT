@@ -91,6 +91,7 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
+
                 <!-- ─── Windows ─── -->
                 <NavigationViewItemHeader Content="Windows" />
                 <NavigationViewItem Content="Personalization" Tag="Personalization">

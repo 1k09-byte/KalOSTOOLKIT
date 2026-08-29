@@ -183,6 +183,7 @@ public static class ScewinParser
         var lines = originalFileContent.Split('\n');
         var sb = new StringBuilder();
         string? currentQuestion = null;
+        bool inOptions = false;
 
         var knownKeys = new[]
         {
@@ -192,6 +193,7 @@ public static class ScewinParser
             "Offset",
             "Width",
             "BIOS Default",
+            "MFG Default",
             "Value",
             "Options"
         };
@@ -219,6 +221,7 @@ public static class ScewinParser
             {
                 var idx = line.IndexOf('=');
                 currentQuestion = line[(idx + 1)..].Trim();
+                inOptions = false;
                 sb.AppendLine(line);
                 continue;
             }
@@ -226,8 +229,23 @@ public static class ScewinParser
             if (string.IsNullOrWhiteSpace(line))
             {
                 currentQuestion = null;
+                inOptions = false;
                 sb.AppendLine(line);
                 continue;
+            }
+
+            // Track whether we are inside an "Options" field. Any other known key
+            // exits the Options section. This ensures only genuine option entries
+            // (and their continuation lines) are re-starred — never "BIOS Default"
+            // or "MFG Default", which would otherwise be mangled into "=*[..]" and
+            // cause SCEWIN's "Syntax Error ... Unexpected ""BIOS Default""".
+            if (matchedKey != null && matchedKey != "Options")
+            {
+                inOptions = false;
+            }
+            else if (matchedKey == "Options")
+            {
+                inOptions = true;
             }
 
             if (currentQuestion != null && changeMap.TryGetValue(currentQuestion, out var newVal))
@@ -240,20 +258,22 @@ public static class ScewinParser
                     continue;
                 }
 
-                // If it is an option line (starts with Options or has [xx] prefix)
-                var optVal = CleanOption(line, out _, out _);
-                if (!string.IsNullOrEmpty(optVal))
+                // Only move the '*' on genuine option entries. The UI sends
+                // human-readable labels (e.g. "IUSB4_GPP1"), while the raw line
+                // carries the AMI option code ("[01]IUSB4_GPP1"). Accept both
+                // forms so the * marker always lands correctly.
+                if (inOptions)
                 {
-                    // The UI sends human-readable labels (e.g. "IUSB4_GPP1"), while
-                    // the raw line carries the AMI option code ("[01]IUSB4_GPP1").
-                    // Accept both forms so the * marker always lands correctly.
-                    var optLabel = StripOptionCode(optVal);
-                    bool shouldBeStarred =
-                        string.Equals(optVal, newVal, StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(optLabel, newVal, StringComparison.OrdinalIgnoreCase);
-                    var updatedLine = SetOptionStar(line, shouldBeStarred);
-                    sb.AppendLine(updatedLine);
-                    continue;
+                    var optVal = CleanOption(line, out _, out _);
+                    if (!string.IsNullOrEmpty(optVal))
+                    {
+                        var optLabel = StripOptionCode(optVal);
+                        bool shouldBeStarred =
+                            string.Equals(optVal, newVal, StringComparison.OrdinalIgnoreCase) ||
+                            string.Equals(optLabel, newVal, StringComparison.OrdinalIgnoreCase);
+                        sb.AppendLine(SetOptionStar(line, shouldBeStarred));
+                        continue;
+                    }
                 }
             }
 
@@ -371,6 +391,7 @@ public static class ScewinParser
             "Offset",
             "Width",
             "BIOS Default",
+            "MFG Default",
             "Value",
             "Options"
         };

@@ -112,10 +112,12 @@ namespace KalOS
             services.AddSingleton<DriverDownloadService>();
             services.AddSingleton<DriverInstallService>();
             services.AddSingleton<DriverCleanupService>();
+            services.AddSingleton<RadeonSlimmerService>();
             services.AddSingleton<IDriverProvider, NvidiaDriverProvider>();
             services.AddSingleton<IDriverProvider, AmdDriverProvider>();
             services.AddSingleton<IDriverProvider, IntelDriverProvider>();
             services.AddSingleton<DriverService>();
+            services.AddSingleton<CoreSpreadingService>();
 
             // ── ViewModels ─────────────────────────────────────────────
             services.AddTransient<MainViewModel>();

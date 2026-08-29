@@ -1,0 +1,57 @@
+# GitHub Actions workflow to post a Discord Webhook when a Contributor PR is merged.
+name: Contributor Merge Announcement
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+
+jobs:
+  announce-merge:
+    name: Announce PR Merge on Discord
+    # Only run if the pull request was merged, not simply closed/rejected.
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    env:
+      DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+    steps:
+      - name: Send Discord Notification
+        shell: bash
+        run: |
+          if [ -z "$DISCORD_RELEASE_WEBHOOK" ]; then
+            echo "Warning: DISCORD_RELEASE_WEBHOOK secret is missing."
+            exit 0
+          fi
+
+          PR_AUTHOR="${{ github.event.pull_request.user.login }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          REPO="${{ github.repository }}"
+          SOURCE_ZIP="https://github.com/${REPO}/archive/refs/heads/main.zip"
+
+          JSON_PAYLOAD=$(cat <<EOF
+          {
+            "content": null,
+            "embeds": [
+              {
+                "title": "A contributor has made changes!",
+                "description": "Contributor **$PR_AUTHOR** has successfully merged changes into the project (\`$PR_TITLE\`).\n[View the Pull Request]($PR_URL)",
+                "color": 3447003,
+                "fields": [
+                  {
+                    "name": "Download the Editable Version",
+                    "value": "You can download the newest source code directly here:\n[Download Source Code (main.zip)]($SOURCE_ZIP)",
+                    "inline": false
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+          )
+
+          curl -X POST -H "Content-Type: application/json" \
+            -d "$JSON_PAYLOAD" \
+            "$DISCORD_RELEASE_WEBHOOK"

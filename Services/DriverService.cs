@@ -124,7 +124,8 @@ namespace KalOS.Services
             GpuInfo gpu,
             DriverInfo driver,
             IProgress<DriverUpdateProgress>? progress = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            NvidiaInstallComponents? nvidiaComponents = null)
         {
             var display = driver.DisplayString ?? $"driver {driver.Version}";
             bool hasSilentPath = (gpu.IsNvidia || gpu.IsAmd)
@@ -178,7 +179,8 @@ namespace KalOS.Services
                             Percent = 100,
                             Message = message
                         })),
-                        cancellationToken);
+                        cancellationToken,
+                        nvidiaComponents);
                 }
                 else
                 {

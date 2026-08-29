@@ -90,6 +90,34 @@ public class DriverInstallServiceTests : IDisposable
         _service.StripPackageContents(Path.Combine(_tempDir, "does-not-exist"));
     }
 
+    [Fact]
+    public void StripPackageContents_KeepsSelectedComponentsAndStripsRest()
+    {
+        var extractDir = Path.Combine(_tempDir, "pkg2");
+        Directory.CreateDirectory(Path.Combine(extractDir, "Display.Driver"));
+        Directory.CreateDirectory(Path.Combine(extractDir, "HDAudio"));
+        Directory.CreateDirectory(Path.Combine(extractDir, "PhysX"));
+        Directory.CreateDirectory(Path.Combine(extractDir, "GFExperience"));
+        Directory.CreateDirectory(Path.Combine(extractDir, "NVIDIA App"));
+        Directory.CreateDirectory(Path.Combine(extractDir, "EULA"));
+
+        _service.StripPackageContents(extractDir, new NvidiaInstallComponents
+        {
+            KeepHDAudio = true,
+            KeepPhysX = true,
+        });
+
+        // Selected components survive
+        Assert.True(Directory.Exists(Path.Combine(extractDir, "HDAudio")));
+        Assert.True(Directory.Exists(Path.Combine(extractDir, "PhysX")));
+        // The display driver is always kept
+        Assert.True(Directory.Exists(Path.Combine(extractDir, "Display.Driver")));
+        // Unselected components are stripped
+        Assert.False(Directory.Exists(Path.Combine(extractDir, "GFExperience")));
+        Assert.False(Directory.Exists(Path.Combine(extractDir, "NVIDIA App")));
+        Assert.False(Directory.Exists(Path.Combine(extractDir, "EULA")));
+    }
+
     // ── AMD strip ─────────────────────────────────────────────────────
 
     [Fact]

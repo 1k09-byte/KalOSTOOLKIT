@@ -96,18 +96,14 @@ function Ensure-RequiredRuntime {
     }
     Write-Host "Dependency check passed: Internet connection is available." -ForegroundColor Green
 
-    if ($InstallDotNetRuntime -or (Test-DotNetDesktopRuntime)) {
+    if (Test-DotNetDesktopRuntime) {
         Write-Host "Dependency check passed: .NET Desktop Runtime 9 is installed." -ForegroundColor Green
         return
     }
 
     Write-Host ".NET Desktop Runtime 9 is required and was not found." -ForegroundColor Yellow
-    if (-not $canPrompt) { Write-ErrorAndExit "Install .NET 9 Desktop Runtime on this PC, then run the installer again." }
 
-    $installRuntime = Read-Host "Download and install the .NET 9 Desktop Runtime now? [Y/n]"
-    if ($installRuntime -notmatch "^[Yy]") {
-        Write-ErrorAndExit "KalOS cannot run without the .NET 9 Desktop Runtime."
-    }
+    Write-Host "Auto-installing .NET Desktop Runtime 9..." -ForegroundColor Cyan
 
     $runtimeInstaller = Join-Path $env:TEMP "windowsdesktop-runtime-9-x64.exe"
     Write-Step "Downloading .NET 9 Desktop Runtime ..."

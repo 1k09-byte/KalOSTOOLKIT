@@ -18,6 +18,7 @@ namespace KalOS.ViewModels
         public ulong FullCoreMask { get; set; }
         public int EfficiencyClass { get; set; }
         public int L3CacheId { get; set; }
+        public int NumaNodeId { get; set; } = 0;
         public ushort ProcessorGroup { get; set; }
         public ObservableCollection<CpuThreadInfo> Threads { get; set; } = new();
     }

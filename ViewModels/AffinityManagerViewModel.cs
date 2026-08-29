@@ -314,6 +314,7 @@ if (category == "Network Interface Controllers") item.MaxMsiLimit = "32";
                         FullCoreMask = fullMask,
                         EfficiencyClass = group.First().EfficiencyClass,
                         L3CacheId = group.First().L3CacheId,
+                        NumaNodeId = group.First().NumaNodeId,
                         ProcessorGroup = group.First().ProcessorGroup,
                         Threads = threads
                     });
@@ -819,7 +820,7 @@ if (category == "Network Interface Controllers") item.MaxMsiLimit = "32";
                 // mask to the GPU's AssignmentSetOverride. On any system with >=4 non-CPU0
                 // cores the user sees a value strictly inside [Min, Max].
                 const int MinGpuLogicalProcessors = 2;
-                const int MaxGpuLogicalProcessors = 4;
+                const int MaxGpuLogicalProcessors = 2;
                 ulong gpuMask = 0;
                 bool gpuMaskUsable = false;
                 // GPU starts at idx=3 below because Audio (0), XHCI (1), and Network (2)
