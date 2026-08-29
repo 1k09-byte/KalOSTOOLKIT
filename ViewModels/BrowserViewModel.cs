@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
@@ -42,7 +42,7 @@ namespace KalOS.ViewModels
 
         partial void OnIsWingetAvailableChanged(bool value)
         {
-            foreach (var item in Browsers.Cast<InstallableItem>().Concat(Software.Cast<InstallableItem>()))
+            foreach (var item in Browsers.Cast<InstallableItem>().Concat(Software.Cast<InstallableItem>()).Concat(Runtimes.Cast<InstallableItem>()))
             {
                 item.IsWingetAvailable = value;
             }
@@ -55,6 +55,7 @@ namespace KalOS.ViewModels
 
         public ObservableCollection<BrowserItem> Browsers { get; }
         public ObservableCollection<SoftwareItem> Software { get; }
+        public ObservableCollection<RuntimeItem> Runtimes { get; }
 
         public BrowserViewModel()
         {
@@ -126,6 +127,30 @@ namespace KalOS.ViewModels
                 new SoftwareItem { Name = "7-Zip", Description = "File archiver with a high compression ratio.", WingetId = "7zip.7zip", ChocolateyId = "7zip", ScoopName = "7zip", IconSymbol = Symbol.FolderZip, IconPath = "ms-appx:///Assets/7zip.png", FallbackDownloadUrl = "https://www.7-zip.org/a/7z2409-x64.exe", FallbackInstallerArgs = "/S" },
                 new SoftwareItem { Name = "Spotify", Description = "Digital music service that gives you access to millions of songs.", WingetId = "Spotify.Spotify", ChocolateyId = "spotify", ScoopName = "spotify", IconSymbol = Symbol.MusicNote2Play, IconPath = "ms-appx:///Assets/spotify.png", FallbackDownloadUrl = "https://download.scdn.co/SpotifySetup.exe", FallbackInstallerArgs = "/silent" }
             };
+
+            Runtimes = new ObservableCollection<RuntimeItem>
+            {
+                new RuntimeItem { Name = "Visual C++ 2005 (x86)", Description = "Microsoft Visual C++ 2005 Redistributable (x86). Required by older games and legacy software.", WingetId = "Microsoft.VCRedist.2005.x86", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x86.EXE", FallbackInstallerArgs = "/q" },
+                new RuntimeItem { Name = "Visual C++ 2005 (x64)", Description = "Microsoft Visual C++ 2005 Redistributable (x64). Required by older games and legacy software.", WingetId = "Microsoft.VCRedist.2005.x64", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x64.EXE", FallbackInstallerArgs = "/q" },
+                new RuntimeItem { Name = "Visual C++ 2008 (x86)", Description = "Microsoft Visual C++ 2008 Redistributable (x86). Needed by many mid-2000s applications.", WingetId = "Microsoft.VCRedist.2008.x86", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://download.microsoft.com/download/5/D/8/5D8C65CB-C849-4025-8E95-C3966CAFD8AE/vcredist_x86.exe", FallbackInstallerArgs = "/q" },
+                new RuntimeItem { Name = "Visual C++ 2008 (x64)", Description = "Microsoft Visual C++ 2008 Redistributable (x64). Needed by many mid-2000s applications.", WingetId = "Microsoft.VCRedist.2008.x64", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://download.microsoft.com/download/5/D/8/5D8C65CB-C849-4025-8E95-C3966CAFD8AE/vcredist_x64.exe", FallbackInstallerArgs = "/q" },
+                new RuntimeItem { Name = "Visual C++ 2010 (x86)", Description = "Microsoft Visual C++ 2010 Redistributable (x86). Common dependency for games and apps from ~2010-2015.", WingetId = "Microsoft.VCRedist.2010.x86", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://download.microsoft.com/download/1/6/5/165255E7-1014-4D0A-B094-B6A430A6BFFC/vcredist_x86.exe", FallbackInstallerArgs = "/q" },
+                new RuntimeItem { Name = "Visual C++ 2010 (x64)", Description = "Microsoft Visual C++ 2010 Redistributable (x64). Common dependency for games and apps from ~2010-2015.", WingetId = "Microsoft.VCRedist.2010.x64", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://download.microsoft.com/download/1/6/5/165255E7-1014-4D0A-B094-B6A430A6BFFC/vcredist_x64.exe", FallbackInstallerArgs = "/q" },
+                new RuntimeItem { Name = "Visual C++ 2012 (x86)", Description = "Microsoft Visual C++ 2012 Redistributable (x86). Required by apps targeting VS 2012.", WingetId = "Microsoft.VCRedist.2012.x86", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://download.microsoft.com/download/1/6/B/16B06F60-3B20-4FF2-B699-5E9B7962F9AE/VSU_4/vcredist_x86.exe", FallbackInstallerArgs = "/quiet /norestart" },
+                new RuntimeItem { Name = "Visual C++ 2012 (x64)", Description = "Microsoft Visual C++ 2012 Redistributable (x64). Required by apps targeting VS 2012.", WingetId = "Microsoft.VCRedist.2012.x64", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://download.microsoft.com/download/1/6/B/16B06F60-3B20-4FF2-B699-5E9B7962F9AE/VSU_4/vcredist_x64.exe", FallbackInstallerArgs = "/quiet /norestart" },
+                new RuntimeItem { Name = "Visual C++ 2013 (x86)", Description = "Microsoft Visual C++ 2013 Redistributable (x86). Used by many modern games and applications.", WingetId = "Microsoft.VCRedist.2013.x86", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://aka.ms/highdpimfc2013x86enu", FallbackInstallerArgs = "/quiet /norestart" },
+                new RuntimeItem { Name = "Visual C++ 2013 (x64)", Description = "Microsoft Visual C++ 2013 Redistributable (x64). Used by many modern games and applications.", WingetId = "Microsoft.VCRedist.2013.x64", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://aka.ms/highdpimfc2013x64enu", FallbackInstallerArgs = "/quiet /norestart" },
+                new RuntimeItem { Name = "Visual C++ 2015-2022 (x86)", Description = "Microsoft Visual C++ 2015-2022 Redistributable (x86). The latest VC++ runtime — covers 2015, 2017, 2019 and 2022.", WingetId = "Microsoft.VCRedist.2015+.x86", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://aka.ms/vs/17/release/vc_redist.x86.exe", FallbackInstallerArgs = "/quiet /norestart" },
+                new RuntimeItem { Name = "Visual C++ 2015-2022 (x64)", Description = "Microsoft Visual C++ 2015-2022 Redistributable (x64). The latest VC++ runtime — covers 2015, 2017, 2019 and 2022.", WingetId = "Microsoft.VCRedist.2015+.x64", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://aka.ms/vs/17/release/vc_redist.x64.exe", FallbackInstallerArgs = "/quiet /norestart" },
+                new RuntimeItem { Name = ".NET 6.0 Desktop Runtime", Description = "Microsoft .NET 6.0 Desktop Runtime. Required by apps built with .NET 6.", WingetId = "Microsoft.DotNet.DesktopRuntime.6", IconSymbol = Symbol.WindowWrench, FallbackDownloadUrl = "https://aka.ms/dotnet/6.0/windowsdesktop-runtime-win-x64.exe", FallbackInstallerArgs = "/quiet /norestart" },
+                new RuntimeItem { Name = ".NET 7.0 Desktop Runtime", Description = "Microsoft .NET 7.0 Desktop Runtime. Required by apps built with .NET 7.", WingetId = "Microsoft.DotNet.DesktopRuntime.7", IconSymbol = Symbol.WindowWrench, FallbackDownloadUrl = "https://aka.ms/dotnet/7.0/windowsdesktop-runtime-win-x64.exe", FallbackInstallerArgs = "/quiet /norestart" },
+                new RuntimeItem { Name = ".NET 8.0 Desktop Runtime", Description = "Microsoft .NET 8.0 Desktop Runtime. Required by apps built with .NET 8.", WingetId = "Microsoft.DotNet.DesktopRuntime.8", IconSymbol = Symbol.WindowWrench, FallbackDownloadUrl = "https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe", FallbackInstallerArgs = "/quiet /norestart" },
+                new RuntimeItem { Name = ".NET 9.0 Desktop Runtime", Description = "Microsoft .NET 9.0 Desktop Runtime. Required by apps built with .NET 9.", WingetId = "Microsoft.DotNet.DesktopRuntime.9", IconSymbol = Symbol.WindowWrench, FallbackDownloadUrl = "https://aka.ms/dotnet/9.0/windowsdesktop-runtime-win-x64.exe", FallbackInstallerArgs = "/quiet /norestart" },
+                new RuntimeItem { Name = "DirectX End-User Runtime", Description = "Microsoft DirectX End-User Runtime. Installs D3DX9/10/11, XAudio, XInput and other legacy DirectX components needed by older games.", WingetId = "Microsoft.DirectX", IconSymbol = Symbol.XboxController, FallbackDownloadUrl = "https://download.microsoft.com/download/1/7/1/1718CCC4-6315-4D8E-9543-8E28A4E18C4C/dxwebsetup.exe", FallbackInstallerArgs = "/q" },
+                new RuntimeItem { Name = "XNA Framework 4.0", Description = "Microsoft XNA Framework Redistributable 4.0. Required by indie games built with XNA/MonoGame.", WingetId = "Microsoft.XNARedist", IconSymbol = Symbol.XboxController, FallbackDownloadUrl = "https://download.microsoft.com/download/A/C/2/AC2C903B-E6E8-42C2-9FD7-BEBAC362A930/xnafx40_redist.msi", FallbackInstallerArgs = "/quiet /norestart", InstallerType = FallbackInstallerType.Msi },
+                new RuntimeItem { Name = "Java Runtime (JRE)", Description = "Oracle Java Runtime Environment. Required by Minecraft (Java Edition), Eclipse, and many enterprise apps.", WingetId = "Oracle.JavaRuntimeEnvironment", IconSymbol = Symbol.Braces, FallbackDownloadUrl = "https://javadl.oracle.com/webapps/download/AutoDL?BundleId=251406_d79360ef13234098800e0d23e7e2cbb8", FallbackInstallerArgs = "/s" },
+                new RuntimeItem { Name = "OpenAL", Description = "OpenAL audio library. Required by some games (older Unreal Engine titles, Minecraft mods, etc.).", WingetId = "OpenAL.OpenAL", IconSymbol = Symbol.Speaker2, FallbackDownloadUrl = "https://www.openal.org/downloads/oalinst.zip", FallbackInstallerArgs = "/s" },
+            };
         }
 
         public async Task ScanForInstalledBrowsersAsync()
@@ -170,7 +195,7 @@ namespace KalOS.ViewModels
             var packageManager = App.Services.GetRequiredService<PackageManagerService>();
             var availability = await packageManager.DetectAsync();
 
-            foreach (var item in Browsers.Cast<InstallableItem>().Concat(Software.Cast<InstallableItem>()))
+            foreach (var item in Browsers.Cast<InstallableItem>().Concat(Software.Cast<InstallableItem>()).Concat(Runtimes.Cast<InstallableItem>()))
             {
                 item.IsPackageManagerAvailable = availability.Any;
             }
@@ -193,7 +218,7 @@ namespace KalOS.ViewModels
 
             try
             {
-                foreach (var item in Browsers.Cast<InstallableItem>().Concat(Software.Cast<InstallableItem>()))
+                foreach (var item in Browsers.Cast<InstallableItem>().Concat(Software.Cast<InstallableItem>()).Concat(Runtimes.Cast<InstallableItem>()))
                 {
                     bool isInstalled = await Task.Run(() => IsItemInstalled(item));
 
@@ -253,36 +278,220 @@ namespace KalOS.ViewModels
                     return Directory.Exists(Path.Combine(
                         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                         @"Zen\Profiles")) ||
-                           Directory.Exists(Path.Combine(
+                            Directory.Exists(Path.Combine(
                         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                         @"Zen\User Data"));
                 case "Discord.Discord":
                     return Directory.Exists(Path.Combine(
                         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                         @"Discord")) ||
-                           File.Exists(Path.Combine(
+                            File.Exists(Path.Combine(
                         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                         @"Discord\Update.exe"));
                 case "Valve.Steam":
                     return File.Exists(@"C:\Program Files (x86)\Steam\steam.exe") ||
-                           File.Exists(Path.Combine(
+                            File.Exists(Path.Combine(
                         Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
                         @"Steam\steam.exe"));
                 case "7zip.7zip":
                     return File.Exists(@"C:\Program Files\7-Zip\7z.exe") ||
-                           File.Exists(Path.Combine(
+                            File.Exists(Path.Combine(
                         Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
                         @"7-Zip\7z.exe"));
                 case "Spotify.Spotify":
                     return File.Exists(Path.Combine(
                         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                         @"Spotify\Spotify.exe")) ||
-                           File.Exists(Path.Combine(
+                            File.Exists(Path.Combine(
                         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                         @"Spotify\Spotify.exe"));
+                // Visual C++ runtimes — check uninstall registry + SxSWinSxS
+                case "Microsoft.VCRedist.2005.x86":
+                    return IsVcRedistInstalled("2005", "x86");
+                case "Microsoft.VCRedist.2005.x64":
+                    return IsVcRedistInstalled("2005", "x64");
+                case "Microsoft.VCRedist.2008.x86":
+                    return IsVcRedistInstalled("2008", "x86");
+                case "Microsoft.VCRedist.2008.x64":
+                    return IsVcRedistInstalled("2008", "x64");
+                case "Microsoft.VCRedist.2010.x86":
+                    return IsVcRedistInstalled("2010", "x86");
+                case "Microsoft.VCRedist.2010.x64":
+                    return IsVcRedistInstalled("2010", "x64");
+                case "Microsoft.VCRedist.2012.x86":
+                    return IsVcRedistInstalled("2012", "x86");
+                case "Microsoft.VCRedist.2012.x64":
+                    return IsVcRedistInstalled("2012", "x64");
+                case "Microsoft.VCRedist.2013.x86":
+                    return IsVcRedistInstalled("2013", "x86");
+                case "Microsoft.VCRedist.2013.x64":
+                    return IsVcRedistInstalled("2013", "x64");
+                case "Microsoft.VCRedist.2015+.x86":
+                    return IsVcRedistInstalled("2015+", "x86");
+                case "Microsoft.VCRedist.2015+.x64":
+                    return IsVcRedistInstalled("2015+", "x64");
+                case "Microsoft.DotNet.DesktopRuntime.6":
+                    return IsDotNetRuntimeInstalled("6.");
+                case "Microsoft.DotNet.DesktopRuntime.7":
+                    return IsDotNetRuntimeInstalled("7.");
+                case "Microsoft.DotNet.DesktopRuntime.8":
+                    return IsDotNetRuntimeInstalled("8.");
+                case "Microsoft.DotNet.DesktopRuntime.9":
+                    return IsDotNetRuntimeInstalled("9.");
+                case "Microsoft.DirectX":
+                    return IsDirectXInstalled();
+                case "Microsoft.XNARedist":
+                    return IsXnaInstalled();
+                case "Oracle.JavaRuntimeEnvironment":
+                    return IsJavaInstalled();
+                case "OpenAL.OpenAL":
+                    return IsOpenALInstalled();
                 default:
                     return false;
             }
+        }
+
+        private static bool IsVcRedistInstalled(string version, string arch)
+        {
+            try
+            {
+                // Check uninstall registry for DisplayName containing "Visual C++ 2005/2008 etc."
+                string[] hives = { @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall" };
+                string search = version == "2015+" ? "2015" : version;
+                foreach (var hive in hives)
+                {
+                    using var baseKey = Registry.LocalMachine.OpenSubKey(hive);
+                    if (baseKey == null) continue;
+                    foreach (var sub in baseKey.GetSubKeyNames())
+                    {
+                        using var k = baseKey.OpenSubKey(sub);
+                        var name = k?.GetValue("DisplayName") as string;
+                        if (name == null) continue;
+                        if (name.IndexOf($"Visual C++ {search}", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                            (search == "2015" && name.IndexOf("Visual C++ 2015", StringComparison.OrdinalIgnoreCase) >= 0) ||
+                            (search == "2015" && name.IndexOf("Visual C++ 2017", StringComparison.OrdinalIgnoreCase) >= 0) ||
+                            (search == "2015" && name.IndexOf("Visual C++ 2019", StringComparison.OrdinalIgnoreCase) >= 0) ||
+                            (search == "2015" && name.IndexOf("Visual C++ 2022", StringComparison.OrdinalIgnoreCase) >= 0))
+                        {
+                            // For x86/x64, check DisplayName contains arch or check RegistryView
+                            if (arch == "x86" && name.IndexOf("x86", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+                            if (arch == "x64" && name.IndexOf("x64", StringComparison.OrdinalIgnoreCase) >= 0) return true;
+                            if (name.IndexOf("Redistributable", StringComparison.OrdinalIgnoreCase) >= 0 && arch == "x64" && (hive.Contains("WOW6432") == false)) return true;
+                        }
+                    }
+                }
+                // Fallback file check for 2015+ (vcruntime140)
+                if (version == "2015+")
+                {
+                    string sys32 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "vcruntime140.dll");
+                    string wow64 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.SystemX86), "vcruntime140.dll");
+                    if (arch == "x86") return File.Exists(wow64) || File.Exists(sys32);
+                    return File.Exists(sys32);
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        private static bool IsDotNetRuntimeInstalled(string majorPrefix)
+        {
+            try
+            {
+                // Check dotnet shared folder
+                var dotnetRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "dotnet", "shared", "Microsoft.WindowsDesktop.App");
+                if (Directory.Exists(dotnetRoot))
+                {
+                    foreach (var dir in Directory.GetDirectories(dotnetRoot))
+                    {
+                        var name = Path.GetFileName(dir);
+                        if (name.StartsWith(majorPrefix, StringComparison.OrdinalIgnoreCase)) return true;
+                    }
+                }
+                var x86Root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "dotnet", "shared", "Microsoft.WindowsDesktop.App");
+                if (Directory.Exists(x86Root))
+                {
+                    foreach (var dir in Directory.GetDirectories(x86Root))
+                    {
+                        var name = Path.GetFileName(dir);
+                        if (name.StartsWith(majorPrefix, StringComparison.OrdinalIgnoreCase)) return true;
+                    }
+                }
+                // Check runtime folder
+                var runtimeRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "dotnet", "shared", "Microsoft.NETCore.App");
+                if (Directory.Exists(runtimeRoot))
+                {
+                    foreach (var dir in Directory.GetDirectories(runtimeRoot))
+                    {
+                        var name = Path.GetFileName(dir);
+                        if (name.StartsWith(majorPrefix, StringComparison.OrdinalIgnoreCase)) return true;
+                    }
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        private static bool IsDirectXInstalled()
+        {
+            try
+            {
+                // DirectX 12 is inbox on Win10/11; check for legacy D3DX
+                if (File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "d3d12.dll"))) return true;
+                if (File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "d3dx9_43.dll"))) return true;
+                using var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\DirectX");
+                var ver = key?.GetValue("Version") as string;
+                if (!string.IsNullOrEmpty(ver) && ver.StartsWith("4.09", StringComparison.OrdinalIgnoreCase)) return true;
+            }
+            catch { }
+            return false;
+        }
+
+        private static bool IsXnaInstalled()
+        {
+            try
+            {
+                using var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\XNA\Framework\v4.0");
+                if (key != null) return true;
+                using var wow = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Microsoft\XNA\Framework\v4.0");
+                if (wow != null) return true;
+                if (File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Microsoft XNA\XNA Game Studio\v4.0\Redist\XNA Framework\xnafx40_redist.msi"))) return true;
+            }
+            catch { }
+            return false;
+        }
+
+        private static bool IsJavaInstalled()
+        {
+            try
+            {
+                using var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\JavaSoft\Java Runtime Environment");
+                if (key != null && key.GetSubKeyNames().Length > 0) return true;
+                using var wow = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\JavaSoft\Java Runtime Environment");
+                if (wow != null && wow.GetSubKeyNames().Length > 0) return true;
+                // Check javaw
+                var pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+                if (File.Exists(Path.Combine(pf, @"Java\jre1.8.0_361\bin\javaw.exe"))) return true;
+                // Try where java
+                var psi = new ProcessStartInfo("where", "java") { RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
+                try { using var p = Process.Start(psi); if (p != null) { p.WaitForExit(2000); return p.ExitCode == 0 && !string.IsNullOrWhiteSpace(p.StandardOutput.ReadToEnd()); } } catch { }
+            }
+            catch { }
+            return false;
+        }
+
+        private static bool IsOpenALInstalled()
+        {
+            try
+            {
+                if (File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "OpenAL32.dll"))) return true;
+                if (File.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.SystemX86), "OpenAL32.dll"))) return true;
+                using var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\OpenAL");
+                if (key != null) return true;
+                using var wow = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\OpenAL");
+                if (wow != null) return true;
+            }
+            catch { }
+            return false;
         }
 
         private static bool CheckIfExtensionIsInstalled(BrowserItem browser, ExtensionItem ext)

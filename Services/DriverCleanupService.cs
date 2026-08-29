@@ -42,6 +42,10 @@ namespace KalOS.Services
         private readonly LoggingService _log;
         private readonly ProcessManager _processManager;
 
+        // Device setup class GUIDs used to target driver-store packages for removal.
+        private const string DisplayClassGuid = "{4d36e968-e325-11ce-bfc1-08002be10318}";
+        private const string MediaClassGuid = "{4d36e96c-e325-11ce-bfc1-08002be10318}";
+
         public DriverCleanupService(LoggingService log, ProcessManager processManager)
         {
             _log = log;
@@ -133,7 +137,7 @@ namespace KalOS.Services
         private async Task RunNvidiaCleanupAsync(DriverCleanupOptions options, Action<string> next)
         {
             next("Uninstalling NVIDIA Display Driver");
-            await UninstallDisplayDriverAsync("NVIDIA");
+            await UninstallVendorDriverStoreAsync("NVIDIA", DisplayClassGuid);
 
             if (options.RemovePhysX == true)
             {
@@ -184,17 +188,19 @@ namespace KalOS.Services
         private async Task RunAmdCleanupAsync(DriverCleanupOptions options, Action<string> next)
         {
             next("Uninstalling AMD Display Driver");
-            await UninstallDisplayDriverAsync("Advanced Micro Devices|AMD");
+            await UninstallVendorDriverStoreAsync("Advanced Micro Devices|AMD", DisplayClassGuid);
 
             if (options.RemoveAmdAudioBus == true)
             {
                 next("Removing AMD Audio Bus");
-                // Handled via pnputil in advanced sweeps, but here we can remove the device node if needed.
+                // AMD's GPU audio bus ships as a MEDIA-class driver package in the
+                // store; purge those store packages so the audio bus loses its driver.
+                await UninstallVendorDriverStoreAsync("Advanced Micro Devices|AMD", MediaClassGuid);
             }
             if (options.RemoveAmdKmpfd == true)
             {
                 next("Removing AMDKMPFD filter");
-                // Requires registry service deletion.
+                await RemoveAmdKmpfdAsync();
             }
             if (options.RemoveAmdControlPanelDCH == true)
             {
@@ -257,35 +263,56 @@ namespace KalOS.Services
             }
         }
 
-        private async Task UninstallDisplayDriverAsync(string vendor)
+        private async Task UninstallVendorDriverStoreAsync(string providerMatch, string classGuid)
         {
+            // Purge every driver-store package (per setup class) whose provider
+            // matches the vendor. This removes ALL stored versions of the driver,
+            // matching a DDU store purge. The in-use display package cannot be
+            // unbound while the adapter is rendering, so it stays until reboot
+            // (same as DDU running in a live OS).
             var psScript = $@"
-$output = pnputil /enum-devices /class Display
-$currentInf = $null
-$isTarget = $false
+$classGuid = '{classGuid}'
+$providerMatch = '{providerMatch}'
+$targets = @()
+$inf = $null
+$provider = $null
+$class = $null
+foreach ($line in pnputil /enum-drivers) {{
+    $s = ""$line""
+    if ($s -match '^Published Name:\s+(oem\d+\.inf)') {{ $inf = $matches[1] }}
+    if ($s -match '^Class GUID:\s+({{[0-9A-Fa-f-]+}})') {{ $class = $matches[1] }}
+    if ($s -match '^Provider Name:\s+(.*)$') {{ $provider = $matches[1] }}
+    if ($s -match '^\s*$') {{
+        if ($inf -and $provider -and $class -eq $classGuid -and ($provider -match $providerMatch)) {{ $targets += $inf }}
+        $inf = $null; $provider = $null; $class = $null
+    }}
+}}
+if ($inf -and $provider -and $class -eq $classGuid -and ($provider -match $providerMatch)) {{ $targets += $inf }}
 
-foreach ($line in $output) {{
-    if ($line -match '^Driver Name:\s+(oem\d+\.inf)') {{
-        $currentInf = $matches[1]
-    }}
-    if ($line -match '^Manufacturer Name:\s+(.*)$') {{
-        if ($matches[1] -match '{vendor}') {{
-            $isTarget = $true
-        }}
-    }}
-    if ($line -match '^\s*$') {{
-        if ($isTarget -and $currentInf) {{
-            Write-Host ""Uninstalling display driver: $currentInf""
-            pnputil /delete-driver $currentInf /uninstall /force
-        }}
-        $currentInf = $null
-        $isTarget = $false
-    }}
+foreach ($t in ($targets | Select-Object -Unique)) {{
+    Write-Host ""Uninstalling driver store package: $t""
+    pnputil /delete-driver $t /uninstall /force
 }}
-if ($isTarget -and $currentInf) {{
-    Write-Host ""Uninstalling display driver: $currentInf""
-    pnputil /delete-driver $currentInf /uninstall /force
-}}
+";
+            var bytes = System.Text.Encoding.Unicode.GetBytes(psScript);
+            var encoded = Convert.ToBase64String(bytes);
+            await _processManager.RunWithOutputAndErrorAsync("powershell", $"-NoProfile -EncodedCommand {encoded}", TimeSpan.FromMinutes(3));
+        }
+
+        private async Task RemoveAmdKmpfdAsync()
+        {
+            // AMDKMPFD is a legacy NT kernel filter (disk lower filter) service.
+            // Stop it, delete its service entry, and purge it from the store.
+            var psScript = @"
+$svc = 'amdkmpfd'
+$exists = Get-Service -Name $svc -ErrorAction SilentlyContinue
+if ($exists) {
+    Stop-Service -Name $svc -Force -ErrorAction SilentlyContinue
+    sc.exe delete $svc | Out-Null
+    Write-Host ('Deleted AMDKMPFD service: ' + $svc)
+} else {
+    Write-Host ('AMDKMPFD service not present: ' + $svc)
+}
 ";
             var bytes = System.Text.Encoding.Unicode.GetBytes(psScript);
             var encoded = Convert.ToBase64String(bytes);

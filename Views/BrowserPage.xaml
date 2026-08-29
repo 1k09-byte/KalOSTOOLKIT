@@ -45,15 +45,6 @@
                             </Button.Content>
                         </Button>
 
-                        <Button Click="DirectInstallButton_Click"
-                                Tag="{Binding}"
-                                Visibility="{x:Bind IsDirectInstallVisible, Mode=OneWay, Converter={StaticResource BoolToVis}}"
-                                IsEnabled="{x:Bind IsInstallEnabled, Mode=OneWay}">
-                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                <TextBlock Text="Install directly" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
-
                         <Button Click="CancelInstallButton_Click"
                                 Tag="{Binding}"
                                 Visibility="{x:Bind IsCancelVisible, Mode=OneWay, Converter={StaticResource BoolToVis}}">
@@ -142,13 +133,50 @@
                             </Button.Content>
                         </Button>
 
-                        <Button Click="DirectInstallButton_Click"
+                        <Button Click="CancelInstallButton_Click"
                                 Tag="{Binding}"
-                                Visibility="{x:Bind IsDirectInstallVisible, Mode=OneWay, Converter={StaticResource BoolToVis}}"
-                                IsEnabled="{x:Bind IsInstallEnabled, Mode=OneWay}">
+                                Visibility="{x:Bind IsCancelVisible, Mode=OneWay, Converter={StaticResource BoolToVis}}">
                             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                <TextBlock Text="Install directly" VerticalAlignment="Center" />
+                                <FontIcon Glyph="&#xE711;" FontSize="14" />
+                                <TextBlock Text="Cancel" VerticalAlignment="Center" />
                             </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </controls:SettingsCard>
+
+                <!-- Status Feedback -->
+                <InfoBar IsOpen="{x:Bind ShowSuccessNotice, Mode=TwoWay}" Severity="Success" Message="{x:Bind StatusText, Mode=OneWay}" IsClosable="True" Margin="0,4,0,0" />
+                <InfoBar IsOpen="{x:Bind IsError, Mode=TwoWay}" Severity="Error" Message="{x:Bind StatusText, Mode=OneWay}" IsClosable="True" Margin="0,4,0,0" />
+                <ProgressBar Value="{x:Bind ProgressValue, Mode=OneWay}" Margin="0,4,0,0" Visibility="{x:Bind ShowProgress, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+            </StackPanel>
+        </DataTemplate>
+
+        <!-- Runtime items (VC++/.NET/DirectX etc.) shown in the Runtimes popup.
+             Same card/buttons as Software; bound against the shared base type
+             so RuntimeItem instances render correctly. -->
+        <DataTemplate x:Key="RuntimePopupTemplate" x:DataType="viewmodels:InstallableItem">
+            <StackPanel Margin="0,0,0,4">
+                <controls:SettingsCard Header="{x:Bind Name}"
+                                       Description="{x:Bind Description}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE950;" FontSize="20"/>
+                    </controls:SettingsCard.HeaderIcon>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Click="InstallButton_Click"
+                                Tag="{Binding}"
+                                Visibility="{x:Bind IsInstallVisible, Mode=OneWay, Converter={StaticResource BoolToVis}}"
+                                IsEnabled="{x:Bind IsInstallEnabled, Mode=OneWay}"
+                                Style="{StaticResource AccentButtonStyle}">
+                            <Button.Content>
+                                <Grid Height="20" MinWidth="60">
+                                    <TextBlock Text="Install" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                               Visibility="{x:Bind IsInstalling, Mode=OneWay, Converter={StaticResource InverseBoolToVis}}"/>
+                                    <ProgressRing IsActive="{x:Bind IsInstalling, Mode=OneWay}"
+                                                  Visibility="{x:Bind IsInstalling, Mode=OneWay, Converter={StaticResource BoolToVis}}"
+                                                  Width="16" Height="16" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Button.Content>
                         </Button>
 
                         <Button Click="CancelInstallButton_Click"
@@ -170,7 +198,8 @@
         </DataTemplate>
     </Page.Resources>
 
-    <ScrollViewer Style="{StaticResource PageScrollStyle}">
+    <Grid>
+        <ScrollViewer Style="{StaticResource PageScrollStyle}">
         <Grid>
             <StackPanel MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Stretch"
                         Margin="{StaticResource PagePadding}">
@@ -203,11 +232,31 @@
 
                 <SelectorBar x:Name="CategorySelector"
                              SelectionChanged="CategorySelector_SelectionChanged"
-                             Margin="0,4,0,16">
+                             Margin="0,4,0,16"
+                             IsEnabled="{x:Bind ViewModel.IsScanning, Mode=OneWay, Converter={StaticResource InverseBoolConverter}}">
                     <SelectorBarItem x:Name="BrowsersSelectorItem" Text="Web Browsers" />
                     <SelectorBarItem x:Name="SoftwareSelectorItem" Text="External Software" />
                 </SelectorBar>
 
+                <!-- Scanning overlay — mandatory, blocks interaction until first scan completes -->
+                <Border Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="22" Margin="0,0,0,12"
+                        Visibility="{x:Bind ViewModel.IsScanning, Mode=OneWay, Converter={StaticResource BoolToVis}}">
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <ProgressRing IsActive="{x:Bind ViewModel.IsScanning, Mode=OneWay}" Width="32" Height="32" VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Text="Scanning system — checking installed runtimes, browsers and software…" FontWeight="SemiBold"/>
+                            <TextBlock Text="{x:Bind ViewModel.ScanStatusText, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" FontSize="12"/>
+                            <TextBlock Text="Apps are temporarily unavailable until the scan completes." Foreground="{ThemeResource TextFillColorTertiaryBrush}" FontSize="11" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Grid IsHitTestVisible="{x:Bind ViewModel.IsScanning, Mode=OneWay, Converter={StaticResource InverseBoolConverter}}">
                     <!-- Browsers Section -->
                     <StackPanel x:Name="BrowsersSection" Visibility="Visible">
                         <ItemsControl ItemsSource="{x:Bind ViewModel.Browsers}" 
@@ -231,7 +280,48 @@
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
                     </StackPanel>
+            </Grid>
             </StackPanel>
         </Grid>
-    </ScrollViewer>
+        </ScrollViewer>
+
+        <!-- Runtimes popup: full-page centered overlay. Shown automatically
+             (once) when the page opens; dismissing it just hides the overlay. -->
+        <Grid x:Name="RuntimesOverlay"
+              Visibility="Collapsed"
+              Background="#DD000000">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Row="1" Grid.Column="1"
+                    MaxWidth="700" MaxHeight="540"
+                    MinWidth="440"
+                    Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                    BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="24">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="Runtimes — Visual C++ 2005-2022, .NET 6-9, DirectX, XNA, Java, OpenAL"
+                               FontWeight="SemiBold" TextWrapping="Wrap"/>
+                    <TextBlock Text="These are required by many games and apps. The list below is exactly what the Runtimes tab would have shown — install or update what's missing."
+                               TextWrapping="Wrap" Opacity="0.8" FontSize="12"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <ScrollViewer MaxHeight="360" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl x:Name="RuntimesList" ItemTemplate="{StaticResource RuntimePopupTemplate}"/>
+                    </ScrollViewer>
+                    <Button Content="Close" Style="{StaticResource AccentButtonStyle}"
+                            HorizontalAlignment="Right" Click="RuntimesCloseButton_Click"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
 </Page>

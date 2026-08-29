@@ -488,7 +488,12 @@ namespace KalOS.ViewModels
         public void OpenDownloadPage(GpuDriverItem? item)
         {
             if (item is null) return;
-            if (!_driverService.OpenInBrowser(item.Latest?.DownloadUrl))
+            // Prefer the human-facing vendor support page; fall back to the direct
+            // download URL (used by the silent pipeline) when no page is known.
+            var url = !string.IsNullOrWhiteSpace(item.Latest?.SupportUrl)
+                ? item.Latest!.SupportUrl
+                : item.Latest?.DownloadUrl;
+            if (!_driverService.OpenInBrowser(url))
             {
                 _log.Warn($"No usable download URL for {item.Name}");
             }
