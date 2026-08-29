@@ -24,6 +24,7 @@ namespace KalOS.Views
         {
             BrowsersSection.Visibility = sender.SelectedItem == BrowsersSelectorItem ? Visibility.Visible : Visibility.Collapsed;
             SoftwareSection.Visibility = sender.SelectedItem == SoftwareSelectorItem ? Visibility.Visible : Visibility.Collapsed;
+            RuntimesSection.Visibility = sender.SelectedItem == RuntimesSelectorItem ? Visibility.Visible : Visibility.Collapsed;
         }
 
         protected override async void OnNavigatedTo(NavigationEventArgs e)

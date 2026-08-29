@@ -58,4 +58,22 @@ Options	=[00]IUSB4_GPP0	// Move ""*"" to the desired Option
         // the literal "Move \"*\"" text must not be counted).
         Assert.Equal(1, System.Text.RegularExpressions.Regex.Matches(output, @"\*\s*\[").Count);
     }
+
+    [Fact]
+    public void TestSerializeFullDoesNotMangleBiosDefaultLine()
+    {
+        // Regression: changing a setting to a value that equals the BIOS default
+        // used to corrupt the "BIOS Default" line (inserting a '*'), which SCEWIN
+        // rejects with "Syntax Error ... Unexpected ""BIOS Default""".
+        var changes = new[] { new BiosSettingChange("Adjust USB4 Bridge Resource", "IUSB4_GPP0 + IUSB4_GPP1") };
+        var output = ScewinParser.SerializeFull(ExportExample, changes);
+
+        // The BIOS Default line must be preserved verbatim (no '*' inserted).
+        Assert.Contains("BIOS Default\t=[02]IUSB4_GPP0 + IUSB4_GPP1", output);
+        Assert.DoesNotContain("BIOS Default\t=*", output);
+        Assert.DoesNotContain("MFG Default\t=*", output);
+
+        // The matching option entry is the only starred one.
+        Assert.Equal(1, System.Text.RegularExpressions.Regex.Matches(output, @"\*\s*\[").Count);
+    }
 }

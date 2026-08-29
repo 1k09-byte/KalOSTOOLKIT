@@ -18,20 +18,38 @@ namespace KalOS.Services
         bool IsNvidia);
 
     /// <summary>
+    /// Optional NVIDIA components to KEEP from a driver package during install.
+    /// When null, the package is stripped to the display driver only. The
+    /// display driver itself is always installed regardless of these flags.
+    /// </summary>
+    public sealed record NvidiaInstallComponents
+    {
+        public bool KeepHDAudio { get; init; }
+        public bool KeepPhysX { get; init; }
+        public bool KeepGeForceExperience { get; init; }
+        public bool KeepNvidiaApp { get; init; }
+
+        public static NvidiaInstallComponents DisplayOnly => new();
+    }
+
+    /// <summary>
     /// Silent driver installation backend. NVIDIA packages are extracted with a
     /// standalone 7-Zip runner (never the interactive setup.exe wizard), stripped
-    /// of every optional sub-package, and only the display INF is installed via
-    /// pnputil — no GeForce Experience, NVIDIA App, HD Audio bundle, PhysX, or
-    /// telemetry. After the install, NVIDIA-clean-install-grade cleanup runs:
-    /// container/tracker services are disabled, scheduled tasks removed, leftover
-    /// folders purged, and all older NVIDIA display driver-store packages deleted
-    /// (only the freshly installed one is kept).
+    /// of every optional sub-package the user did not ask to keep, and only the
+    /// display INF is installed via pnputil. Optional components (GeForce
+    /// Experience, NVIDIA App, HD Audio bundle, PhysX) are kept only when the user
+    /// selects them via <see cref="NvidiaInstallComponents"/>. After the install,
+    /// NVIDIA-clean-install-grade cleanup runs: container/tracker services are
+    /// disabled, scheduled tasks removed, leftover folders purged, and all older
+    /// NVIDIA display driver-store packages deleted (only the freshly installed
+    /// one is kept).
     /// </summary>
     public class DriverInstallService
     {
         private readonly LoggingService _log;
         private readonly ProcessManager _processManager;
         private readonly DriverDownloadService _downloadService;
+        private readonly RadeonSlimmerService _slimmer;
 
         /// <summary>
         /// Standalone 7-Zip runner (single exe, handles NVIDIA's self-extracting
@@ -49,11 +67,12 @@ namespace KalOS.Services
         /// <summary>7zr.exe is roughly 600 KB; anything much smaller means a failed download.</summary>
         private const long SevenZipRunnerMinBytes = 100_000;
 
-        public DriverInstallService(LoggingService log, ProcessManager processManager, DriverDownloadService downloadService)
+        public DriverInstallService(LoggingService log, ProcessManager processManager, DriverDownloadService downloadService, RadeonSlimmerService? slimmer = null)
         {
             _log = log;
             _processManager = processManager;
             _downloadService = downloadService;
+            _slimmer = slimmer ?? new RadeonSlimmerService();
             Directory.CreateDirectory(ToolsDir);
         }
 
@@ -148,7 +167,8 @@ namespace KalOS.Services
             string driverExePath,
             string extractDir,
             IProgress<string>? status = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            NvidiaInstallComponents? components = null)
         {
             _log.Info("Extracting NVIDIA driver package silently...");
             status?.Report("Extracting driver package silently...");
@@ -163,7 +183,7 @@ namespace KalOS.Services
                 return false;
             }
 
-            bool extracted = await TryExtractSelectiveAsync(extractor, driverExePath, extractDir);
+            bool extracted = await TryExtractSelectiveAsync(extractor, driverExePath, extractDir, components);
             if (!extracted)
             {
                 _log.Info("Selective extraction produced no display INF — falling back to full extraction.");
@@ -176,8 +196,8 @@ namespace KalOS.Services
                 return false;
             }
 
-            status?.Report("Stripping optional components from the package…");
-            StripPackageContents(extractDir);
+            status?.Report("Stripping unselected components from the package…");
+            StripPackageContents(extractDir, components);
 
             status?.Report("Installing display driver (display-only)...");
             await InstallViaPnpUtilWithRetryAsync(extractDir, FindDisplayInf, "NVIDIA");
@@ -365,8 +385,37 @@ namespace KalOS.Services
             status?.Report("Removing AMD telemetry and Radeon Software services...");
             await DebloatAmdAsync();
 
+            await MaybeLaunchRadeonSlimmerAsync(status, cancellationToken);
+
             status?.Report("Driver installed — stripped and debloated.");
             return true;
+        }
+
+        /// <summary>
+        /// Offers Post-Install slimming of the installed AMD components: makes
+        /// sure GSDragoon's Radeon Software Slimmer is present and launches it so
+        /// the user can trim the installed Radeon/AMD components interactively.
+        /// Non-fatal — a download failure never fails the driver install.
+        /// </summary>
+        private async Task MaybeLaunchRadeonSlimmerAsync(IProgress<string>? status, CancellationToken cancellationToken)
+        {
+            try
+            {
+                string? exe = await _slimmer.EnsureAsync(_log, status, cancellationToken);
+                if (exe != null)
+                {
+                    status?.Report("Opening Radeon Software Slimmer for optional Post-Install slimming…");
+                    _slimmer.Launch(exe, _log);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _log.Warn($"Could not launch Radeon Software Slimmer: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -495,12 +544,19 @@ namespace KalOS.Services
         /// extraction (7-Zip exits 0 even when no mask matches — the INF check
         /// is the real success signal).
         /// </summary>
-        private async Task<bool> TryExtractSelectiveAsync(string extractor, string driverExePath, string extractDir)
+        private async Task<bool> TryExtractSelectiveAsync(
+            string extractor,
+            string driverExePath,
+            string extractDir,
+            NvidiaInstallComponents? components = null)
         {
             try
             {
                 Directory.CreateDirectory(extractDir);
-                string includeArgs = string.Join(" ", SelectiveExtractIncludes.Select(p => $"\"{p}\""));
+                var includes = SelectiveExtractIncludes.ToList();
+                foreach (var folder in OptionalComponentFolders(components ?? NvidiaInstallComponents.DisplayOnly))
+                    includes.Add(folder + "\\*");
+                string includeArgs = string.Join(" ", includes.Select(p => $"\"{p}\""));
                 int exit = await _processManager.RunAsync(extractor,
                     $"x \"{driverExePath}\" -o\"{extractDir}\" -y {includeArgs}", TimeSpan.FromMinutes(10));
                 if (exit != 0)
@@ -541,26 +597,25 @@ namespace KalOS.Services
         }
 
         /// <summary>
-        /// Strips the extracted NVIDIA package to display-driver essentials using
-        /// an allowlist. Kept entries:
-        /// <list type="bullet">
-        ///   <item><c>Display.Driver</c> — the signed display driver</item>
-        ///   <item><c>NVI2</c> — installer metadata some INFs reference for catalog validation</item>
-        ///   <item>Root files: <c>setup.cfg</c>, <c>setup.exe</c>, <c>ListDevices.txt</c> — pnputil may reference these</item>
-        /// </list>
-        /// Everything else (HD Audio, PhysX, GFE, NVIDIA App, telemetry, EULAs) is
-        /// deleted so pnputil can never pull in anything beyond the display driver.
+        /// Strips the extracted NVIDIA package to the selected components using an
+        /// allowlist. The display driver (<c>Display.Driver</c>) and catalog
+        /// metadata (<c>NVI2</c>) are always kept. The caller chooses which extra
+        /// components (HD Audio, PhysX, GeForce Experience, NVIDIA App) to keep.
+        /// Everything unselected is deleted so pnputil can never pull in anything
+        /// beyond what was asked for. Passing null keeps the display driver only.
         /// </summary>
-        internal void StripPackageContents(string extractDir)
+        internal void StripPackageContents(string extractDir, NvidiaInstallComponents? components = null)
         {
             if (!Directory.Exists(extractDir)) return;
 
             // Directories to keep — everything else is a separate optional component
             var allowedDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
-                "Display.Driver",  // signed display driver
-                "NVI2",            // installer metadata / catalog references
+                "Display.Driver",  // signed display driver (always)
+                "NVI2",            // installer metadata / catalog references (always)
             };
+            foreach (var folder in OptionalComponentFolders(components ?? NvidiaInstallComponents.DisplayOnly))
+                allowedDirs.Add(folder);
 
             // Root files to keep — pnputil may need these for INF resolution
             var allowedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -587,6 +642,28 @@ namespace KalOS.Services
                 {
                     _log.Warn($"Could not strip '{entry.Name}': {ex.Message}");
                 }
+            }
+        }
+
+        /// <summary>
+        /// Top-level folder name(s) for each NVIDIA component the user chose to
+        /// keep. Multiple aliases are listed because folder casing/spacing varies
+        /// between driver versions (e.g. <c>HDAudio</c> vs <c>HD Audio</c>).
+        /// </summary>
+        private static IEnumerable<string> OptionalComponentFolders(NvidiaInstallComponents c)
+        {
+            if (c.KeepHDAudio)
+            {
+                yield return "HDAudio";
+                yield return "HD Audio";
+            }
+            if (c.KeepPhysX) yield return "PhysX";
+            if (c.KeepGeForceExperience) yield return "GFExperience";
+            if (c.KeepNvidiaApp)
+            {
+                yield return "NVIDIA App";
+                yield return "NVApp";
+                yield return "NVIDIAapp";
             }
         }
 

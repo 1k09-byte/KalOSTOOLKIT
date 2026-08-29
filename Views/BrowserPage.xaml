@@ -236,6 +236,7 @@
                              IsEnabled="{x:Bind ViewModel.IsScanning, Mode=OneWay, Converter={StaticResource InverseBoolConverter}}">
                     <SelectorBarItem x:Name="BrowsersSelectorItem" Text="Web Browsers" />
                     <SelectorBarItem x:Name="SoftwareSelectorItem" Text="External Software" />
+                    <SelectorBarItem x:Name="RuntimesSelectorItem" Text="System Runtimes" />
                 </SelectorBar>
 
                 <!-- Scanning overlay — mandatory, blocks interaction until first scan completes -->
@@ -273,6 +274,18 @@
                     <StackPanel x:Name="SoftwareSection" Visibility="Collapsed">
                         <ItemsControl ItemsSource="{x:Bind ViewModel.Software}" 
                                       ItemTemplate="{StaticResource SoftwareItemTemplate}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Vertical"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <!-- Runtimes Section -->
+                    <StackPanel x:Name="RuntimesSection" Visibility="Collapsed">
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.Runtimes}" 
+                                      ItemTemplate="{StaticResource RuntimePopupTemplate}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <StackPanel Orientation="Vertical"/>

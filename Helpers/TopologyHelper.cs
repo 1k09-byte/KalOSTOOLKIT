@@ -92,6 +92,7 @@ namespace KalOS.Helpers
             public int PhysicalCoreId { get; set; }
             public int EfficiencyClass { get; set; }
             public int L3CacheId { get; set; } // Identifies the CCD/CCX it belongs to
+            public int NumaNodeId { get; set; } = 0; // NUMA node this core belongs to
             // Windows Processor Group this logical processor belongs to. 0 for normal systems,
             // 1+ only on >64-thread CPUs where Windows splits logical processors across groups.
             // PCI MSI AssignmentSetOverride only addresses Group 0, so non-zero groups must be filtered.
@@ -118,15 +119,18 @@ namespace KalOS.Helpers
                     int l3CacheCounter = 0;
                     
                     var l3CacheMasks = new List<ulong>();
+                    // NUMA node → bitmask of logical processors on that node
+                    var numaNodeMasks = new List<(uint NodeNumber, ulong Mask)>();
 
-                    // First pass: Find L3 Caches
+                    // First pass: Find L3 Caches and NUMA Nodes
                     IntPtr ptrPass1 = buffer;
                     while (ptrPass1.ToInt64() < buffer.ToInt64() + returnLength)
                     {
                         var info = Marshal.PtrToStructure<SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(ptrPass1);
+                        IntPtr unionPtr = new IntPtr(ptrPass1.ToInt64() + 8);
+
                         if (info.Relationship == LOGICAL_PROCESSOR_RELATIONSHIP.RelationCache)
                         {
-                            IntPtr unionPtr = new IntPtr(ptrPass1.ToInt64() + 8);
                             var cache = Marshal.PtrToStructure<CACHE_RELATIONSHIP>(unionPtr);
                             if (cache.Level == 3)
                             {
@@ -134,6 +138,12 @@ namespace KalOS.Helpers
                                 l3CacheCounter++;
                             }
                         }
+                        else if (info.Relationship == LOGICAL_PROCESSOR_RELATIONSHIP.RelationNumaNode)
+                        {
+                            var numa = Marshal.PtrToStructure<NUMA_NODE_RELATIONSHIP>(unionPtr);
+                            numaNodeMasks.Add((numa.NodeNumber, (ulong)numa.GroupMask.Mask));
+                        }
+
                         ptrPass1 = new IntPtr(ptrPass1.ToInt64() + info.Size);
                     }
 
@@ -159,6 +169,17 @@ namespace KalOS.Helpers
                                 }
                             }
 
+                            // Determine NUMA node for this core
+                            int numaNode = 0;
+                            foreach (var (nodeNumber, nodeMask) in numaNodeMasks)
+                            {
+                                if ((nodeMask & mask) != 0)
+                                {
+                                    numaNode = (int)nodeNumber;
+                                    break;
+                                }
+                            }
+
                             // A single physical core can have multiple logical processors (SMT/HyperThreading)
                             for (int i = 0; i < 64; i++)
                             {
@@ -170,6 +191,7 @@ namespace KalOS.Helpers
                                         PhysicalCoreId = physicalCoreCounter,
                                         EfficiencyClass = processor.EfficiencyClass,
                                         L3CacheId = l3Id,
+                                        NumaNodeId = numaNode,
                                         ProcessorGroup = processor.GroupMask.Group
                                     });
                                 }

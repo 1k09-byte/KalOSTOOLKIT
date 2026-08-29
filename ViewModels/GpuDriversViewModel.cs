@@ -29,7 +29,6 @@ namespace KalOS.ViewModels
         public string Vendor => Gpu.Vendor;
         public bool IsNvidia => Gpu.IsNvidia;
         public bool IsAmd => Gpu.IsAmd;
-        public bool IsNvidiaOrAmd => IsNvidia || IsAmd;
 
         /// <summary>"Installed driver 32.0.15.5244" — exactly what WMI saw.</summary>
         public string InstalledText => $"Installed driver {Gpu.DriverVersion}";
@@ -48,9 +47,6 @@ namespace KalOS.ViewModels
 
         [ObservableProperty]
         private string _statusText = "Waiting to check…";
-
-        [ObservableProperty]
-        private bool _canCleanup = true;
 
         [ObservableProperty]
         private bool _isBusy;
@@ -111,7 +107,7 @@ namespace KalOS.ViewModels
                 DriverStatus.UpdateAvailable => "Update available",
                 DriverStatus.Unsupported => "No automated source for this adapter",
                 DriverStatus.Error => "Check failed",
-                _ => Vendor == "AMD" ? "Compare manually" : "Manual check required",
+                _ => "Download manually",
             };
         }
 
@@ -171,39 +167,16 @@ namespace KalOS.ViewModels
         private readonly GpuDetectionService _detection;
         private readonly DriverService _driverService;
         private readonly LoggingService _log;
-        private readonly DriverCleanupService _cleanupService;
 
         private CancellationTokenSource? _cts;
 
         public ObservableCollection<GpuDriverItem> Gpus { get; } = new();
-        
-        // --- Cleanup Options (Flat to bypass XAML WMC9999) ---
-        [ObservableProperty] private bool? _cleanupRemoveMonitors = true;
-        [ObservableProperty] private bool? _cleanupCreateRestorePoint = false;
-        [ObservableProperty] private bool? _cleanupRemoveVulkanRuntime = true;
-        [ObservableProperty] private bool? _cleanupRemoveNvidiaFolders = true;
-        [ObservableProperty] private bool? _cleanupRemovePhysX = true;
-        [ObservableProperty] private bool? _cleanupRemove3DTVPlay = true;
-        [ObservableProperty] private bool? _cleanupRemoveGeForceExperience = true;
-        [ObservableProperty] private bool? _cleanupRemoveNvidiaBroadcast = true;
-        [ObservableProperty] private bool? _cleanupRemoveNvidiaControlPanelDCH = true;
-        [ObservableProperty] private bool? _cleanupRemoveNvidiaShaderCache = true;
-        [ObservableProperty] private bool? _cleanupKeepNvidiaControlPanelSettings = false;
-        [ObservableProperty] private bool? _cleanupRemoveAmdFolders = true;
-        [ObservableProperty] private bool? _cleanupRemoveAmdKmpfd = true;
-        [ObservableProperty] private bool? _cleanupRemoveAmdAudioBus = true;
-        [ObservableProperty] private bool? _cleanupRemoveAmdCrimsonShaderCache = true;
-        [ObservableProperty] private bool? _cleanupRemoveAmdControlPanelDCH = true;
-        // ----------------------------------------------------
 
         [ObservableProperty]
         private bool _isChecking;
 
         [ObservableProperty]
         private bool _isInstalling;
-
-        [ObservableProperty]
-        private bool _isCleanupRunning;
 
         [ObservableProperty]
         private string _statusText = "Ready.";
@@ -224,12 +197,11 @@ namespace KalOS.ViewModels
         /// <summary>True once the first full check finished — used by the page to auto-check on first visit only.</summary>
         public bool HasBeenChecked { get; private set; }
 
-        public GpuDriversViewModel(GpuDetectionService detection, DriverService driverService, LoggingService log, DriverCleanupService cleanupService)
+        public GpuDriversViewModel(GpuDetectionService detection, DriverService driverService, LoggingService log)
         {
             _detection = detection;
             _driverService = driverService;
             _log = log;
-            _cleanupService = cleanupService;
 
             // Reclaim space from interrupted driver installs (crashed runs, power
             // loss, or older builds without cleanup). Safe here: no install can
@@ -326,7 +298,7 @@ namespace KalOS.ViewModels
         /// Runs an already-confirmed update for one GPU with per-row progress,
         /// then quietly re-checks that GPU so the row reflects the new state.
         /// </summary>
-        public async Task InstallAsync(GpuDriverItem? item)
+        public async Task InstallAsync(GpuDriverItem? item, NvidiaInstallComponents? nvidiaComponents = null)
         {
             if (item is null || !item.CanAutoInstall || IsWorking) return;
 
@@ -346,7 +318,7 @@ namespace KalOS.ViewModels
                     StatusText = $"{item.Name}: {p.Message}";
                 });
 
-                bool ok = await _driverService.UpdateAsync(item.Gpu, item.Latest!, progress, ct);
+                bool ok = await _driverService.UpdateAsync(item.Gpu, item.Latest!, progress, ct, nvidiaComponents);
 
                 if (ok)
                 {
@@ -379,72 +351,6 @@ namespace KalOS.ViewModels
                 item.EndBusy();
                 IsInstalling = false;
             }
-        }
-
-        public async Task RunCleanupAsync(GpuDriverItem item)
-        {
-            if (IsCleanupRunning) return;
-
-            IsCleanupRunning = true;
-            item.CanCleanup = false;
-            StatusText = $"{item.Name}: starting cleanup in background…";
-            _log.Info($"Starting background driver cleanup for {item.Name}...");
-
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    var options = new DriverCleanupOptions
-                    {
-                        RemoveMonitors = CleanupRemoveMonitors,
-                        CreateRestorePoint = CleanupCreateRestorePoint,
-                        RemoveVulkanRuntime = CleanupRemoveVulkanRuntime,
-                        RemoveNvidiaFolders = CleanupRemoveNvidiaFolders,
-                        RemovePhysX = CleanupRemovePhysX,
-                        Remove3DTVPlay = CleanupRemove3DTVPlay,
-                        RemoveGeForceExperience = CleanupRemoveGeForceExperience,
-                        RemoveNvidiaBroadcast = CleanupRemoveNvidiaBroadcast,
-                        RemoveNvidiaControlPanelDCH = CleanupRemoveNvidiaControlPanelDCH,
-                        RemoveNvidiaShaderCache = CleanupRemoveNvidiaShaderCache,
-                        KeepNvidiaControlPanelSettings = CleanupKeepNvidiaControlPanelSettings,
-                        RemoveAmdFolders = CleanupRemoveAmdFolders,
-                        RemoveAmdKmpfd = CleanupRemoveAmdKmpfd,
-                        RemoveAmdAudioBus = CleanupRemoveAmdAudioBus,
-                        RemoveAmdCrimsonShaderCache = CleanupRemoveAmdCrimsonShaderCache,
-                        RemoveAmdControlPanelDCH = CleanupRemoveAmdControlPanelDCH
-                    };
-
-                    await _cleanupService.RunCleanupAsync(options, item.IsNvidia, null, CancellationToken.None);
-
-                    _log.Success($"Driver cleanup completed in background for {item.Name}");
-
-                    ((App)App.Current).MainWindow?.DispatcherQueue?.TryEnqueue(async () =>
-                    {
-                        StatusText = $"{item.Name}: cleanup finished in background.";
-                        await CheckForUpdatesAsync();
-                    });
-                }
-                catch (Exception ex)
-                {
-                    _log.Error($"Background cleanup failed for {item.Name}: {ex.Message}");
-                    ((App)App.Current).MainWindow?.DispatcherQueue?.TryEnqueue(() =>
-                    {
-                        HasError = true;
-                        ErrorMessage = $"Background cleanup failed: {ex.Message}";
-                        StatusText = $"{item.Name}: background cleanup failed.";
-                    });
-                }
-                finally
-                {
-                    ((App)App.Current).MainWindow?.DispatcherQueue?.TryEnqueue(() =>
-                    {
-                        item.CanCleanup = true;
-                        IsCleanupRunning = false;
-                    });
-                }
-            });
-
-            await Task.CompletedTask;
         }
 
         private async Task RecheckSingleAsync(GpuDriverItem item, CancellationToken ct)

@@ -188,6 +188,7 @@ namespace KalOS
                 var value when value.Contains("sdio") || value.Contains("other driver") => typeof(SdioPage),
                 var value when value.Contains("bios") || value.Contains("uefi") || value.Contains("firmware") => typeof(BiosPage),
                 var value when value.Contains("affinity") || value.Contains("cpu") => typeof(AffinityManagerPage),
+
                 var value when value.Contains("personal") => typeof(PersonalizationPage),
                 var value when value.Contains("tweak") => typeof(AdditionalTweaksPage),
                 var value when value.Contains("visual") || value.Contains("effect") => typeof(VisualEffectsPage),

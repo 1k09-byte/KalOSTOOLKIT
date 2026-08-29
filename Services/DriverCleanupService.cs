@@ -41,15 +41,26 @@ namespace KalOS.Services
     {
         private readonly LoggingService _log;
         private readonly ProcessManager _processManager;
+        private readonly DriverDownloadService _downloadService;
 
         // Device setup class GUIDs used to target driver-store packages for removal.
         private const string DisplayClassGuid = "{4d36e968-e325-11ce-bfc1-08002be10318}";
         private const string MediaClassGuid = "{4d36e96c-e325-11ce-bfc1-08002be10318}";
 
-        public DriverCleanupService(LoggingService log, ProcessManager processManager)
+        // Official AMD Cleanup Utility (GPU-601). Interactive: removes all AMD
+        // graphics/audio drivers + software, creates a restore point, and strongly
+        // recommends running in safe mode (offers a reboot-into-safe-mode flow).
+        private const string AmdCleanupUtilityUrl = "https://drivers.amd.com/drivers/amdcleanuputility.exe";
+
+        private static readonly string AmdCleanupUtilityLocalPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "KalOS", "tools", "amdcleanuputility.exe");
+
+        public DriverCleanupService(LoggingService log, ProcessManager processManager, DriverDownloadService downloadService)
         {
             _log = log;
             _processManager = processManager;
+            _downloadService = downloadService;
         }
 
         public async Task RunCleanupAsync(DriverCleanupOptions options, bool isNvidia, IProgress<double>? progress, CancellationToken cancellationToken)
@@ -187,7 +198,17 @@ namespace KalOS.Services
 
         private async Task RunAmdCleanupAsync(DriverCleanupOptions options, Action<string> next)
         {
-            next("Uninstalling AMD Display Driver");
+            // Primary path: AMD's official Cleanup Utility (GPU-601) removes ALL
+            // AMD graphics + audio drivers and software, creates a restore point,
+            // and offers a reboot-into-safe-mode flow. Launch it for the user.
+            if (await TryLaunchAmdCleanupUtilityAsync())
+            {
+                next("Launched AMD Cleanup Utility — complete its prompts (reboot to safe mode recommended).");
+                return;
+            }
+
+            // Fallback: official utility unavailable → best-effort manual cleanup.
+            next("AMD Cleanup Utility unavailable — using built-in cleanup");
             await UninstallVendorDriverStoreAsync("Advanced Micro Devices|AMD", DisplayClassGuid);
 
             if (options.RemoveAmdAudioBus == true)
@@ -218,6 +239,53 @@ namespace KalOS.Services
             {
                 next("Deleting C:\\AMD");
                 ClearFolder("C:\\AMD", deleteRoot: true);
+            }
+        }
+
+        /// <summary>
+        /// Ensures the official AMD Cleanup Utility is available and launches it
+        /// visibly. Prefers the user's own copy in Downloads, then a previously
+        /// downloaded app copy, otherwise downloads it from AMD. Returns true when
+        /// it was launched. KalOS runs elevated, so the child inherits admin.
+        /// </summary>
+        private async Task<bool> TryLaunchAmdCleanupUtilityAsync()
+        {
+            string? exe = null;
+
+            string profile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            string userCopy = Path.Combine(profile, "Downloads", "amdcleanuputility.exe");
+            if (File.Exists(userCopy)) exe = userCopy;
+
+            if (exe == null && File.Exists(AmdCleanupUtilityLocalPath)) exe = AmdCleanupUtilityLocalPath;
+
+            if (exe == null)
+            {
+                try
+                {
+                    _log.Info("Downloading AMD Cleanup Utility from AMD...");
+                    await _downloadService.DownloadAsync(
+                        AmdCleanupUtilityUrl, AmdCleanupUtilityLocalPath,
+                        cancellationToken: CancellationToken.None);
+                    if (File.Exists(AmdCleanupUtilityLocalPath)) exe = AmdCleanupUtilityLocalPath;
+                }
+                catch (Exception ex)
+                {
+                    _log.Warn($"Could not download AMD Cleanup Utility: {ex.Message}");
+                }
+            }
+
+            if (exe == null || !File.Exists(exe)) return false;
+
+            try
+            {
+                _log.Info($"Launching AMD Cleanup Utility: {exe}");
+                Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true });
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _log.Warn($"Could not launch AMD Cleanup Utility: {ex.Message}");
+                return false;
             }
         }
 

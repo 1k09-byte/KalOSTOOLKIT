@@ -45,8 +45,6 @@
                             <FontIcon Glyph="&#xE895;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                         </controls:SettingsCard.HeaderIcon>
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Content="Cancel" Command="{x:Bind ViewModel.CancelCommand}"
-                                    Visibility="{x:Bind ViewModel.IsWorking, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
                             <Button Command="{x:Bind ViewModel.CheckForUpdatesCommand}"
                                     IsEnabled="{x:Bind ViewModel.CanCheck, Mode=OneWay}"
                                     Style="{StaticResource AccentButtonStyle}">
@@ -80,16 +78,11 @@
 
                                         <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind HasLatestText, Mode=OneWay, Converter={StaticResource BoolToVis}}">
                                             <TextBlock Text="{x:Bind LatestText, Mode=OneWay}" VerticalAlignment="Center" />
-                                            <Button Content="Open download page" Click="OpenPage_Click" Tag="{Binding}"
+                                            <Button Content="Download manually" Click="OpenPage_Click" Tag="{Binding}"
                                                     Visibility="{x:Bind ShowOpenPage, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
                                             <Button Content="Install update" Click="Install_Click" Tag="{Binding}"
                                                     Style="{StaticResource AccentButtonStyle}"
                                                     Visibility="{x:Bind CanAutoInstall, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
-                                        </StackPanel>
-
-                                        <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind IsNvidiaOrAmd, Mode=OneWay, Converter={StaticResource BoolToVis}}">
-                                            <TextBlock Text="DDU Cleanup" VerticalAlignment="Center" />
-                                            <Button Content="Uninstall &amp; Clean" Click="Cleanup_Click" Tag="{Binding}" IsEnabled="{x:Bind CanCleanup, Mode=OneWay}" />
                                         </StackPanel>
 
                                         <ProgressBar Maximum="100"
