@@ -327,16 +327,85 @@ namespace KalOS
                 FontSize = 11,
             });
 
+            // If this build ships OS changes (os-changes.json), offer to apply
+            // them right here. The manifest rides inside the update zip, so each
+            // release can change the OS without recompiling the app.
+            var osManifest = OsChangeService.LoadFromInstallDir();
+            var needsApply = osManifest != null && !OsChangeService.IsApplied(osManifest);
+
             var dialog = new ContentDialog
             {
                 Title = $"Update log — KalOS {rec.Version}",
                 Content = body,
-                PrimaryButtonText = "View apply log",
+                PrimaryButtonText = needsApply ? "Apply changes" : "View apply log",
+                SecondaryButtonText = needsApply ? "View apply log" : string.Empty,
                 CloseButtonText = "OK",
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = content.XamlRoot,
             };
+
+            if (needsApply && osManifest != null)
+            {
+                dialog.PrimaryButtonClick += (s, args) => ApplyOsChanges(dialog, osManifest, applyLogPath, args);
+            }
             _ = ShowUpdateLogDialogAsync(dialog, applyLogPath);
+        }
+
+        /// <summary>
+        /// Applies the update's os-changes.json manifest (the "Apply changes"
+        /// button on the update log popup), then reports the result and logs it
+        /// so "View apply log" shows what happened.
+        /// </summary>
+        private void ApplyOsChanges(ContentDialog dialog, OsChangeManifest manifest, string applyLogPath,
+            ContentDialogButtonClickEventArgs args)
+        {
+            args.Cancel = true;
+            dialog.IsPrimaryButtonEnabled = false;
+            dialog.IsSecondaryButtonEnabled = false;
+            if (_window?.Content is not FrameworkElement content || content.XamlRoot == null) return;
+
+            _ = Task.Run(() =>
+            {
+                // Run the registry/service writes off the UI thread; the app is
+                // elevated (requireAdministrator), so no UAC prompt appears.
+                var result = new OsChangeResult();
+                var ok = new OsChangeService().TryApply(manifest, result);
+
+                string logLine = ok
+                    ? $"[OK] Applied {result.Applied.Count} OS change(s) at {DateTime.Now:yyyy-MM-dd HH:mm:ss}: {string.Join("; ", result.Applied)}"
+                    : $"[FAILED] {result.Summary}: {string.Join("; ", result.Errors)}";
+                try { System.IO.File.AppendAllText(applyLogPath, logLine + Environment.NewLine); } catch { }
+
+                var details = new System.Text.StringBuilder();
+                details.AppendLine(result.Errors.Count > 0 ? "Applied:" : "All changes applied:");
+                foreach (var a in result.Applied) details.AppendLine("  • " + a);
+                if (result.Errors.Count > 0)
+                {
+                    details.AppendLine();
+                    details.AppendLine("Errors:");
+                    foreach (var e in result.Errors) details.AppendLine("  ✗ " + e);
+                }
+
+                // Show the result on the UI thread. ContentDialog buttons were
+                // cancelled, so hide it and swap in the result dialog.
+                dialog.DispatcherQueue.TryEnqueue(() =>
+                {
+                    dialog.Hide();
+                    var resultDialog = new ContentDialog
+                    {
+                        Title = ok ? "OS changes applied" : "Some OS changes failed",
+                        Content = new TextBlock
+                        {
+                            Text = details.ToString(),
+                            TextWrapping = TextWrapping.Wrap,
+                            FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Consolas"),
+                        },
+                        CloseButtonText = "OK",
+                        XamlRoot = content.XamlRoot,
+                    };
+                    _ = resultDialog.ShowAsync();
+                });
+            });
         }
 
         /// <summary>Reads the apply-log file so it can be shown inside the app.</summary>
