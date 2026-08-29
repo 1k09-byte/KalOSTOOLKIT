@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -105,6 +105,7 @@ namespace KalOS
             services.AddSingleton<KalOS.Services.Bios.IWmiClient, KalOS.Services.Bios.SystemManagementWmiClient>();
             services.AddSingleton<KalOS.Services.Bios.ScewinService>();
             services.AddSingleton<KalOS.Services.Bios.BiosProviderFactory>();
+            services.AddSingleton<KalOS.Services.Bios.BiosUpdateService>();
 
             // ── GPU driver stack ────────────────────────────────────────
             services.AddSingleton<GpuDetectionService>();
