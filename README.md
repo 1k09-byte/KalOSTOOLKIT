@@ -7,9 +7,9 @@ Publisher: **KalOS** ·
 ## Features
 
 - **Home** — System overview (CPU / GPU / memory / OS) plus Windows restore-point management (create, restore, list with empty state).
-- **Browsers & Software** — Installs Brave, Thorium, LibreWolf, Zen Browser, Discord, Steam, 7-Zip, Spotify via `winget` with a direct-download fallback when winget is unavailable or broken. Employs a mandatory structural registry scanner intercept that sweeps your installation for over 15 unique environment configurations (`.NET 6-9`, `Visual C++ 2005-2022`, DirectX, OpenAL, Java) and natively blocks software deployment until validation concludes. Browser extensions are force-installed via registry policy (Chromium) or `policies.json` + registry (Firefox family) and wiped on uninstall.
+- **Browsers & Software** — Installs Brave, Thorium, LibreWolf, Zen Browser, Discord, Steam, 7-Zip, Spotify via `winget` with a direct-download fallback when winget is unavailable or broken. Browser extensions are force-installed via registry policy (Chromium) or `policies.json` + registry (Firefox family) and wiped on uninstall.
 - **GPU Drivers** — _(work in progress)_ placeholder page under Hardware; the previous driver tooling was removed to restart the feature.
-- **Affinity Manager** — CPU/device interrupt optimization: MSI policies, advanced policies, P-core thread mapping, and per-device affinity configuration.
+- **Per-cpu-scheduling** — CPU/device interrupt optimization: MSI policies, advanced policies, P-core thread mapping, and per-device affinity configuration.
 - **BIOS Manager** — Export, edit offline, and re-apply current UEFI settings via vendor WMI with import/diff preview.
 - **Settings** — App theme (light/dark), window backdrop (Acrylic / Mica / Mica Alt / None), and custom title-bar icon — all persisted across launches.
 
@@ -22,7 +22,7 @@ powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/1k0
 ```
 
 
-The `install-kalos.ps1` script handles downloading and updating the application. It dynamically evaluates execution contexts for the required **.NET 9 Desktop Runtime**, immediately initiating a silent background fetch-and-install via `Invoke-WebRequest` to hydrate the machine without blocking deployment. It then fetches the newest `KalOS-v{version}-win-x64.zip` from GitHub Releases, extracts it to `%LOCALAPPDATA%\Programs\KalOS`, creates shortcuts, and can launch the app. The release is self-contained and includes the Windows App SDK runtime and hardware-monitor worker dependencies.  
+The `install-kalos.ps1` script handles downloading and updating the application. It checks for the required **.NET 9 Desktop Runtime** and offers to download and install it automatically when missing, then fetches the newest `KalOS-v{version}-win-x64.zip` from GitHub Releases, extracts it to `%LOCALAPPDATA%\Programs\KalOS`, creates shortcuts, and can launch the app. The release is self-contained and includes the Windows App SDK runtime and hardware-monitor worker dependencies. 
 
 To completely remove the app, run the `uninstall-kalos.ps1` script. This dedicated uninstaller safely terminates any running instances, removes the installation folder, deletes all shortcuts, and wipes the deployment clean.
 
