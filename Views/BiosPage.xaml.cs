@@ -24,6 +24,10 @@ public sealed partial class BiosPage : Page
         {
             await ViewModel.RefreshAsync();
         }
+        else if (ViewModel.BiosVersion == "Unknown")
+        {
+            await ViewModel.InitializeSystemInfoAsync();
+        }
     }
 
     private async void ApplyConfirmation_Click(object sender, RoutedEventArgs e)

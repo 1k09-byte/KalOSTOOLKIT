@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -17,16 +18,20 @@ public partial class BiosViewModel : ObservableObject
 {
     private readonly BiosProviderFactory _factory;
     private readonly ScewinService _scewin;
+    private readonly BiosUpdateService _updateService;
     private readonly LoggingService _log;
 
     private IBiosProvider? _provider;
     private CancellationTokenSource? _cts;
+    private CancellationTokenSource? _updateCts;
     private IReadOnlyList<BiosSetting>? _allSettings;
+    private BiosSystemInfo? _currentSystemInfo;
 
-    public BiosViewModel(BiosProviderFactory factory, ScewinService scewin, LoggingService log)
+    public BiosViewModel(BiosProviderFactory factory, ScewinService scewin, BiosUpdateService updateService, LoggingService log)
     {
         _factory = factory;
         _scewin = scewin;
+        _updateService = updateService;
         _log = log;
 
         _scewinPath = _scewin.BinaryPath ?? "";
@@ -53,6 +58,20 @@ public partial class BiosViewModel : ObservableObject
     [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private bool _showChangesOnly;
 
+    // ── BIOS Version & Update State ─────────────────────────────────────
+
+    [ObservableProperty] private string _biosVersion = "Unknown";
+    [ObservableProperty] private string _biosReleaseDate = "Unknown";
+    [ObservableProperty] private string _motherboard = "Unknown";
+    [ObservableProperty] private string _firmwareVendor = "Unknown";
+    [ObservableProperty] private string _smbiosVersion = "Unknown";
+    [ObservableProperty] private BiosUpdateStatus _biosUpdateStatus = BiosUpdateStatus.Unknown;
+    [ObservableProperty] private string _biosUpdateStatusText = "Click 'Check for updates' to verify.";
+    [ObservableProperty] private string _biosLatestVersion = "";
+    [ObservableProperty] private bool _isCheckingBiosUpdate;
+    [ObservableProperty] private string _biosVersionDescription = "Loading firmware details…";
+    [ObservableProperty] private string _biosUpdateNotes = "";
+
     public bool IsConfigured => _scewin.IsBinaryConfigured;
     public bool IsElevated => _scewin.IsElevated;
     public bool RefreshEnabled => !IsBusy && IsConfigured;
@@ -61,10 +80,44 @@ public partial class BiosViewModel : ObservableObject
     public int TotalCount => Settings.Count;
     public bool HasPendingChanges => PendingChanges.Count > 0;
 
+    public bool IsBiosUpToDate => BiosUpdateStatus == BiosUpdateStatus.UpToDate;
+    public bool HasBiosUpdate => BiosUpdateStatus == BiosUpdateStatus.UpdateAvailable;
+    public bool CanCheckBiosUpdate => !IsCheckingBiosUpdate;
+
+    public string BiosButtonGlyph => BiosUpdateStatus switch
+    {
+        BiosUpdateStatus.UpToDate => "\uE73E",       // Checkmark
+        BiosUpdateStatus.UpdateAvailable => "\uE896", // Download / Arrow
+        BiosUpdateStatus.Error => "\uE783",           // Warning triangle
+        _ => "\uE895",                                // Sync / Check
+    };
+
+    public string BiosButtonText => IsCheckingBiosUpdate ? "Checking…" : BiosUpdateStatus switch
+    {
+        BiosUpdateStatus.UpToDate => "Up to date",
+        BiosUpdateStatus.UpdateAvailable => $"Update available: {BiosLatestVersion}",
+        BiosUpdateStatus.Error => "Check failed · Retry",
+        _ => "Check for updates",
+    };
+
     partial void OnIsBusyChanged(bool value)
     {
         OnPropertyChanged(nameof(RefreshEnabled));
         OnPropertyChanged(nameof(ApplyEnabled));
+    }
+
+    partial void OnIsCheckingBiosUpdateChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanCheckBiosUpdate));
+        OnPropertyChanged(nameof(BiosButtonText));
+    }
+
+    partial void OnBiosUpdateStatusChanged(BiosUpdateStatus value)
+    {
+        OnPropertyChanged(nameof(IsBiosUpToDate));
+        OnPropertyChanged(nameof(HasBiosUpdate));
+        OnPropertyChanged(nameof(BiosButtonGlyph));
+        OnPropertyChanged(nameof(BiosButtonText));
     }
 
     partial void OnSearchTextChanged(string value) => ApplyFilter();
@@ -89,6 +142,77 @@ public partial class BiosViewModel : ObservableObject
     // ── Commands ───────────────────────────────────────────────────────
 
     [RelayCommand]
+    public async Task CheckBiosUpdateAsync()
+    {
+        if (IsCheckingBiosUpdate) return;
+
+        _updateCts?.Dispose();
+        var cts = _updateCts = new CancellationTokenSource();
+        var ct = cts.Token;
+
+        IsCheckingBiosUpdate = true;
+        BiosUpdateStatus = BiosUpdateStatus.Checking;
+        BiosUpdateStatusText = "Checking for BIOS updates…";
+
+        try
+        {
+            var systemInfo = _currentSystemInfo ?? await _factory.GetSystemInfoAsync();
+            _currentSystemInfo = systemInfo;
+
+            UpdateSystemInfoProperties(systemInfo);
+
+            var result = await _updateService.CheckBiosVersionAsync(systemInfo, ct);
+            BiosUpdateStatus = result.Status;
+            BiosLatestVersion = result.LatestVersion ?? systemInfo.BiosVersion;
+            BiosUpdateStatusText = result.StatusMessage ?? "Check complete.";
+            BiosUpdateNotes = result.Notes ?? "";
+
+            _log.Info($"BIOS update check completed: Status={BiosUpdateStatus}, Installed={systemInfo.BiosVersion}, Latest={BiosLatestVersion}");
+        }
+        catch (OperationCanceledException)
+        {
+            BiosUpdateStatusText = "Check cancelled.";
+            BiosUpdateStatus = BiosUpdateStatus.Unknown;
+        }
+        catch (Exception ex)
+        {
+            _log.Warn($"BIOS update check failed: {ex.Message}");
+            BiosUpdateStatus = BiosUpdateStatus.Error;
+            BiosUpdateStatusText = $"Check failed: {ex.Message}";
+        }
+        finally
+        {
+            IsCheckingBiosUpdate = false;
+        }
+    }
+
+    public async Task InitializeSystemInfoAsync()
+    {
+        try
+        {
+            var systemInfo = await _factory.GetSystemInfoAsync();
+            _currentSystemInfo = systemInfo;
+            UpdateSystemInfoProperties(systemInfo);
+            await CheckBiosUpdateAsync();
+        }
+        catch (Exception ex)
+        {
+            _log.Warn($"Failed to initialize BIOS system info: {ex.Message}");
+        }
+    }
+
+    private void UpdateSystemInfoProperties(BiosSystemInfo systemInfo)
+    {
+        HardwareLine = $"{systemInfo.Manufacturer} {systemInfo.Model} · BIOS {systemInfo.BiosVersion}";
+        BiosVersion = systemInfo.BiosVersion;
+        BiosReleaseDate = systemInfo.BiosReleaseDate;
+        Motherboard = $"{systemInfo.BaseBoardManufacturer} {systemInfo.BaseBoardProduct}".Trim();
+        FirmwareVendor = systemInfo.FirmwareVendor;
+        SmbiosVersion = systemInfo.SmbiosVersion;
+        BiosVersionDescription = $"Installed: {systemInfo.BiosVersion} (Released: {systemInfo.BiosReleaseDate}) · Motherboard: {Motherboard}";
+    }
+
+    [RelayCommand]
     public async Task RefreshAsync()
     {
         _cts?.Dispose();
@@ -101,7 +225,9 @@ public partial class BiosViewModel : ObservableObject
         try
         {
             var systemInfo = await _factory.GetSystemInfoAsync();
-            HardwareLine = $"{systemInfo.Manufacturer} {systemInfo.Model} · BIOS {systemInfo.BiosVersion}";
+            _currentSystemInfo = systemInfo;
+            UpdateSystemInfoProperties(systemInfo);
+            _ = CheckBiosUpdateAsync();
 
             _provider ??= await _factory.CreateAsync();
             VendorStatus = _provider.DisplayName;
