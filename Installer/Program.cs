@@ -1,7 +1,5 @@
 using System;
 using System.Diagnostics;
-using System.IO;
-using System.Net;
 using System.Text;
 
 Console.OutputEncoding = Encoding.UTF8;
@@ -13,38 +11,22 @@ Console.WriteLine("╚═══════════════════�
 Console.ResetColor();
 Console.WriteLine();
 
-string scriptUrl = "https://raw.githubusercontent.com/1k09-byte/KalOSTOOLKIT/main/install-kalos.ps1";
-string scriptPath = Path.Combine(Path.GetTempPath(), "kalos-install.ps1");
-
-// Download the install script
+// Step 1: Set execution policy
 Console.ForegroundColor = ConsoleColor.White;
-Console.WriteLine("Downloading install script...");
+Console.WriteLine("Setting execution policy...");
 Console.ResetColor();
 
-try
-{
-    using var client = new WebClient();
-    client.DownloadFile(scriptUrl, scriptPath);
-}
-catch (Exception ex)
-{
-    Console.ForegroundColor = ConsoleColor.Red;
-    Console.WriteLine($"Failed to download install script: {ex.Message}");
-    Console.ResetColor();
-    Console.WriteLine("Press any key to exit...");
-    Console.ReadKey(true);
-    return;
-}
-
-Console.WriteLine("Script downloaded. Starting installation...");
+RunPowerShell("Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope CurrentUser -Force");
 Console.WriteLine();
 
-// Run the script with -InstallDotNetRuntime to auto-install dependencies
-bool success = RunPowerShell(
-    $"-ExecutionPolicy Bypass -NoProfile -File \"{scriptPath}\" -InstallDotNetRuntime");
+// Step 2: Install KalOS
+Console.ForegroundColor = ConsoleColor.White;
+Console.WriteLine("Installing KalOS...");
+Console.ResetColor();
+Console.WriteLine();
 
-// Clean up temp script
-try { File.Delete(scriptPath); } catch { }
+bool success = RunPowerShell(
+    "irm https://raw.githubusercontent.com/1k09-byte/KalOSTOOLKIT/main/install-kalos.ps1 | iex");
 
 Console.WriteLine();
 
@@ -66,7 +48,7 @@ else
     Console.ReadKey(true);
 }
 
-static bool RunPowerShell(string arguments)
+static bool RunPowerShell(string command)
 {
     try
     {
@@ -75,7 +57,7 @@ static bool RunPowerShell(string arguments)
             StartInfo = new ProcessStartInfo
             {
                 FileName = "powershell.exe",
-                Arguments = arguments,
+                Arguments = $"-ExecutionPolicy Bypass -NoProfile -Command \"{command}\"",
                 UseShellExecute = false,
                 CreateNoWindow = false,
                 RedirectStandardOutput = true,
