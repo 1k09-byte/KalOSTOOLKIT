@@ -1,5 +1,3 @@
-﻿using System;
-using System.Collections.Generic;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using KalOS.ViewModels;
@@ -15,50 +13,11 @@ namespace KalOS.Views
         {
             ViewModel = App.Services.GetRequiredService<AffinityManagerViewModel>();
             this.Resources["CategoryToIconConverter"] = new CategoryToIconConverter();
-            this.Resources["MsiGlyphConverter"] = new MsiGlyphConverter();
             this.Resources["MsiColorConverter"] = new MsiColorConverter();
-            this.Resources["PriorityColorConverter"] = new PriorityColorConverter();
-            this.Resources["CoreKindColorConverter"] = new CoreKindColorConverter();
-            this.Resources["NullToCollapsedConverter"] = new NullToCollapsedConverter();
             this.InitializeComponent();
 
             // Source must be set in code because {x:Bind} is not allowed inside <Page.Resources>.
             DeviceGroups.Source = ViewModel.GroupedDevices;
-
-            // Keep the category chips in sync when the selection changes from
-            // anywhere else (e.g. programmatic reset).
-            ViewModel.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName == nameof(AffinityManagerViewModel.SelectedCategory))
-                {
-                    DispatcherQueue.TryEnqueue(SyncCategoryChips);
-                }
-            };
-            SyncCategoryChips();
-        }
-
-        private void CategoryChip_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
-        {
-            if (sender is Microsoft.UI.Xaml.Controls.Primitives.ToggleButton chip && chip.Tag is string label)
-            {
-                var category = ViewModel.CategoryFilters.FirstOrDefault(f => f.Label == label).Category ?? "All";
-                ViewModel.SelectedCategory = category;
-                SyncCategoryChips();
-            }
-        }
-
-        private void SyncCategoryChips()
-        {
-            void Set(Microsoft.UI.Xaml.Controls.Primitives.ToggleButton? chip, bool selected)
-            {
-                if (chip != null) chip.IsChecked = selected;
-            }
-
-            Set(ChipAll,     ViewModel.SelectedCategory == "All");
-            Set(ChipGpu,     ViewModel.SelectedCategory == "Graphics Cards");
-            Set(ChipAudio,   ViewModel.SelectedCategory == "Audio Controllers");
-            Set(ChipNetwork, ViewModel.SelectedCategory == "Network Interface Controllers");
-            Set(ChipXhci,    ViewModel.SelectedCategory == "XHCI Controllers");
         }
 
         private async void CardButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
@@ -142,27 +101,6 @@ namespace KalOS.Views
             }
         }
 
-        /// <summary>Restores every device to Windows defaults after a confirmation.</summary>
-        private async void RestoreAll_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
-        {
-            var xamlRoot = this.Content?.XamlRoot;
-            if (xamlRoot == null || ViewModel.AllDevices.Count == 0) return;
-
-            var dlg = new Microsoft.UI.Xaml.Controls.ContentDialog
-            {
-                Title = "Restore all devices?",
-                Content = $"Clear the MSI/affinity overrides on all {ViewModel.AllDevices.Count} listed devices and let Windows pick their defaults again.\n\nChanges take effect after the devices are restarted or the PC reboots.",
-                PrimaryButtonText = "Restore all",
-                CloseButtonText = "Cancel",
-                DefaultButton = Microsoft.UI.Xaml.Controls.ContentDialogButton.Close,
-                XamlRoot = xamlRoot
-            };
-            var result = await dlg.ShowAsync();
-            if (result != Microsoft.UI.Xaml.Controls.ContentDialogResult.Primary) return;
-
-            ViewModel.RestoreAll();
-        }
-
         /// <summary>Asks whether to restart the device now or defer to the next reboot.</summary>
         private async System.Threading.Tasks.Task<bool> ConfirmRestartDialog(PciDeviceItem item)
         {
@@ -228,97 +166,20 @@ namespace KalOS.Views
         public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
     }
 
-    /// <summary>Check mark when MSI is on, quiet "off" cross when it isn't.</summary>
-    public class MsiGlyphConverter : Microsoft.UI.Xaml.Data.IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, string language)
-            => value is true ? "\uE73E" : "\uE711";
-        public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
-    }
-
-    /// <summary>
-    /// Theme-aware badge brush lookup. Resolves semantic brushes (SuccessBrush /
-    /// ErrorBrush / WarningBrush / MutedTextBrush) from the merged Brushes
-    /// dictionary for the app's current Light/Dark theme so badges stay legible
-    /// in both themes.
-    /// </summary>
-    internal static class BadgeBrush
-    {
-        public static Microsoft.UI.Xaml.Media.Brush? Get(string key)
-        {
-            try
-            {
-                var appResources = Microsoft.UI.Xaml.Application.Current.Resources;
-                var theme = Microsoft.UI.Xaml.ElementTheme.Dark;
-                if (Microsoft.UI.Xaml.Application.Current is App app && app.MainWindow?.Content is Microsoft.UI.Xaml.FrameworkElement fe)
-                {
-                    theme = fe.ActualTheme;
-                }
-
-                var themeKey = theme == Microsoft.UI.Xaml.ElementTheme.Light ? "Light" : "Dark";
-                if (appResources.ThemeDictionaries.TryGetValue(themeKey, out var dictValue)
-                    && dictValue is Microsoft.UI.Xaml.ResourceDictionary dict)
-                {
-                    if (dict.TryGetValue(key, out var v) && v is Microsoft.UI.Xaml.Media.Brush b)
-                    {
-                        return b;
-                    }
-                }
-
-                if (appResources.TryGetValue(key, out var fallback) && fallback is Microsoft.UI.Xaml.Media.Brush fb)
-                {
-                    return fb;
-                }
-            }
-            catch
-            {
-                // Resource lookup failure — callers fall back to default foreground.
-            }
-            return null;
-        }
-    }
-
-    /// <summary>MSI badge color: green when enabled, red when disabled.</summary>
     public class MsiColorConverter : Microsoft.UI.Xaml.Data.IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, string language)
-            => value is true ? BadgeBrush.Get("SuccessBrush")! : BadgeBrush.Get("ErrorBrush")!;
-        public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
-    }
-
-    /// <summary>
-    /// Priority chip color: High = warning gold, Normal = success green,
-    /// Low = error red, Undefined = muted.
-    /// </summary>
-    public class PriorityColorConverter : Microsoft.UI.Xaml.Data.IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, string language)
         {
-            var key = (value as string) switch
+            if (value is bool isEnabled)
             {
-                "High"   => "WarningBrush",
-                "Normal" => "SuccessBrush",
-                "Low"    => "ErrorBrush",
-                _        => "MutedTextBrush",
-            };
-            return BadgeBrush.Get(key)!;
+                // Return vibrant green if MSI is enabled, subdued gray/red if line-based
+                return isEnabled 
+                    ? new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 46, 160, 67))
+                    : new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 200, 60, 60));
+            }
+            return new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
         }
         public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
     }
-
-    /// <summary>P-core = accent blue dot, E-core = muted dot.</summary>
-    public class CoreKindColorConverter : Microsoft.UI.Xaml.Data.IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, string language)
-            => (value as string) == "E" ? BadgeBrush.Get("MutedTextBrush")! : BadgeBrush.Get("InfoBrush")!;
-        public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
-    }
-
-    /// <summary>Collapsed while null (used for the topology summary card).</summary>
-    public class NullToCollapsedConverter : Microsoft.UI.Xaml.Data.IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, string language)
-            => value == null ? Microsoft.UI.Xaml.Visibility.Collapsed : Microsoft.UI.Xaml.Visibility.Visible;
-        public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
-    }
 }
+

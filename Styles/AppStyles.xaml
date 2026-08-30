@@ -54,12 +54,4 @@
         <Setter Property="HorizontalScrollMode" Value="Disabled" />
     </Style>
 
-    <!-- ═══════════════════════════════════════════════════════════
-         Navigation — tighter sidebar items
-         ═══════════════════════════════════════════════════════════ -->
-    <Style x:Key="CompactNavItemStyle" TargetType="NavigationViewItem">
-        <Setter Property="Padding" Value="0,6,8,6" />
-        <Setter Property="Margin" Value="0,0" />
-    </Style>
-
 </ResourceDictionary>

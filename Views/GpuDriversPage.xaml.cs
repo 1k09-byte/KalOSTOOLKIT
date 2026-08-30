@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using KalOS.Models;
 using KalOS.Services;
@@ -108,26 +108,78 @@ public sealed partial class GpuDriversPage : Page
             {
                 return;
             }
+
+            await ViewModel.InstallAsync(item, components);
+            return;
         }
-        else if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+
+        if (item.IsAmd)
+        {
+            await ViewModel.PrepareAndOpenAmdSlimmerAsync(item, RootPage.XamlRoot);
+            return;
+        }
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
         {
             return;
         }
 
-        await ViewModel.InstallAsync(item, components);
+        await ViewModel.InstallAsync(item);
+        }
+    }
+
+
+
+
+
+    private async void PrimaryAction_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement elem && elem.Tag is GpuDriverItem item)
+        {
+            if (item.Status == DriverStatus.UpToDate)
+            {
+                await ViewModel.RunAmdPostInstallDebloatCommand.ExecuteAsync(null);
+            }
+            else
+            {
+                Install_Click(sender, e);
+            }
         }
     }
 
     private void OpenPage_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is Button btn && btn.Tag is GpuDriverItem item)
+        if (sender is FrameworkElement elem && elem.Tag is GpuDriverItem item)
         {
             ViewModel.OpenDownloadPage(item);
         }
+    }
+
+    private async void RunAmdCleanup_Click(object sender, RoutedEventArgs e)
+    {
+        await ViewModel.RunAmdCleanupCommand.ExecuteAsync(null);
+    }
+
+    private async void RunAmdAutoDetect_Click(object sender, RoutedEventArgs e)
+    {
+        await ViewModel.UpdateAmdOfficialCommand.ExecuteAsync(null);
     }
 
     private void ErrorInfoBar_CloseClick(Microsoft.UI.Xaml.Controls.InfoBar sender, object args)
     {
         ViewModel.ClearError();
     }
+
+    private async void GpuAudio_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (sender is ToggleSwitch ts)
+        {
+            if (ts.IsOn != ViewModel.IsGpuAudioEnabled)
+            {
+                await ViewModel.ToggleGpuAudioAsync();
+            }
+        }
+    }
 }
+
+

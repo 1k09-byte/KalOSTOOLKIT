@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -217,38 +217,67 @@ namespace KalOS.Services
         /// <summary>
         /// Locates the display INF inside an extracted AMD Adrenalin package.
         /// AMD uses <c>Packages\Drivers\Display\**\*.inf</c> in recent releases.
-        /// </summary>
-        internal static string? FindAmdDisplayInf(string extractedDir)
+        internal static readonly string[] SelectiveExtractIncludes =
         {
-            if (!Directory.Exists(extractedDir)) return null;
+            "Display.Driver\\*",
+            "NVI2\\*",
+            "Packages\\Drivers\\Display\\*",
+            "Packages\\Drivers\\Display2\\*",
+            "Drivers\\Display\\*",
+            "Drivers\\Display2\\*",
+            "setup.cfg",
+            "setup.exe",
+            "ListDevices.txt",
+        };
 
-            // Modern Adrenalin layout: Packages/Drivers/Display/<arch>/<infname>.inf
-            var displayDir = Path.Combine(extractedDir, "Packages", "Drivers", "Display");
-            if (Directory.Exists(displayDir))
+        /// <summary>
+        /// Locates all display INFs inside extracted AMD packages (covering RDNA 3 in Display and RDNA 1/2 in Display2).
+        /// </summary>
+        internal static List<string> FindAllAmdDisplayInfs(string extractedDir)
+        {
+            var results = new List<string>();
+            if (!Directory.Exists(extractedDir)) return results;
+
+            // Search for primary display driver INFs (u0*.inf) in Display and Display2
+            foreach (var sub in new[] { "Display2", "Display" })
             {
-                var inf = Directory.GetFiles(displayDir, "*.inf", SearchOption.AllDirectories)
-                    .FirstOrDefault();
-                if (inf != null) return inf;
+                var dir = Path.Combine(extractedDir, "Packages", "Drivers", sub);
+                if (Directory.Exists(dir))
+                {
+                    var infs = Directory.GetFiles(dir, "*.inf", SearchOption.AllDirectories)
+                        .Where(f => Path.GetFileName(f).StartsWith("u0", StringComparison.OrdinalIgnoreCase) ||
+                                    f.Contains("WT6A_INF", StringComparison.OrdinalIgnoreCase));
+                    results.AddRange(infs);
+                }
             }
 
-            // Some older packages put the INF at Drivers/Display directly
-            var altDir = Path.Combine(extractedDir, "Drivers", "Display");
+            // Also check alternate root Drivers/Display
+            var altDir = Path.Combine(extractedDir, "Drivers");
             if (Directory.Exists(altDir))
             {
-                var inf = Directory.GetFiles(altDir, "*.inf", SearchOption.AllDirectories)
-                    .FirstOrDefault();
-                if (inf != null) return inf;
+                var infs = Directory.GetFiles(altDir, "*.inf", SearchOption.AllDirectories)
+                    .Where(f => Path.GetFileName(f).StartsWith("u0", StringComparison.OrdinalIgnoreCase) ||
+                                f.Contains("WT6A_INF", StringComparison.OrdinalIgnoreCase));
+                results.AddRange(infs);
             }
 
-            // Last resort: any .inf whose name contains "display" or starts with "u0"
-            // (AMD uses u0XXXXXX.inf naming for their display drivers)
-            return Directory.GetFiles(extractedDir, "*.inf", SearchOption.AllDirectories)
-                .FirstOrDefault(f =>
-                {
-                    var name = Path.GetFileName(f);
-                    return name.StartsWith("u0", StringComparison.OrdinalIgnoreCase)
-                        || name.Contains("display", StringComparison.OrdinalIgnoreCase);
-                });
+            if (results.Count == 0)
+            {
+                var allInfs = Directory.GetFiles(extractedDir, "*.inf", SearchOption.AllDirectories)
+                    .Where(f => Path.GetFileName(f).StartsWith("u0", StringComparison.OrdinalIgnoreCase) ||
+                                f.Contains("Display", StringComparison.OrdinalIgnoreCase));
+                results.AddRange(allInfs);
+            }
+
+            // Prioritize primary u0*.inf drivers first so pnputil binds the GPU
+            return results.Distinct(StringComparer.OrdinalIgnoreCase)
+                          .OrderByDescending(f => Path.GetFileName(f).StartsWith("u0", StringComparison.OrdinalIgnoreCase))
+                          .ToList();
+        }
+
+        internal static string? FindAmdDisplayInf(string extractedDir)
+        {
+            return FindAllAmdDisplayInfs(extractedDir).FirstOrDefault();
         }
 
         /// <summary>
@@ -260,18 +289,14 @@ namespace KalOS.Services
         {
             if (!Directory.Exists(extractDir)) return;
 
-            // AMD allowlist: directories and root files required for display-only install
             var allowedDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
-                "Packages",   // contains Drivers/Display; we prune inside below
-                "Drivers",    // alternate layout
-                "Config",     // installer config metadata
+                "Packages", "Drivers", "Config",
             };
 
             var allowedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
-                "Setup.exe", "InstallManagerApp.exe", "AMDCleanupUtility.exe",
-                "Bin64",  // kept for the top-level reference
+                "Setup.exe", "InstallManagerApp.exe", "AMDCleanupUtility.exe", "Bin64",
             };
 
             foreach (var entry in new DirectoryInfo(extractDir).EnumerateFileSystemInfos().ToArray())
@@ -290,7 +315,7 @@ namespace KalOS.Services
                 }
             }
 
-            // Inside Packages, keep only Drivers/Display; strip everything else
+            // Inside Packages, keep Drivers/Display and Drivers/Display2; strip everything else
             var packagesDir = Path.Combine(extractDir, "Packages");
             if (Directory.Exists(packagesDir))
             {
@@ -298,13 +323,13 @@ namespace KalOS.Services
                 {
                     if (string.Equals(entry.Name, "Drivers", StringComparison.OrdinalIgnoreCase))
                     {
-                        // Inside Drivers, keep only Display
                         var driversDir = Path.Combine(packagesDir, "Drivers");
                         if (Directory.Exists(driversDir))
                         {
                             foreach (var driverEntry in new DirectoryInfo(driversDir).EnumerateFileSystemInfos().ToArray())
                             {
-                                if (string.Equals(driverEntry.Name, "Display", StringComparison.OrdinalIgnoreCase))
+                                if (string.Equals(driverEntry.Name, "Display", StringComparison.OrdinalIgnoreCase) ||
+                                    string.Equals(driverEntry.Name, "Display2", StringComparison.OrdinalIgnoreCase))
                                     continue;
                                 try
                                 {
@@ -333,6 +358,56 @@ namespace KalOS.Services
             }
         }
 
+
+        /// <summary>
+        /// Extracts an AMD Adrenalin package silently, strips to display-only,
+        /// installs via pnputil, then runs AMD-specific debloat.
+        /// </summary>
+        /// <summary>
+        /// Robustly extracts an AMD Adrenalin installer package using 7zr (selective or full)
+        /// or AMD's native self-extractor flag (-extract).
+        /// </summary>
+        public async Task<bool> ExtractAmdInstallerAsync(
+            string driverExePath,
+            string extractDir,
+            IProgress<string>? status = null,
+            CancellationToken cancellationToken = default)
+        {
+            _log.Info("Extracting AMD driver package silently...");
+            status?.Report("Extracting AMD driver package silently...");
+
+            cancellationToken.ThrowIfCancellationRequested();
+            Directory.CreateDirectory(extractDir);
+
+            string? extractor = await GetSilentExtractorAsync(cancellationToken);
+            if (extractor is null)
+            {
+                _log.Warn("No standalone 7zr extractor available; trying AMD native self-extractor...");
+                return await TryAmdSelfExtractAsync(driverExePath, extractDir);
+            }
+
+            bool extracted = await TryExtractAsync(extractor, driverExePath, extractDir);
+            if (!extracted)
+            {
+                _log.Info("Full 7z extraction returned non-zero; trying selective extraction...");
+                extracted = await TryExtractSelectiveAsync(extractor, driverExePath, extractDir);
+            }
+            if (!extracted)
+            {
+                _log.Info("7z extraction failed; trying AMD native self-extractor...");
+                extracted = await TryAmdSelfExtractAsync(driverExePath, extractDir);
+            }
+
+            if (!extracted)
+            {
+                _log.Error("Failed to extract AMD driver package.");
+                status?.Report("Extraction failed — package could not be unpacked.");
+                return false;
+            }
+
+            return true;
+        }
+
         /// <summary>
         /// Extracts an AMD Adrenalin package silently, strips to display-only,
         /// installs via pnputil, then runs AMD-specific debloat.
@@ -343,38 +418,9 @@ namespace KalOS.Services
             IProgress<string>? status = null,
             CancellationToken cancellationToken = default)
         {
-            _log.Info("Extracting AMD driver package silently...");
-            status?.Report("Extracting AMD driver package silently...");
+            bool extracted = await ExtractAmdInstallerAsync(driverExePath, extractDir, status, cancellationToken);
+            if (!extracted) return false;
 
-            cancellationToken.ThrowIfCancellationRequested();
-            string? extractor = await GetSilentExtractorAsync(cancellationToken);
-            if (extractor is null)
-            {
-                _log.Error("No silent archive extractor available for AMD package.");
-                status?.Report("Installation failed — no silent extractor available.");
-                return false;
-            }
-
-            bool extracted = await TryExtractSelectiveAsync(extractor, driverExePath, extractDir);
-            if (!extracted)
-            {
-                _log.Info("Selective extraction produced no display INF — trying full extraction...");
-                extracted = await TryExtractAsync(extractor, driverExePath, extractDir);
-            }
-            if (!extracted)
-            {
-                // AMD packages are EXE self-extractors; try extracting with the
-                // package itself using its silent extraction flag.
-                _log.Info("7z extraction failed; trying AMD self-extractor...");
-                extracted = await TryAmdSelfExtractAsync(driverExePath, extractDir);
-            }
-
-            if (!extracted)
-            {
-                _log.Error("Failed to extract AMD driver package");
-                status?.Report("Installation failed — package could not be extracted.");
-                return false;
-            }
 
             status?.Report("Stripping AMD package to display driver only…");
             StripAmdPackageContents(extractDir);
@@ -450,9 +496,10 @@ namespace KalOS.Services
         /// packages its SFX shell ignores -x and pops the interactive
         /// "Specify the folder where the driver files are to be saved" wizard.
         /// </summary>
-        private async Task<string?> GetSilentExtractorAsync(CancellationToken cancellationToken)
+        public async Task<string?> GetSilentExtractorAsync(CancellationToken cancellationToken = default)
         {
             if (IsValidSevenZipRunner(SevenZipRunnerPath))
+
                 return SevenZipRunnerPath;
 
             try
@@ -515,25 +562,7 @@ namespace KalOS.Services
             }
         }
 
-        /// <summary>
-        /// Patterns extracted from a driver package before any stripping. Modern
-        /// NVIDIA packages ship the display driver in a root <c>Display.Driver</c>
-        /// folder (some also nest a <c>Display.Driver\Display.Driver</c>
-        /// subfolder, covered by the recursive <c>\*</c> mask); AMD uses
-        /// <c>Packages\Drivers\Display</c>, with older layouts at
-        /// <c>Drivers\Display</c>. <c>NVI2</c> and the root config files are kept
-        /// because pnputil may reference them for catalog validation.
-        /// </summary>
-        internal static readonly string[] SelectiveExtractIncludes =
-        {
-            "Display.Driver\\*",
-            "NVI2\\*",
-            "Packages\\Drivers\\Display\\*",
-            "Drivers\\Display\\*",
-            "setup.cfg",
-            "setup.exe",
-            "ListDevices.txt",
-        };
+
 
         /// <summary>
         /// Extracts only the display-driver payload (plus installer metadata)
@@ -559,7 +588,7 @@ namespace KalOS.Services
                 string includeArgs = string.Join(" ", includes.Select(p => $"\"{p}\""));
                 int exit = await _processManager.RunAsync(extractor,
                     $"x \"{driverExePath}\" -o\"{extractDir}\" -y {includeArgs}", TimeSpan.FromMinutes(10));
-                if (exit != 0)
+                if (exit != 0 && exit != 1)
                 {
                     _log.Warn($"Selective extractor '{extractor}' returned exit code {exit}.");
                     return false;
@@ -581,13 +610,13 @@ namespace KalOS.Services
                 Directory.CreateDirectory(extractDir);
                 int exit = await _processManager.RunAsync(extractor,
                     $"x \"{driverExePath}\" -o\"{extractDir}\" -y", TimeSpan.FromMinutes(10));
-                if (exit != 0)
+                if (exit != 0 && exit != 1)
                 {
                     _log.Warn($"Extractor '{extractor}' returned exit code {exit}.");
                     return false;
                 }
 
-                return FindDisplayInf(extractDir) != null;
+                return FindDisplayInf(extractDir) != null || FindAmdDisplayInf(extractDir) != null;
             }
             catch (Exception ex)
             {

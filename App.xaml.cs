@@ -20,7 +20,6 @@ namespace KalOS
         private const string SingleInstanceMutexName = @"Local\KalOS.SingleInstance";
 
         private Window? _window;
-        private StartupBannerWindow? _startupBanner;
         private Mutex? _instanceMutex;
         public Window? MainWindow => _window;
 
@@ -101,8 +100,6 @@ namespace KalOS
             services.AddSingleton<HardwareMonitorService>();
             services.AddSingleton<SystemRefreshService>();
             services.AddSingleton<UpdateService>();
-            services.AddSingleton<StartupTasksService>();
-            services.AddSingleton<DiskCleanupService>();
 
             // ── BIOS management ─────────────────────────────────────────────
             services.AddSingleton<KalOS.Services.Bios.IWmiClient, KalOS.Services.Bios.SystemManagementWmiClient>();
@@ -116,17 +113,19 @@ namespace KalOS
             services.AddSingleton<DriverInstallService>();
             services.AddSingleton<DriverCleanupService>();
             services.AddSingleton<RadeonSlimmerService>();
+            services.AddSingleton<AmdAutoDetectService>();
+            services.AddSingleton<RadeonPackageSlimmer>();
             services.AddSingleton<IDriverProvider, NvidiaDriverProvider>();
             services.AddSingleton<IDriverProvider, AmdDriverProvider>();
             services.AddSingleton<IDriverProvider, IntelDriverProvider>();
             services.AddSingleton<DriverService>();
             services.AddSingleton<CoreSpreadingService>();
 
+
             // ── ViewModels ─────────────────────────────────────────────
             services.AddTransient<MainViewModel>();
             services.AddTransient<HomeViewModel>();
             services.AddSingleton<SettingsViewModel>();
-            services.AddSingleton<StartupViewModel>();
             services.AddSingleton<BrowserViewModel>();
             services.AddSingleton<AffinityManagerViewModel>();
             services.AddSingleton<WingetUiViewModel>();
@@ -166,70 +165,12 @@ namespace KalOS
             Services.GetRequiredService<LogService>()
                 .WriteAsync("App", "Startup", BuildInfo + " | path " + AppContext.BaseDirectory);
 
-            // Consumer build: startup at Windows login is mandatory — (re)write
-            // the HKCU Run key on every launch so the banner — and any update
-            // applied in between — always shows after the next boot, even if
-            // the user deleted the registry entry manually. The dev/edit build
-            // leaves the Run key to the Settings toggle instead.
-#if CONSUMER_BUILD
-            StartupTasksService.EnableAutostart();
-#endif
-
-            // Launched at Windows login (HKCU Run key writes "KalOS.exe --startup").
-            // Skip the main window entirely: show only the drop-down banner that
-            // runs the user's startup command list and checks for toolkit updates.
-            var cmdArgs = Environment.GetCommandLineArgs();
-            if (Array.IndexOf(cmdArgs, "--startup") >= 0 || Array.IndexOf(cmdArgs, "-startup") >= 0)
-            {
-                StartStartupBanner();
-                return;
-            }
-
             _window = new MainWindow();
             _window.Activate();
 
             StartUpdateCheck();
             ShowUpdateLogIfAny();
             ShowRollbackIfRequired();
-        }
-
-        /// <summary>
-        /// Startup-banner mode: shows the top-right drop-down, runs the user's
-        /// configured startup commands hidden, checks for updates, then exits
-        /// (unless an update was found, in which case the banner stays up until
-        /// the user clicks Open or closes it).
-        /// </summary>
-        private void StartStartupBanner()
-        {
-            try
-            {
-                var startup = Services.GetRequiredService<StartupTasksService>();
-                var update = Services.GetRequiredService<UpdateService>();
-                var settings = startup.Load();
-
-                var banner = new StartupBannerWindow(startup, update, settings);
-                // Keep the banner alive after OnLaunched returns: WinUI only
-                // keeps a window alive while a reference is reachable, so cache it.
-                _startupBanner = banner;
-                banner.Closed += (_, _) =>
-                {
-                    // When the banner closes (auto-hide, close button, or update
-                    // notice dismissed), exit the process so the login launch ends.
-                    Environment.Exit(0);
-                };
-                banner.Run();
-            }
-            catch (Exception ex)
-            {
-                // Never leave the user with an invisible hung process at login.
-                try
-                {
-                    Services.GetRequiredService<LogService>()
-                        .WriteAsync("App", "StartupBanner", $"Failed: {ex}", isError: true);
-                }
-                catch { }
-                Environment.Exit(0);
-            }
         }
 
         private void ShowRollbackIfRequired(UpdateInfo? update = null)
@@ -401,7 +342,7 @@ namespace KalOS
                 Content = body,
                 PrimaryButtonText = needsApply ? "Apply changes" : "View apply log",
                 SecondaryButtonText = needsApply ? "View apply log" : string.Empty,
-                CloseButtonText = string.Empty,
+                CloseButtonText = "OK",
                 DefaultButton = ContentDialogButton.Primary,
                 XamlRoot = content.XamlRoot,
             };
@@ -630,13 +571,6 @@ namespace KalOS
                 if (_window?.DispatcherQueue is { } queue)
                 {
                     queue.TryEnqueue(() => ShowCrashRecoveryDialog(e.Exception));
-                }
-                else
-                {
-                    // Startup-banner mode (no main window): the banner is broken,
-                    // so exit instead of lingering as an invisible process that
-                    // holds the single-instance mutex and blocks the next launch.
-                    Environment.Exit(0);
                 }
             }
             catch

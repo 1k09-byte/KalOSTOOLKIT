@@ -15,12 +15,6 @@ namespace KalOS.ViewModels
         private readonly UpdateSettings _updateSettings;
         private UpdateInfo? _pendingUpdate;
 
-        // Debounces settings-disk writes while the opacity slider is being dragged:
-        // the live preview applies instantly (MainWindow listens to the property),
-        // but the file is written at most once every 250 ms and once more after the
-        // last change so the final value is never lost.
-        private System.Timers.Timer? _backgroundSaveDebounce;
-
         public bool PendingUpdateIsRollback => _pendingUpdate?.IsRollback == true;
 
         [ObservableProperty]
@@ -28,21 +22,6 @@ namespace KalOS.ViewModels
 
         [ObservableProperty]
         private string _selectedBackdrop = "Mica";
-
-        [ObservableProperty]
-        private string _backgroundImagePath = string.Empty;
-
-        [ObservableProperty]
-        private double _backgroundImageOpacity = 0.5;
-
-        [ObservableProperty]
-        private string _backgroundImageFit = "UniformToFill";
-
-        [ObservableProperty]
-        private string _backgroundImageVerticalAlignment = "Center";
-
-        [ObservableProperty]
-        private string _backgroundImageHorizontalAlignment = "Center";
 
         [ObservableProperty]
         private bool _autoCheckForUpdates = true;
@@ -80,22 +59,19 @@ namespace KalOS.ViewModels
         public bool HasLastChecked => !string.IsNullOrEmpty(LastCheckedText);
 
         /// <summary>
-        /// Update features are visible in every build, including the dev/edit
-        /// toolkit, so the cards can be edited and tested locally.
+        /// Update features are consumer-build only (the distributed package built by
+        /// publish-consumer.ps1 with CONSUMER_BUILD defined). The dev toolkit never
+        /// shows the Updates section or nags about new versions.
         /// </summary>
+#if CONSUMER_BUILD
         public bool IsUpdateFeatureVisible => true;
+#else
+        public bool IsUpdateFeatureVisible => false;
+#endif
 
         public List<string> Themes { get; } = new() { "Light", "Dark" };
 
         public List<string> Backdrops { get; } = new() { "Mica", "Mica Alt", "Acrylic" };
-
-        public List<string> ImageFits { get; } = new() { "UniformToFill", "Uniform", "Fill", "None" };
-
-        public List<string> VerticalAlignments { get; } = new() { "Center", "Top", "Bottom" };
-
-        public List<string> HorizontalAlignments { get; } = new() { "Center", "Left", "Right" };
-
-        public bool HasBackgroundImage => !string.IsNullOrEmpty(BackgroundImagePath);
 
         public SettingsViewModel(ThemeService themeService, BackdropService backdropService, UpdateService updateService)
         {
@@ -118,92 +94,12 @@ namespace KalOS.ViewModels
             _updateSettings = UpdateService.LoadSettings();
             _autoCheckForUpdates = _updateSettings.AutoCheckForUpdates;
             _updateStatusText = CurrentVersionText;
-
-            // Load background image settings.
-            _backgroundImagePath = _updateSettings.BackgroundImagePath;
-            _backgroundImageOpacity = _updateSettings.BackgroundImageOpacity;
-            _backgroundImageFit = _updateSettings.BackgroundImageFit;
-            _backgroundImageVerticalAlignment = _updateSettings.BackgroundImageVerticalAlignment;
-            _backgroundImageHorizontalAlignment = _updateSettings.BackgroundImageHorizontalAlignment;
         }
 
         partial void OnAutoCheckForUpdatesChanged(bool value)
         {
             _updateSettings.AutoCheckForUpdates = value;
             UpdateService.SaveSettings(_updateSettings);
-        }
-
-        partial void OnBackgroundImagePathChanged(string value)
-        {
-            _updateSettings.BackgroundImagePath = value;
-            UpdateService.SaveSettings(_updateSettings);
-            OnPropertyChanged(nameof(HasBackgroundImage));
-        }
-
-        partial void OnBackgroundImageOpacityChanged(double value)
-        {
-            _updateSettings.BackgroundImageOpacity = value;
-            DebouncedSaveBackgroundSettings();
-        }
-
-        /// <summary>
-        /// Saves background settings at most every 250 ms while a slider is dragged,
-        /// plus one trailing save after the final change so nothing is lost.
-        /// </summary>
-        private void DebouncedSaveBackgroundSettings()
-        {
-            _backgroundSaveDebounce ??= new System.Timers.Timer(250) { AutoReset = false };
-            _backgroundSaveDebounce.Stop();
-            _backgroundSaveDebounce.Start();
-        }
-
-        partial void OnBackgroundImageFitChanged(string value)
-        {
-            _updateSettings.BackgroundImageFit = value;
-            UpdateService.SaveSettings(_updateSettings);
-        }
-
-        partial void OnBackgroundImageVerticalAlignmentChanged(string value)
-        {
-            _updateSettings.BackgroundImageVerticalAlignment = value;
-            UpdateService.SaveSettings(_updateSettings);
-        }
-
-        partial void OnBackgroundImageHorizontalAlignmentChanged(string value)
-        {
-            _updateSettings.BackgroundImageHorizontalAlignment = value;
-            UpdateService.SaveSettings(_updateSettings);
-        }
-
-        [RelayCommand]
-        private async Task BrowseImageAsync()
-        {
-            var picker = new Windows.Storage.Pickers.FileOpenPicker
-            {
-                SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.PicturesLibrary,
-                ViewMode = Windows.Storage.Pickers.PickerViewMode.Thumbnail,
-            };
-            picker.FileTypeFilter.Add(".jpg");
-            picker.FileTypeFilter.Add(".jpeg");
-            picker.FileTypeFilter.Add(".png");
-            picker.FileTypeFilter.Add(".bmp");
-            picker.FileTypeFilter.Add(".gif");
-            picker.FileTypeFilter.Add(".tiff");
-            picker.FileTypeFilter.Add(".webp");
-
-            // WinUI 3 interop: must initialize with the window handle.
-            WinRT.Interop.InitializeWithWindow.Initialize(picker, App.MainWindowHandle);
-
-            var file = await picker.PickSingleFileAsync();
-            if (file == null) return; // user cancelled
-
-            BackgroundImagePath = file.Path;
-        }
-
-        [RelayCommand]
-        private void ClearImage()
-        {
-            BackgroundImagePath = string.Empty;
         }
 
         partial void OnSelectedThemeChanged(string value)

@@ -97,16 +97,21 @@ namespace KalOS.Services
         /// Launches the extracted Slimmer so the user can slim interactively.
         /// KalOS runs elevated, so the child inherits the admin token.
         /// </summary>
-        public bool Launch(string? exePath, LoggingService log)
+        public bool Launch(string? exePath, LoggingService log, string? installerPath = null)
         {
             if (exePath == null || !File.Exists(exePath)) return false;
             try
             {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exePath)
+                var psi = new System.Diagnostics.ProcessStartInfo(exePath)
                 {
                     UseShellExecute = true,
                     WorkingDirectory = System.IO.Path.GetDirectoryName(exePath)!,
-                });
+                };
+                if (!string.IsNullOrEmpty(installerPath) && File.Exists(installerPath))
+                {
+                    psi.Arguments = $"\"{installerPath}\"";
+                }
+                System.Diagnostics.Process.Start(psi);
                 return true;
             }
             catch (Exception ex)
@@ -115,5 +120,19 @@ namespace KalOS.Services
                 return false;
             }
         }
+
+        /// <summary>
+        /// Ensures Radeon Software Slimmer is downloaded/extracted and launches it.
+        /// </summary>
+        public async Task<bool> LaunchOrDownloadAsync(LoggingService log, IProgress<string>? status = null, string? installerPath = null, CancellationToken cancellationToken = default)
+        {
+            var exe = await EnsureAsync(log, status, cancellationToken).ConfigureAwait(false);
+            if (exe != null)
+            {
+                return Launch(exe, log, installerPath);
+            }
+            return false;
+        }
     }
 }
+
