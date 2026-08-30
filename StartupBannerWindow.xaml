@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<winuiex:WindowEx
+    x:Class="KalOS.StartupBannerWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:winuiex="using:WinUIEx"
+    IsShownInSwitchers="False"
+    IsResizable="False"
+    IsMaximizable="False"
+    IsMinimizable="False"
+    Width="560"
+    Height="140">
+
+    <Grid x:Name="Root" RequestedTheme="Dark" Background="{ThemeResource SolidBackgroundFillColorBaseBrush}">
+        <Border x:Name="BannerCard"
+                CornerRadius="10"
+                BorderThickness="1"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                Background="Transparent">
+            <Border.Child>
+                <Grid>
+                    <!-- Same background wallpaper as the main window, inside the card so
+                         image + text move together as one banner -->
+                    <Image x:Name="BackgroundImage"
+                           Stretch="UniformToFill"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Visibility="Collapsed" />
+                    <Grid x:Name="BackgroundOverlay" Background="#8A000000" Visibility="Collapsed" />
+
+                    <Grid Padding="20,16,20,18" ColumnSpacing="20">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Text: app name + status -->
+                        <StackPanel Grid.Column="0" Spacing="5" VerticalAlignment="Center">
+                            <TextBlock Text="KalOS"
+                                       FontFamily="{ThemeResource ContentControlThemeFontFamily}"
+                                       FontWeight="Bold" FontSize="15"
+                                       Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                            <TextBlock x:Name="StatusText"
+                                       Text="Starting…"
+                                       TextWrapping="Wrap"
+                                       FontSize="12"
+                                       LineHeight="17"
+                                       Opacity="0.85"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock x:Name="DetailText"
+                                       Text=""
+                                       TextWrapping="Wrap"
+                                       FontSize="11"
+                                       Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                       Visibility="Collapsed" />
+                        </StackPanel>
+
+                        <!-- Right: progress bar (always visible) -->
+                        <ProgressBar x:Name="TaskProgress" Grid.Column="1"
+                                     Width="160" VerticalAlignment="Center" Minimum="0" Maximum="1" Value="0"
+                                     Height="4" IsIndeterminate="False" />
+                    </Grid>
+                </Grid>
+            </Border.Child>
+        </Border>
+    </Grid>
+</winuiex:WindowEx>

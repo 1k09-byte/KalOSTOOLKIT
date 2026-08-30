@@ -45,14 +45,31 @@ namespace KalOS.ViewModels
         private string _maxMsiLimit = "1";
 
         [ObservableProperty]
+        [NotifyPropertyChangedFor(nameof(DevicePolicyShort))]
         private string _devicePolicy = "IrqPolicyMachineDefault";
+
+        /// <summary>Compact display label for the registry DevicePolicy value.</summary>
+        public string DevicePolicyShort => DevicePolicy switch
+        {
+            "IrqPolicyMachineDefault" => "Machine default",
+            "IrqPolicyAllCloseProcessors" => "All close",
+            "IrqPolicyOneCloseProcessor" => "One close",
+            "IrqPolicyAllProcessorsInMachine" => "All processors",
+            "IrqPolicySpecifiedProcessors" => "Specified proc",
+            "IrqPolicySpreadMessagesAcrossAllProcessors" => "Spread",
+            _ => DevicePolicy,
+        };
 
         [ObservableProperty]
         private string _devicePriority = "Undefined";
 
         [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(CoresAssignedDisplay))]
+        [NotifyPropertyChangedFor(nameof(CoresAssignedDisplay), nameof(AssignmentSubtitle))]
         private string _specifiedProc = string.Empty;
+
+        /// <summary>Subtitle under the device name: the device policy, plus the threads it's pinned to.</summary>
+        public string AssignmentSubtitle =>
+            string.IsNullOrEmpty(SpecifiedProc) ? DevicePolicyShort : $"{DevicePolicyShort} · Threads: {SpecifiedProc}";
 
         public string CoresAssignedDisplay
         {

@@ -22,13 +22,33 @@ namespace KalOS.ViewModels
             // Determine elevation once at construction so the UI can show an "Admin required" InfoBar
             // before the user attempts to write anything.
             RefreshIsAdmin();
-            // Re-evaluate HasDevices / HasNoDevices any time the underlying collection changes so
-            // x:Bind in the empty-state placeholder and the populated list stay in sync.
-            AllDevices.CollectionChanged += (_, _) =>
+            // Re-evaluate HasDevices / HasNoDevices and the header stat pills any time the
+            // underlying collection changes so x:Bind in the empty-state placeholder, the
+            // populated list, and the stat strip stay in sync.
+            AllDevices.CollectionChanged += (_, e) =>
             {
+                // Per-item listeners keep the "MSI on" / "pinned" pills live when a single
+                // device's registry state is re-read (Edit dialog, Optimize, etc.).
+                if (e.NewItems != null) foreach (PciDeviceItem d in e.NewItems) d.PropertyChanged += OnDevicePropertyChanged;
+                if (e.OldItems != null) foreach (PciDeviceItem d in e.OldItems) d.PropertyChanged -= OnDevicePropertyChanged;
+
                 OnPropertyChanged(nameof(HasDevices));
                 OnPropertyChanged(nameof(HasNoDevices));
+                RefreshCounts();
             };
+        }
+
+        private void OnDevicePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName is nameof(PciDeviceItem.MsiEnabled) or nameof(PciDeviceItem.SpecifiedProc))
+                RefreshCounts();
+        }
+
+        private void RefreshCounts()
+        {
+            OnPropertyChanged(nameof(TotalDevices));
+            OnPropertyChanged(nameof(MsiEnabledCount));
+            OnPropertyChanged(nameof(PinnedCount));
         }
 
         [ObservableProperty]
@@ -56,6 +76,20 @@ namespace KalOS.ViewModels
 
         /// <summary>Computed: scan complete AND no devices found — drives the empty-state placeholder.</summary>
         public bool HasNoDevices => !IsLoading && AllDevices.Count == 0;
+
+        // ── Header stat pills (refreshed by RefreshCounts / topology detect) ──
+
+        /// <summary>Total PCI devices shown in the scheduling list.</summary>
+        public int TotalDevices => AllDevices.Count;
+
+        /// <summary>Devices currently running in MSI mode.</summary>
+        public int MsiEnabledCount => AllDevices.Count(d => d.MsiEnabled);
+
+        /// <summary>Devices pinned to specific cores via AssignmentSetOverride.</summary>
+        public int PinnedCount => AllDevices.Count(d => !string.IsNullOrEmpty(d.SpecifiedProc));
+
+        /// <summary>Physical cores available for scheduling (group-0 topology).</summary>
+        public int CpuCoreCount => SystemCores.Count;
 
         [RelayCommand]
         public async Task LoadDevicesAsync()
@@ -180,6 +214,7 @@ if (category == "Network Interface Controllers") item.MaxMsiLimit = "32";
                             GroupedDevices.Add(new PciDeviceGroup(g.Key, g));
                         }
                         SystemCores = DetectCpuTopology();
+                        OnPropertyChanged(nameof(CpuCoreCount));
                     });
                 }
             });
@@ -655,6 +690,26 @@ if (category == "Network Interface Controllers") item.MaxMsiLimit = "32";
                 Debug.WriteLine($"Failed to restore defaults for {item.Name}: {ex.Message}");
                 return new DeviceRestoreResult(Success: false, WasChanged: false, Error: $"{ex.GetType().Name}: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// Restores every listed device to Windows defaults (same as
+        /// <see cref="RestoreDeviceDefaults"/> per device), then re-reads the
+        /// registry so the UI and stat pills reflect the cleared state.
+        /// </summary>
+        public void RestoreAll()
+        {
+            if (AllDevices.Count == 0) return;
+            foreach (var item in AllDevices.ToList())
+            {
+                RestoreDeviceDefaults(item);
+            }
+            foreach (var item in AllDevices)
+            {
+                ReadMsiRegistry(item);
+            }
+            StatusText = $"Restored {AllDevices.Count} device(s) to Windows defaults.";
+            RefreshCounts();
         }
 
         /// <summary>

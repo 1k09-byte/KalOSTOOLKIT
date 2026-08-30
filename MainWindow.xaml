@@ -17,6 +17,21 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <!-- Background image layer (behind everything) -->
+        <Image x:Name="BackgroundImage"
+               Grid.Row="0" Grid.RowSpan="2"
+               Stretch="UniformToFill"
+               Opacity="0.5"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               Visibility="Collapsed" />
+
+        <!-- Semi-transparent overlay to keep content readable -->
+        <Grid x:Name="BackgroundOverlay"
+              Grid.Row="0" Grid.RowSpan="2"
+              Background="#80000000"
+              Visibility="Collapsed" />
+
         <!-- Title bar with integrated search -->
         <TitleBar x:Name="AppTitleBar"
                   Grid.Row="0"
@@ -49,59 +64,60 @@
                         BackRequested="NavView_BackRequested">
             <NavigationView.MenuItems>
                 <!-- ─── Overview ─── -->
-                <NavigationViewItem Content="Home" Tag="Home">
+                <NavigationViewItem Content="Home" Tag="Home" Style="{StaticResource CompactNavItemStyle}">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE80F;" FontSize="16" />
+                        <ImageIcon Source="Assets/icon-home.png" Width="24" Height="24" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Content="System Overview" Tag="SystemOverview">
+                <NavigationViewItem Content="System Overview" Tag="SystemOverview" Style="{StaticResource CompactNavItemStyle}">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE950;" FontSize="16" />
+                        <ImageIcon Source="Assets/icon-overview.png" Width="24" Height="24" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
                 <!-- ─── Tools ─── -->
                 <NavigationViewItemHeader Content="Tools" />
-                <NavigationViewItem Content="Browsers &amp; Software" Tag="Browsers">
+                <NavigationViewItem Content="Browsers &amp; Software" Tag="Browsers" Style="{StaticResource CompactNavItemStyle}">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE774;" FontSize="16" />
+                        <ImageIcon Source="Assets/icon-browser.png" Width="24" Height="24" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
                 <!-- ─── Hardware ─── -->
                 <NavigationViewItemHeader Content="Hardware" />
-                <NavigationViewItem Content="GPU Drivers" Tag="GpuDrivers">
+                <NavigationViewItem Content="GPU Drivers" Tag="GpuDrivers" Style="{StaticResource CompactNavItemStyle}">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE7F4;" FontSize="16" />
+                        <ImageIcon Source="Assets/icon-gpu.png" Width="24" Height="24" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Content="Other Drivers" Tag="Sdio">
+                <NavigationViewItem Content="Other Drivers" Tag="Sdio" Style="{StaticResource CompactNavItemStyle}">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE95F;" FontSize="16" />
+                        <ImageIcon Source="Assets/icon-drivers.png" Width="24" Height="24" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Content="BIOS Manager" Tag="Bios">
+                <NavigationViewItem Content="BIOS Manager" Tag="Bios" Style="{StaticResource CompactNavItemStyle}">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE772;" FontSize="16" />
+                        <ImageIcon Source="Assets/icon-bios.png" Width="24" Height="24" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Content="Per-CPU Scheduling" Tag="AffinityManager">
+                <NavigationViewItem Content="Per-CPU Scheduling" Tag="AffinityManager" Style="{StaticResource CompactNavItemStyle}">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE9F3;" FontSize="16" />
+                        <ImageIcon Source="Assets/icon-cpu.png" Width="24" Height="24" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
 
                 <!-- ─── Windows ─── -->
                 <NavigationViewItemHeader Content="Windows" />
-                <NavigationViewItem Content="Personalization" Tag="Personalization">
+                <NavigationViewItem Content="Personalization" Tag="Personalization" Style="{StaticResource CompactNavItemStyle}">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE790;" FontSize="16" />
+                        <ImageIcon Source="Assets/icon-personalization.png" Width="24" Height="24" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Content="Additional Tweaks" Tag="AdditionalTweaks">
+
+                <NavigationViewItem Content="Additional Tweaks" Tag="AdditionalTweaks" Style="{StaticResource CompactNavItemStyle}">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE90F;" FontSize="16" />
+                        <ImageIcon Source="Assets/icon-tweaks.png" Width="24" Height="24" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>

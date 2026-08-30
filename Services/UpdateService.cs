@@ -21,10 +21,20 @@ public sealed record UpdateRecord(string Version, DateTime AppliedAt, string Not
 /// <summary>A downloadable asset attached to a GitHub release.</summary>
 public sealed record ReleaseAsset(string Name, string BrowserDownloadUrl);
 
+/// <summary>One row of the release-history dialog: a published version with its date and notes.</summary>
+public sealed record ReleaseHistoryEntry(Version Version, string Tag, string Name, DateTime? PublishedAt, string Notes, string Url, bool IsCurrent);
+
 /// <summary>Persisted update preferences (stored next to the app's logs).</summary>
 public sealed class UpdateSettings
 {
     public bool AutoCheckForUpdates { get; set; } = true;
+
+    // Background image settings.
+    public string BackgroundImagePath { get; set; } = string.Empty;
+    public double BackgroundImageOpacity { get; set; } = 0.5;
+    public string BackgroundImageFit { get; set; } = "UniformToFill";
+    public string BackgroundImageVerticalAlignment { get; set; } = "Center";
+    public string BackgroundImageHorizontalAlignment { get; set; } = "Center";
 }
 
 /// <summary>
@@ -176,6 +186,44 @@ public sealed class UpdateService
         return new UpdateInfo(latest, tag, zip, page, notes, latest < currentVersion);
     }
 
+    /// <summary>
+    /// Parses a GitHub "list releases" JSON payload into rows for the
+    /// release-history dialog, newest version first. Rows with unparseable
+    /// tags (drafts, nightlies) are skipped; drafts aren't returned by the
+    /// public API anyway.
+    /// </summary>
+    public static IReadOnlyList<ReleaseHistoryEntry> ParseReleaseHistory(string json, Version currentVersion)
+    {
+        var list = new List<ReleaseHistoryEntry>();
+        using var doc = JsonDocument.Parse(json);
+        if (doc.RootElement.ValueKind != JsonValueKind.Array) return list;
+
+        foreach (var r in doc.RootElement.EnumerateArray())
+        {
+            if (!r.TryGetProperty("tag_name", out var tagEl) || tagEl.GetString() is not { } tag) continue;
+            if (!TryParseReleaseVersion(tag, out var version)) continue;
+
+            string name = r.TryGetProperty("name", out var n) && n.GetString() is { } ns ? ns : string.Empty;
+            // Strip the hidden discord marker the same way the update check does.
+            string notes = r.TryGetProperty("body", out var b) && b.GetString() is { } bs
+                ? System.Text.RegularExpressions.Regex.Replace(bs.Trim(), @"<!-- discord-msg:\d+ -->\s*", "").Trim()
+                : string.Empty;
+            string url = r.TryGetProperty("html_url", out var u) && u.GetString() is { } us ? us : string.Empty;
+
+            DateTime? published = null;
+            if (r.TryGetProperty("published_at", out var p) && p.GetString() is { } ps &&
+                DateTime.TryParse(ps, out var dt))
+            {
+                published = dt;
+            }
+
+            list.Add(new ReleaseHistoryEntry(version, tag, name, published, notes, url, version == currentVersion));
+        }
+
+        list.Sort((a, b) => b.Version.CompareTo(a.Version));
+        return list;
+    }
+
     // ── Network / apply ──────────────────────────────────────────────────
 
     /// <summary>Checks GitHub for a newer release. Returns null when up to date, no releases exist, or the check failed.</summary>
@@ -264,6 +312,30 @@ public sealed class UpdateService
         {
             _log.Warn($"Update check failed: {ex.Message}");
             return null;
+        }
+    }
+
+    /// <summary>Fetches all published releases from GitHub for the release-history dialog.</summary>
+    public async Task<IReadOnlyList<ReleaseHistoryEntry>> GetReleaseHistoryAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("KalOS-Updater/1.0");
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+            client.Timeout = TimeSpan.FromSeconds(20);
+            string json = await client.GetStringAsync(
+                $"https://api.github.com/repos/{DefaultOwner}/{DefaultRepo}/releases?per_page=100", cancellationToken);
+            return ParseReleaseHistory(json, CurrentVersion);
+        }
+        catch (OperationCanceledException)
+        {
+            return Array.Empty<ReleaseHistoryEntry>();
+        }
+        catch (Exception ex)
+        {
+            _log.Warn($"Release history fetch failed: {ex.Message}");
+            return Array.Empty<ReleaseHistoryEntry>();
         }
     }
 

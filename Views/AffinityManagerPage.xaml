@@ -1,4 +1,4 @@
-﻿<Page
+<Page
     x:Class="KalOS.Views.AffinityManagerPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -23,20 +23,93 @@
                     <RepositionThemeTransition IsStaggeringEnabled="False" />
                 </StackPanel.ChildrenTransitions>
 
-                <StackPanel Spacing="4" Margin="0,0,0,6">
+                <!-- ══════════════════════════════════════════════════════
+                     Hero header: title + live status + stat pills
+                     ══════════════════════════════════════════════════════ -->
+                <StackPanel Spacing="4" Margin="0,0,0,4">
                     <TextBlock Text="Per-CPU Scheduling" Style="{StaticResource PageTitleStyle}" />
                     <TextBlock Text="Pin interrupt-heavy devices to dedicated CPU cores for lower latency." Style="{StaticResource PageSubtitleStyle}" />
                 </StackPanel>
-                
-                <TextBlock Text="Optimization" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
 
-                <controls:SettingsCard Header="Optimize Affinities"
-                                       Description="Apply KalOS low-latency defaults automatically. Audio runs at normal priority; others are pinned to dedicated cores.">
-                    <controls:SettingsCard.HeaderIcon>
-                        <FontIcon Glyph="&#xE946;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                    </controls:SettingsCard.HeaderIcon>
-                    <Button Content="Optimize Affinities" Command="{x:Bind ViewModel.OptimizeAffinitiesCommand}" Style="{StaticResource AccentButtonStyle}" />
-                </controls:SettingsCard>
+                <StackPanel Spacing="8" Margin="2,0,0,10">
+                    <TextBlock Text="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                               FontSize="12"
+                               Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Border Style="{StaticResource StatusBadgeStyle}" Padding="10,4">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                                         Fill="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Text="{x:Bind ViewModel.TotalDevices, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Text="devices" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource StatusBadgeStyle}" Padding="10,4">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                                         Fill="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Text="{x:Bind ViewModel.MsiEnabledCount, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Text="MSI on" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource StatusBadgeStyle}" Padding="10,4">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                                         Fill="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Text="{x:Bind ViewModel.PinnedCount, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Text="pinned" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource StatusBadgeStyle}" Padding="10,4">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="6" Height="6" VerticalAlignment="Center"
+                                         Fill="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Text="{x:Bind ViewModel.CpuCoreCount, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Text="cores" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- ══════════════════════════════════════════════════════
+                     Action toolbar: rescan / restore-all / optimize
+                     ══════════════════════════════════════════════════════ -->
+                <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                        BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="0,0,0,4">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Command="{x:Bind ViewModel.LoadDevicesCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE72C;" FontSize="14" />
+                                <TextBlock Text="Rescan" />
+                            </StackPanel>
+                        </Button>
+                        <Button Click="RestoreAll_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE777;" FontSize="14" />
+                                <TextBlock Text="Restore all" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{x:Bind ViewModel.OptimizeAffinitiesCommand}" Style="{StaticResource AccentButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE946;" FontSize="14" />
+                                <TextBlock Text="Optimize" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <!-- Elevation gate: writes go to HKLM, so without admin they fail -->
+                <InfoBar Severity="Warning"
+                         Title="Administrator required"
+                         Message="MSI and affinity settings live in HKLM — without elevation, applying changes will fail."
+                         IsClosable="False"
+                         IsOpen="True"
+                         Visibility="{x:Bind ViewModel.IsAdmin, Mode=OneWay, Converter={StaticResource InverseBoolToVis}}" />
 
                 <!-- Loading State -->
                 <StackPanel Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay, Converter={StaticResource BoolToVis}}" HorizontalAlignment="Center" Margin="0,48,0,0" Spacing="12">
@@ -46,50 +119,115 @@
 
                 <!-- No devices State -->
                 <StackPanel Visibility="{x:Bind ViewModel.HasNoDevices, Mode=OneWay, Converter={StaticResource BoolToVis}}" HorizontalAlignment="Center" Margin="0,48,0,0" Spacing="8">
+                    <FontIcon Glyph="&#xE7F4;" FontSize="32" Foreground="{ThemeResource TextFillColorTertiaryBrush}" HorizontalAlignment="Center" />
                     <TextBlock Text="No MSI-capable devices detected" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
                     <TextBlock Text="This system doesn't expose any PCI devices that support MSI messaging." FontSize="13" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" />
                 </StackPanel>
 
-                <!-- Devices List -->
+                <!-- ══════════════════════════════════════════════════════
+                     Table: header row + grouped device rows
+                     ══════════════════════════════════════════════════════ -->
                 <StackPanel Visibility="{x:Bind ViewModel.HasDevices, Mode=OneWay, Converter={StaticResource BoolToVis}}">
-                    <InfoBar Margin="0,4,0,16" IsOpen="{x:Bind ViewModel.HasHighCoreCount, Mode=OneWay}" Severity="Warning"
+                    <InfoBar Margin="0,4,0,12" IsOpen="{x:Bind ViewModel.HasHighCoreCount, Mode=OneWay}" Severity="Warning"
                              Title="High Core Count Detected (>64)" Message="Windows MSI Interrupts use a 64-bit mask. Only the first 64 logical processors are available for manual scheduling." IsClosable="False" />
+
+                    <!-- Column headers -->
+                    <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                            BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                            BorderThickness="1" CornerRadius="8,8,0,0" Padding="12,8">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="2.4*" />
+                                <ColumnDefinition Width="1.1*" />
+                                <ColumnDefinition Width="0.9*" />
+                                <ColumnDefinition Width="1.1*" />
+                                <ColumnDefinition Width="72" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Device" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text="MSI Mode" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="2" Text="MSI Limit" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="3" Text="Priority" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
 
                     <ItemsControl ItemsSource="{x:Bind ViewModel.GroupedDevices, Mode=OneWay}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="viewmodels:PciDeviceGroup">
-                                <StackPanel Margin="0,0,0,24">
-                                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="1,24,0,8">
-                                        <TextBlock Text="{x:Bind DisplayHeader, Mode=OneWay}" Style="{StaticResource SubtitleTextBlockStyle}" FontWeight="SemiBold" />
-                                    </StackPanel>
-                                    
+                                <StackPanel>
+                                    <!-- Group band -->
+                                    <Border Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                            BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                                            BorderThickness="1,0,1,1" Padding="12,10">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="2.4*" />
+                                                <ColumnDefinition Width="1.1*" />
+                                                <ColumnDefinition Width="0.9*" />
+                                                <ColumnDefinition Width="1.1*" />
+                                                <ColumnDefinition Width="72" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                <FontIcon Glyph="{x:Bind Key, Converter={StaticResource CategoryToIconConverter}}"
+                                                          FontSize="15" Foreground="{ThemeResource TextFillColorPrimaryBrush}" VerticalAlignment="Center" />
+                                                <TextBlock Text="{x:Bind DisplayHeader, Mode=OneWay}" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
+                                                <Border Style="{StaticResource StatusBadgeStyle}" Padding="6,1">
+                                                    <TextBlock Text="{Binding Count}" FontSize="11" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                                </Border>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+
                                     <ItemsControl ItemsSource="{Binding}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate x:DataType="viewmodels:PciDeviceItem">
-                                                <controls:SettingsCard Header="{x:Bind Name, Mode=OneWay}" Margin="0,0,0,4">
-                                                    <controls:SettingsCard.HeaderIcon>
-                                                        <FontIcon Glyph="{x:Bind Category, Converter={StaticResource CategoryToIconConverter}}" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                                                    </controls:SettingsCard.HeaderIcon>
-                                                    <controls:SettingsCard.Description>
-                                                        <StackPanel Orientation="Horizontal" Spacing="12">
-                                                            <TextBlock Text="{x:Bind MsiEnabledText, Mode=OneWay}" Foreground="{x:Bind MsiEnabled, Converter={StaticResource MsiColorConverter}}" />
-                                                            <TextBlock Text="|" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
-                                                            <TextBlock Text="Limit: " Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                                            <TextBlock Text="{x:Bind MsiLimit, Mode=OneWay}" />
-                                                            <TextBlock Text="|" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
-                                                            <TextBlock Text="Priority: " Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                                            <TextBlock Text="{x:Bind DevicePriority, Mode=OneWay}" />
+                                                <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                                        BorderThickness="0,0,0,1" Padding="12,10">
+                                                    <Grid ColumnSpacing="8">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="2.4*" />
+                                                            <ColumnDefinition Width="1.1*" />
+                                                            <ColumnDefinition Width="0.9*" />
+                                                            <ColumnDefinition Width="1.1*" />
+                                                            <ColumnDefinition Width="72" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <!-- Device: icon + name, policy as subtitle -->
+                                                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                                            <FontIcon Glyph="{x:Bind Category, Converter={StaticResource CategoryToIconConverter}}"
+                                                                      FontSize="16" Foreground="{ThemeResource TextFillColorPrimaryBrush}" VerticalAlignment="Center" />
+                                                            <StackPanel Spacing="1">
+                                                                <TextBlock Text="{x:Bind Name, Mode=OneWay}" FontSize="13" FontWeight="SemiBold"
+                                                                           TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" />
+                                                                <TextBlock Text="{x:Bind AssignmentSubtitle, Mode=OneWay}" FontSize="11"
+                                                                           Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextTrimming="CharacterEllipsis" />
+                                                            </StackPanel>
                                                         </StackPanel>
-                                                    </controls:SettingsCard.Description>
-                                                    
-                                                    <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
-                                                        <StackPanel VerticalAlignment="Center">
-                                                            <TextBlock Text="Cores" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Right" />
-                                                            <TextBlock Text="{x:Bind CoresAssignedDisplay, Mode=OneWay}" HorizontalAlignment="Right" />
-                                                        </StackPanel>
-                                                        <Button Content="Edit" Click="CardButton_Click" Tag="{Binding}" />
-                                                    </StackPanel>
-                                                </controls:SettingsCard>
+
+                                                        <!-- MSI mode pill -->
+                                                        <Border Grid.Column="1" Style="{StaticResource StatusBadgeStyle}" Padding="6,2" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                                <FontIcon FontSize="10" VerticalAlignment="Center"
+                                                                          Glyph="{x:Bind MsiEnabled, Converter={StaticResource MsiGlyphConverter}}"
+                                                                          Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                                                <TextBlock Text="{x:Bind MsiEnabledText, Mode=OneWay}" FontSize="11"
+                                                                           Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                                            </StackPanel>
+                                                        </Border>
+
+                                                        <!-- MSI limit -->
+                                                        <TextBlock Grid.Column="2" Text="{x:Bind MsiLimit, Mode=OneWay}" FontSize="12"
+                                                                   VerticalAlignment="Center" />
+
+                                                        <!-- Priority chip -->
+                                                        <Border Grid.Column="3" Style="{StaticResource StatusBadgeStyle}" Padding="6,2" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                                            <TextBlock Text="{x:Bind DevicePriority, Mode=OneWay}" FontSize="11"
+                                                                       Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                                        </Border>
+
+                                                        <!-- Edit action -->
+                                                        <Button Grid.Column="4" Content="Edit" Click="CardButton_Click" Tag="{Binding}"
+                                                                VerticalAlignment="Center" />
+                                                    </Grid>
+                                                </Border>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
