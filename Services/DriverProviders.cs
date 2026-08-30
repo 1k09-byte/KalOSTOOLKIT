@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -191,29 +191,20 @@ namespace KalOS.Services
     }
 
     /// <summary>
-    /// Serves AMD/Adrenalin drivers. AMD's live host is gated; the curated
-    /// latest includes a direct download URL so the silent pipeline can run.
+    /// Serves AMD/Adrenalin drivers via dynamic lookup API.
+    /// Obtains the newest WHQL release with direct AMD CDN download links.
     /// </summary>
     public sealed class AmdDriverProvider : IDriverProvider
     {
+        private readonly AmdDriverApiService _apiService = new();
+
         public string Vendor => "AMD";
 
         public bool CanHandle(GpuInfo gpu) => gpu.IsAmd;
 
         public async Task<DriverInfo?> GetLatestDriverAsync(GpuInfo gpu, CancellationToken cancellationToken)
         {
-            // AMD's download host requires a referer and driver-match round-trips;
-            // a fair live scrape is unreliable across regions. Keep a curated
-            // latest with the direct download URL for silent extraction.
-            await Task.CompletedTask;
-            return new DriverInfo
-            {
-                Version = "25.10.1",
-                DownloadUrl = "https://drivers.amd.com/drivers/whql-amd-software-adrenalin-edition-25.10.1-win10-win11-may-rdna.exe",
-                SupportUrl = "https://www.amd.com/en/support/download/drivers.html",
-                ReleaseDate = new DateTime(2026, 8, 5),
-                DisplayString = "AMD Adrenalin 25.10.1"
-            };
+            return await _apiService.GetLatestDriverAsync(cancellationToken);
         }
     }
 

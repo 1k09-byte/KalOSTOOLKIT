@@ -1,4 +1,4 @@
-﻿<Page
+<Page
     x:Name="RootPage"
     x:Class="KalOS.Views.GpuDriversPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -8,114 +8,229 @@
     xmlns:vm="using:KalOS.ViewModels"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     mc:Ignorable="d"
-    Background="Transparent"
-    NavigationCacheMode="Enabled">
+    Background="Transparent">
+
 
     <Grid>
         <ScrollViewer Style="{StaticResource PageScrollStyle}">
             <Grid>
                 <StackPanel MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Stretch"
-                            Spacing="{StaticResource SettingsCardSpacing}"
+                            Spacing="16"
                             Margin="{StaticResource PagePadding}">
-                    <StackPanel.ChildrenTransitions>
-                        <EntranceThemeTransition FromVerticalOffset="50" IsStaggeringEnabled="False" />
-                        <RepositionThemeTransition IsStaggeringEnabled="False" />
-                    </StackPanel.ChildrenTransitions>
 
-                    <StackPanel Spacing="4" Margin="0,0,0,6">
-                        <TextBlock Text="GPU Drivers" Style="{StaticResource PageTitleStyle}" />
-                        <TextBlock Text="Check installed graphics adapters against vendor sources and update NVIDIA/AMD drivers silently — stripped display-only package with clean-install cleanup."
-                                   Style="{StaticResource PageSubtitleStyle}" />
-                    </StackPanel>
+                    <!-- Page Header with Integrated Refresh Button -->
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Spacing="3">
+                            <TextBlock Text="GPU Drivers" Style="{StaticResource PageTitleStyle}" />
+                            <TextBlock Text="Automatic detection, debloated installation, and graphics driver optimization."
+                                       Style="{StaticResource PageSubtitleStyle}" />
+                        </StackPanel>
+
+                        <!-- Header Refresh Button -->
+                        <Button Grid.Column="1" Command="{x:Bind ViewModel.CheckForUpdatesCommand}"
+                                IsEnabled="{x:Bind ViewModel.CanCheck, Mode=OneWay}"
+                                VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <ProgressRing Width="14" Height="14" IsActive="{x:Bind ViewModel.IsChecking, Mode=OneWay}"
+                                              Visibility="{x:Bind ViewModel.IsChecking, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+                                <FontIcon Glyph="&#xE72C;" FontSize="14"
+                                          Visibility="{x:Bind ViewModel.IsChecking, Mode=OneWay, Converter={StaticResource InverseBoolToVis}}" />
+                                <TextBlock Text="Check" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
 
                     <InfoBar
                         x:Name="ErrorInfoBar"
                         IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
                         Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
                         Severity="Error"
-                        CloseButtonClick="ErrorInfoBar_CloseClick"
-                        Margin="0,0,0,6" />
+                        CloseButtonClick="ErrorInfoBar_CloseClick" />
 
-                    <!-- Scan Section -->
-                    <TextBlock Text="Checks" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
+                    <!-- Live Background Installation Banner -->
+                    <InfoBar
+                        IsOpen="{x:Bind ViewModel.IsInstalling, Mode=OneWay}"
+                        Severity="Informational"
+                        Title="Background installation in progress…"
+                        Message="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                        IsClosable="False">
+                        <InfoBar.Content>
+                            <ProgressBar IsIndeterminate="True" Margin="0,8,0,4" HorizontalAlignment="Stretch" />
+                        </InfoBar.Content>
+                    </InfoBar>
 
-                    <controls:SettingsCard Header="Check for driver updates"
-                                           Description="{x:Bind ViewModel.StatusText, Mode=OneWay}">
-                        <controls:SettingsCard.HeaderIcon>
-                            <FontIcon Glyph="&#xE895;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                        </controls:SettingsCard.HeaderIcon>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Command="{x:Bind ViewModel.CheckForUpdatesCommand}"
-                                    IsEnabled="{x:Bind ViewModel.CanCheck, Mode=OneWay}"
-                                    Style="{StaticResource AccentButtonStyle}">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <ProgressRing Width="16" Height="16" IsActive="{x:Bind ViewModel.IsChecking, Mode=OneWay}"
-                                                  Visibility="{x:Bind ViewModel.IsChecking, Mode=OneWay, Converter={StaticResource BoolToVis}}"
-                                                  Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
-                                    <TextBlock Text="Check for updates" Visibility="{x:Bind ViewModel.CanCheck, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
-                                    <TextBlock Text="Checking…" Visibility="{x:Bind ViewModel.IsChecking, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
-                                </StackPanel>
-                            </Button>
-                        </StackPanel>
-                    </controls:SettingsCard>
-
-                    <!-- Adapters List -->
-                    <TextBlock Text="Graphics Adapters" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
-
+                    <!-- Main GPU Cards (Hero Section) -->
                     <ItemsControl ItemsSource="{x:Bind ViewModel.Gpus}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:GpuDriverItem">
                                 <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                                         BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
-                                        BorderThickness="1" CornerRadius="8" Padding="16" Margin="0,0,0,4">
-                                    <StackPanel Spacing="6">
+                                        BorderThickness="1" CornerRadius="8" Padding="18" Margin="0,0,0,8">
+                                    <StackPanel Spacing="14">
+                                        <!-- Row 1: GPU Icon, Name, and Status Badge -->
                                         <Grid>
-                                            <StackPanel Spacing="2">
-                                                <TextBlock Text="{x:Bind Name, Mode=OneWay}" FontWeight="SemiBold" />
-                                                <TextBlock Text="{x:Bind InstalledText, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+
+                                            <!-- GPU Icon in circle badge -->
+                                            <Border Grid.Column="0" Width="40" Height="40" CornerRadius="20"
+                                                    Background="{ThemeResource AccentFillColorTertiaryBrush}"
+                                                    Margin="0,0,14,0" VerticalAlignment="Center">
+                                                <FontIcon Glyph="&#xE7F4;" FontSize="20"
+                                                          Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+
+                                            <!-- GPU Name & Version info -->
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+                                                <TextBlock Text="{x:Bind Name, Mode=OneWay}" FontWeight="SemiBold" FontSize="16" />
+                                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                                    <TextBlock Text="{x:Bind InstalledText, Mode=OneWay}" FontSize="12"
+                                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    <TextBlock Text="•" FontSize="12" Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                               Visibility="{x:Bind HasLatestText, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+                                                    <TextBlock Text="{x:Bind LatestText, Mode=OneWay}" FontSize="12" FontWeight="SemiBold"
+                                                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                               Visibility="{x:Bind HasLatestText, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+                                                </StackPanel>
                                             </StackPanel>
+
+                                            <!-- Status Badge -->
+                                            <Border Grid.Column="2" Style="{StaticResource StatusBadgeStyle}"
+                                                    Visibility="{x:Bind ShowStatus, Mode=OneWay, Converter={StaticResource BoolToVis}}"
+                                                    VerticalAlignment="Center">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <FontIcon Glyph="{x:Bind StatusGlyph, Mode=OneWay}" FontSize="12"
+                                                              Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                                    <TextBlock Text="{x:Bind StatusText, Mode=OneWay}" Style="{StaticResource CaptionTextBlockStyle}" />
+                                                </StackPanel>
+                                            </Border>
                                         </Grid>
 
-                                        <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind HasLatestText, Mode=OneWay, Converter={StaticResource BoolToVis}}">
-                                            <TextBlock Text="{x:Bind LatestText, Mode=OneWay}" VerticalAlignment="Center" />
-                                            <Button Content="Download manually" Click="OpenPage_Click" Tag="{Binding}"
-                                                    Visibility="{x:Bind ShowOpenPage, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
-                                            <Button Content="Install update" Click="Install_Click" Tag="{Binding}"
+                                        <!-- Row 2: Single Dynamic Action Button & Options Dropdown -->
+                                        <StackPanel Orientation="Horizontal" Spacing="10"
+                                                    Visibility="{x:Bind ShowStatus, Mode=OneWay, Converter={StaticResource BoolToVis}}">
+                                            <!-- Single Dynamic Primary Action Button -->
+                                            <Button Click="PrimaryAction_Click" Tag="{Binding}"
                                                     Style="{StaticResource AccentButtonStyle}"
-                                                    Visibility="{x:Bind CanAutoInstall, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+                                                    Visibility="{x:Bind CanAutoInstall, Mode=OneWay, Converter={StaticResource BoolToVis}}">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <FontIcon Glyph="{x:Bind PrimaryActionGlyph, Mode=OneWay}" FontSize="14" />
+                                                    <TextBlock Text="{x:Bind PrimaryActionText, Mode=OneWay}" />
+                                                </StackPanel>
+                                            </Button>
+
+                                            <!-- Context Options DropDown -->
+                                            <DropDownButton Content="Options" Visibility="{x:Bind ShowOpenPage, Mode=OneWay, Converter={StaticResource BoolToVis}}">
+                                                <DropDownButton.Flyout>
+                                                    <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                                        <MenuFlyoutItem Text="Clean Uninstall (AMD Cleanup Utility)"
+                                                                        Click="RunAmdCleanup_Click"
+                                                                        Visibility="{x:Bind IsAmd, Mode=OneWay, Converter={StaticResource BoolToVis}}">
+                                                            <MenuFlyoutItem.Icon>
+                                                                <FontIcon Glyph="&#xE74D;" />
+                                                            </MenuFlyoutItem.Icon>
+                                                        </MenuFlyoutItem>
+
+                                                        <MenuFlyoutItem Text="Official AMD Auto-Detect Program"
+                                                                        Click="RunAmdAutoDetect_Click"
+                                                                        Visibility="{x:Bind IsAmd, Mode=OneWay, Converter={StaticResource BoolToVis}}">
+                                                            <MenuFlyoutItem.Icon>
+                                                                <FontIcon Glyph="&#xE896;" />
+                                                            </MenuFlyoutItem.Icon>
+                                                        </MenuFlyoutItem>
+
+                                                        <MenuFlyoutSeparator />
+                                                        <MenuFlyoutItem Text="Visit Official Website"
+                                                                        Click="OpenPage_Click" Tag="{Binding}">
+                                                            <MenuFlyoutItem.Icon>
+                                                                <FontIcon Glyph="&#xE8A7;" />
+                                                            </MenuFlyoutItem.Icon>
+                                                        </MenuFlyoutItem>
+                                                    </MenuFlyout>
+                                                </DropDownButton.Flyout>
+                                            </DropDownButton>
                                         </StackPanel>
 
-                                        <ProgressBar Maximum="100"
-                                                     Value="{x:Bind ProgressValue, Mode=OneWay}"
-                                                     IsIndeterminate="{x:Bind ProgressIndeterminate, Mode=OneWay}"
-                                                     Width="180"
-                                                     Visibility="{x:Bind IsBusy, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
-
-                                        <Border Style="{StaticResource StatusBadgeStyle}" Visibility="{x:Bind ShowStatus, Mode=OneWay, Converter={StaticResource BoolToVis}}">
-                                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                                <FontIcon Glyph="{x:Bind StatusGlyph, Mode=OneWay}"
-                                                          FontSize="12"
-                                                          Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
-                                                <TextBlock Text="{x:Bind StatusText, Mode=OneWay}"
-                                                           Style="{StaticResource CaptionTextBlockStyle}"
-                                                           VerticalAlignment="Center" />
-                                            </StackPanel>
-                                        </Border>
+                                        <!-- Busy Progress Indicator -->
+                                        <StackPanel Spacing="6" Visibility="{x:Bind IsBusy, Mode=OneWay, Converter={StaticResource BoolToVis}}">
+                                            <TextBlock Text="{x:Bind BusyText, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            <ProgressBar Maximum="100"
+                                                         Value="{x:Bind ProgressValue, Mode=OneWay}"
+                                                         IsIndeterminate="{x:Bind ProgressIndeterminate, Mode=OneWay}"
+                                                         HorizontalAlignment="Stretch" />
+                                        </StackPanel>
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <TextBlock Text="No graphics adapters were detected. WMI may be unavailable on this system."
+                    <TextBlock Text="No compatible graphics adapters were detected."
                                Style="{StaticResource CaptionTextBlockStyle}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                               TextWrapping="Wrap"
-                               Visibility="{x:Bind ViewModel.HasNoGpus, Mode=OneWay, Converter={StaticResource BoolToVis}}"
-                               Margin="1,8,0,0" />
+                               Visibility="{x:Bind ViewModel.HasNoGpus, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+
+                    <!-- Optimization & Maintenance Section -->
+                    <TextBlock Text="Optimization &amp; Maintenance" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Margin="0,6,0,0" />
+
+                    <!-- Native AMD Post-Install Debloat Card -->
+                    <controls:SettingsCard Header="Purge AMD Telemetry (Post-Install)"
+                                           Description="Disables background telemetry services (Crash Defender, External Events, AUEP) and clears residual caches.">
+                        <controls:SettingsCard.HeaderIcon>
+                            <FontIcon Glyph="&#xE946;" FontSize="18" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <Button Command="{x:Bind ViewModel.RunAmdPostInstallDebloatCommand}"
+                                IsEnabled="{x:Bind ViewModel.CanCheck, Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <ProgressRing Width="16" Height="16" IsActive="{x:Bind ViewModel.IsSlimming, Mode=OneWay}"
+                                              Visibility="{x:Bind ViewModel.IsSlimming, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+                                <TextBlock Text="Purge Telemetry" Visibility="{x:Bind ViewModel.IsSlimming, Mode=OneWay, Converter={StaticResource InverseBoolToVis}}" />
+                                <TextBlock Text="Cleaning…" Visibility="{x:Bind ViewModel.IsSlimming, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+                            </StackPanel>
+                        </Button>
+                    </controls:SettingsCard>
+
+                    <!-- GPU Audio Controller Card -->
+                    <controls:SettingsCard Header="GPU HDMI / DisplayPort Audio Controller"
+                                           Description="Disables the GPU's HDMI/DP audio controller in Device Manager to reduce DPC latency (recommended when using headphones or a dedicated DAC).">
+                        <controls:SettingsCard.HeaderIcon>
+                            <FontIcon Glyph="&#xE767;" FontSize="18" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <ToggleSwitch IsOn="{x:Bind ViewModel.IsGpuAudioEnabled, Mode=OneWay}"
+                                      Toggled="GpuAudio_Toggled"
+                                      OnContent="Enabled" OffContent="Disabled (DPC Optimized)" />
+                    </controls:SettingsCard>
+
+                    <!-- Official AMD Auto-Detect Card -->
+                    <controls:SettingsCard Header="Official AMD Auto-Detect Installer"
+                                           Description="Downloads and executes the official AMD Auto-Detect tool with strict Authenticode verification.">
+                        <controls:SettingsCard.HeaderIcon>
+                            <FontIcon Glyph="&#xE896;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <Button Command="{x:Bind ViewModel.UpdateAmdOfficialCommand}"
+                                 IsEnabled="{x:Bind ViewModel.CanCheck, Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <ProgressRing Width="16" Height="16" IsActive="{x:Bind ViewModel.IsAutoDetecting, Mode=OneWay}"
+                                              Visibility="{x:Bind ViewModel.IsAutoDetecting, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+                                <TextBlock Text="Launch Auto-Detect" Visibility="{x:Bind ViewModel.IsAutoDetecting, Mode=OneWay, Converter={StaticResource InverseBoolToVis}}" />
+                                <TextBlock Text="Checking…" Visibility="{x:Bind ViewModel.IsAutoDetecting, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+                            </StackPanel>
+                        </Button>
+                    </controls:SettingsCard>
 
                 </StackPanel>
             </Grid>
         </ScrollViewer>
     </Grid>
 </Page>
+

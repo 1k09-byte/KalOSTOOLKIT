@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Net.Http;
 using System.Text;
@@ -62,9 +62,15 @@ namespace KalOS.Services
                 cancellationToken.ThrowIfCancellationRequested();
                 try
                 {
-                    using var response = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                    using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                    if (url.Contains("amd.com", StringComparison.OrdinalIgnoreCase))
+                    {
+                        request.Headers.Referrer = new Uri("https://www.amd.com/");
+                    }
+                    using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
                         .ConfigureAwait(false);
                     response.EnsureSuccessStatusCode();
+
 
                     long totalBytes = response.Content.Headers.ContentLength ?? 0;
                     if (totalBytes == 0)

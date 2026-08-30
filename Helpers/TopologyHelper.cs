@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
@@ -97,48 +97,6 @@ namespace KalOS.Helpers
             // 1+ only on >64-thread CPUs where Windows splits logical processors across groups.
             // PCI MSI AssignmentSetOverride only addresses Group 0, so non-zero groups must be filtered.
             public ushort ProcessorGroup { get; set; }
-        }
-
-        /// <summary>
-        /// Reads the marketing CPU model name (e.g. "AMD Ryzen 9 7950X3D",
-        /// "Intel(R) Core(TM) i9-13900K") from the CentralProcessor registry key.
-        /// Used on the Per-CPU Scheduling page to show the detected CPU in the
-        /// topology summary card.
-        /// </summary>
-        public static string GetCpuModelName()
-        {
-            try
-            {
-                using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
-                    @"HARDWARE\DESCRIPTION\System\CentralProcessor\0");
-                if (key?.GetValue("ProcessorNameString") is string name && !string.IsNullOrWhiteSpace(name))
-                {
-                    return name.Trim();
-                }
-            }
-            catch
-            {
-                // Registry key not readable (rare on Windows) — fall through to WMI.
-            }
-
-            try
-            {
-                using var searcher = new System.Management.ManagementObjectSearcher(
-                    "root\\cimv2", "SELECT Name FROM Win32_Processor");
-                foreach (var obj in searcher.Get())
-                {
-                    if (obj["Name"] is string wmiName && !string.IsNullOrWhiteSpace(wmiName))
-                    {
-                        return wmiName.Trim();
-                    }
-                }
-            }
-            catch
-            {
-                // WMI unavailable — fall through to the generic label.
-            }
-
-            return "Unknown CPU";
         }
 
         public static List<CoreInfo> GetSystemTopology()
@@ -252,5 +210,43 @@ namespace KalOS.Helpers
 
             return cores;
         }
+
+        private static string? _cachedCpuName;
+
+        public static string GetCpuModelName()
+        {
+            if (_cachedCpuName != null) return _cachedCpuName;
+
+            try
+            {
+                using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"HARDWARE\DESCRIPTION\System\CentralProcessor\0");
+                var name = key?.GetValue("ProcessorNameString") as string;
+                if (!string.IsNullOrWhiteSpace(name))
+                {
+                    _cachedCpuName = name.Trim();
+                    return _cachedCpuName;
+                }
+            }
+            catch { }
+
+            try
+            {
+                var searcher = new System.Management.ManagementObjectSearcher("SELECT Name FROM Win32_Processor");
+                foreach (System.Management.ManagementObject obj in searcher.Get())
+                {
+                    var name = obj["Name"] as string;
+                    if (!string.IsNullOrWhiteSpace(name))
+                    {
+                        _cachedCpuName = name.Trim();
+                        return _cachedCpuName;
+                    }
+                }
+            }
+            catch { }
+
+            _cachedCpuName = "Unknown Processor";
+            return _cachedCpuName;
+        }
     }
 }
+

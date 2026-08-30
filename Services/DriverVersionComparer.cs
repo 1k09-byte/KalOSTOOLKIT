@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -19,9 +19,41 @@ namespace KalOS.Services
         public static int? Compare(string vendor, string installedWmi, string latest) => vendor switch
         {
             "NVIDIA" => CompareNvidia(installedWmi, latest),
+            "AMD" => CompareAmd(installedWmi, latest),
             "Intel" => CompareSegments(installedWmi, latest),
             _ => null,
         };
+
+        private static int? CompareAmd(string installed, string latestMarketing)
+        {
+            try
+            {
+                if (string.Equals(installed, latestMarketing, StringComparison.OrdinalIgnoreCase))
+                    return 0;
+
+                // Handle AMD branch mappings: 25.10.45.xx is the RDNA2 driver bundled in Adrenalin 26.8.1
+                if (installed.StartsWith("25.10.45", StringComparison.OrdinalIgnoreCase) &&
+                    latestMarketing.StartsWith("26.8", StringComparison.OrdinalIgnoreCase))
+                {
+                    return 0;
+                }
+
+                // Standard marketing format comparison (e.g. 26.8.1 vs 26.8.1 -> 0, 24.10.1 vs 26.8.1 -> -1)
+                var seg = CompareSegments(installed, latestMarketing);
+                if (seg.HasValue)
+                {
+                    return seg.Value;
+                }
+
+                return 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+
 
         /// <summary>
         /// NVIDIA: WMI reports four dotted groups whose last group carries the
