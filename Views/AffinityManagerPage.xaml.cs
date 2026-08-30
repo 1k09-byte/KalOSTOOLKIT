@@ -16,10 +16,49 @@ namespace KalOS.Views
             ViewModel = App.Services.GetRequiredService<AffinityManagerViewModel>();
             this.Resources["CategoryToIconConverter"] = new CategoryToIconConverter();
             this.Resources["MsiGlyphConverter"] = new MsiGlyphConverter();
+            this.Resources["MsiColorConverter"] = new MsiColorConverter();
+            this.Resources["PriorityColorConverter"] = new PriorityColorConverter();
+            this.Resources["CoreKindColorConverter"] = new CoreKindColorConverter();
+            this.Resources["NullToCollapsedConverter"] = new NullToCollapsedConverter();
             this.InitializeComponent();
 
             // Source must be set in code because {x:Bind} is not allowed inside <Page.Resources>.
             DeviceGroups.Source = ViewModel.GroupedDevices;
+
+            // Keep the category chips in sync when the selection changes from
+            // anywhere else (e.g. programmatic reset).
+            ViewModel.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(AffinityManagerViewModel.SelectedCategory))
+                {
+                    DispatcherQueue.TryEnqueue(SyncCategoryChips);
+                }
+            };
+            SyncCategoryChips();
+        }
+
+        private void CategoryChip_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            if (sender is Microsoft.UI.Xaml.Controls.Primitives.ToggleButton chip && chip.Tag is string label)
+            {
+                var category = ViewModel.CategoryFilters.FirstOrDefault(f => f.Label == label).Category ?? "All";
+                ViewModel.SelectedCategory = category;
+                SyncCategoryChips();
+            }
+        }
+
+        private void SyncCategoryChips()
+        {
+            void Set(Microsoft.UI.Xaml.Controls.Primitives.ToggleButton? chip, bool selected)
+            {
+                if (chip != null) chip.IsChecked = selected;
+            }
+
+            Set(ChipAll,     ViewModel.SelectedCategory == "All");
+            Set(ChipGpu,     ViewModel.SelectedCategory == "Graphics Cards");
+            Set(ChipAudio,   ViewModel.SelectedCategory == "Audio Controllers");
+            Set(ChipNetwork, ViewModel.SelectedCategory == "Network Interface Controllers");
+            Set(ChipXhci,    ViewModel.SelectedCategory == "XHCI Controllers");
         }
 
         private async void CardButton_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
@@ -194,6 +233,92 @@ namespace KalOS.Views
     {
         public object Convert(object value, Type targetType, object parameter, string language)
             => value is true ? "\uE73E" : "\uE711";
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Theme-aware badge brush lookup. Resolves semantic brushes (SuccessBrush /
+    /// ErrorBrush / WarningBrush / MutedTextBrush) from the merged Brushes
+    /// dictionary for the app's current Light/Dark theme so badges stay legible
+    /// in both themes.
+    /// </summary>
+    internal static class BadgeBrush
+    {
+        public static Microsoft.UI.Xaml.Media.Brush? Get(string key)
+        {
+            try
+            {
+                var appResources = Microsoft.UI.Xaml.Application.Current.Resources;
+                var theme = Microsoft.UI.Xaml.ElementTheme.Dark;
+                if (Microsoft.UI.Xaml.Application.Current is App app && app.MainWindow?.Content is Microsoft.UI.Xaml.FrameworkElement fe)
+                {
+                    theme = fe.ActualTheme;
+                }
+
+                var themeKey = theme == Microsoft.UI.Xaml.ElementTheme.Light ? "Light" : "Dark";
+                if (appResources.ThemeDictionaries.TryGetValue(themeKey, out var dictValue)
+                    && dictValue is Microsoft.UI.Xaml.ResourceDictionary dict)
+                {
+                    if (dict.TryGetValue(key, out var v) && v is Microsoft.UI.Xaml.Media.Brush b)
+                    {
+                        return b;
+                    }
+                }
+
+                if (appResources.TryGetValue(key, out var fallback) && fallback is Microsoft.UI.Xaml.Media.Brush fb)
+                {
+                    return fb;
+                }
+            }
+            catch
+            {
+                // Resource lookup failure — callers fall back to default foreground.
+            }
+            return null;
+        }
+    }
+
+    /// <summary>MSI badge color: green when enabled, red when disabled.</summary>
+    public class MsiColorConverter : Microsoft.UI.Xaml.Data.IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+            => value is true ? BadgeBrush.Get("SuccessBrush")! : BadgeBrush.Get("ErrorBrush")!;
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
+    }
+
+    /// <summary>
+    /// Priority chip color: High = warning gold, Normal = success green,
+    /// Low = error red, Undefined = muted.
+    /// </summary>
+    public class PriorityColorConverter : Microsoft.UI.Xaml.Data.IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            var key = (value as string) switch
+            {
+                "High"   => "WarningBrush",
+                "Normal" => "SuccessBrush",
+                "Low"    => "ErrorBrush",
+                _        => "MutedTextBrush",
+            };
+            return BadgeBrush.Get(key)!;
+        }
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
+    }
+
+    /// <summary>P-core = accent blue dot, E-core = muted dot.</summary>
+    public class CoreKindColorConverter : Microsoft.UI.Xaml.Data.IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+            => (value as string) == "E" ? BadgeBrush.Get("MutedTextBrush")! : BadgeBrush.Get("InfoBrush")!;
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
+    }
+
+    /// <summary>Collapsed while null (used for the topology summary card).</summary>
+    public class NullToCollapsedConverter : Microsoft.UI.Xaml.Data.IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+            => value == null ? Microsoft.UI.Xaml.Visibility.Collapsed : Microsoft.UI.Xaml.Visibility.Visible;
         public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
     }
 }

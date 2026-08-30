@@ -15,7 +15,9 @@
 
     <ScrollViewer Style="{StaticResource PageScrollStyle}">
         <Grid>
-            <StackPanel MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Stretch"
+            <!-- Wider content column than the global 1000px cap: device names,
+                 the search box, and the 7-column table all get room to breathe. -->
+            <StackPanel MaxWidth="1400" HorizontalAlignment="Stretch"
                         Spacing="{StaticResource SettingsCardSpacing}"
                         Margin="{StaticResource PagePadding}">
                 <StackPanel.ChildrenTransitions>
@@ -76,7 +78,69 @@
                 </StackPanel>
 
                 <!-- ══════════════════════════════════════════════════════
-                     Action toolbar: rescan / restore-all / optimize
+                     CPU topology summary card
+                     ══════════════════════════════════════════════════════ -->
+                <Border Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="16,12"
+                        Visibility="{x:Bind ViewModel.TopologySummary, Mode=OneWay, Converter={StaticResource NullToCollapsedConverter}}">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <FontIcon Glyph="&#xE7F4;" FontSize="16" Foreground="{ThemeResource AccentBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="{x:Bind ViewModel.TopologySummary.CpuName, Mode=OneWay}"
+                                       FontWeight="SemiBold" FontSize="15" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+
+                        <TextBlock Text="{x:Bind ViewModel.TopologySummary.Describe(), Mode=OneWay}"
+                                   FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.TopologySummary.Groups, Mode=OneWay}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" Spacing="6" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="viewmodels:CpuCoreGroup">
+                                    <Border Style="{StaticResource StatusBadgeStyle}" Padding="10,4"
+                                            Background="{ThemeResource SubtleFillColorTertiaryBrush}">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                                     Fill="{x:Bind Kind, Converter={StaticResource CoreKindColorConverter}}" />
+                                            <TextBlock Text="{x:Bind DisplayName}" FontSize="12" FontWeight="SemiBold"
+                                                       Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                            <TextBlock Text="{x:Bind ThreadCount}" FontSize="11"
+                                                       Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                       VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- ══════════════════════════════════════════════════════
+                     Search + category filter row
+                     ══════════════════════════════════════════════════════ -->
+                <Grid ColumnSpacing="8" Margin="0,0,0,2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox PlaceholderText="Search devices or hardware IDs…"
+                             Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <ToggleButton x:Name="ChipAll"      Content="All"     Tag="All"     Click="CategoryChip_Click" Padding="10,3" FontSize="12" />
+                        <ToggleButton x:Name="ChipGpu"      Content="GPU"     Tag="GPU"     Click="CategoryChip_Click" Padding="10,3" FontSize="12" />
+                        <ToggleButton x:Name="ChipAudio"    Content="Audio"   Tag="Audio"   Click="CategoryChip_Click" Padding="10,3" FontSize="12" />
+                        <ToggleButton x:Name="ChipNetwork"  Content="Network" Tag="Network" Click="CategoryChip_Click" Padding="10,3" FontSize="12" />
+                        <ToggleButton x:Name="ChipXhci"     Content="XHCI"    Tag="XHCI"    Click="CategoryChip_Click" Padding="10,3" FontSize="12" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- ══════════════════════════════════════════════════════
+                     Action toolbar: rescan / restore defaults / optimize
                      ══════════════════════════════════════════════════════ -->
                 <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                         BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
@@ -91,7 +155,7 @@
                         <Button Click="RestoreAll_Click">
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <FontIcon Glyph="&#xE777;" FontSize="14" />
-                                <TextBlock Text="Restore all" />
+                                <TextBlock Text="Restore System Defaults" />
                             </StackPanel>
                         </Button>
                         <Button Command="{x:Bind ViewModel.OptimizeAffinitiesCommand}" Style="{StaticResource AccentButtonStyle}">
@@ -137,16 +201,20 @@
                             BorderThickness="1" CornerRadius="8,8,0,0" Padding="12,8">
                         <Grid ColumnSpacing="8">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="2.4*" />
-                                <ColumnDefinition Width="1.1*" />
+                                <ColumnDefinition Width="2.2*" />
+                                <ColumnDefinition Width="1.0*" />
+                                <ColumnDefinition Width="0.7*" />
                                 <ColumnDefinition Width="0.9*" />
                                 <ColumnDefinition Width="1.1*" />
+                                <ColumnDefinition Width="0.8*" />
                                 <ColumnDefinition Width="72" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Device" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
                             <TextBlock Grid.Column="1" Text="MSI Mode" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
                             <TextBlock Grid.Column="2" Text="MSI Limit" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
                             <TextBlock Grid.Column="3" Text="Priority" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="4" Text="Policy" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="5" Text="Assigned" FontSize="12" FontWeight="SemiBold" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
                         </Grid>
                     </Border>
 
@@ -160,10 +228,12 @@
                                             BorderThickness="1,0,1,1" Padding="12,10">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="2.4*" />
-                                                <ColumnDefinition Width="1.1*" />
+                                                <ColumnDefinition Width="2.2*" />
+                                                <ColumnDefinition Width="1.0*" />
+                                                <ColumnDefinition Width="0.7*" />
                                                 <ColumnDefinition Width="0.9*" />
                                                 <ColumnDefinition Width="1.1*" />
+                                                <ColumnDefinition Width="0.8*" />
                                                 <ColumnDefinition Width="72" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -184,13 +254,15 @@
                                                         BorderThickness="0,0,0,1" Padding="12,10">
                                                     <Grid ColumnSpacing="8">
                                                         <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="2.4*" />
-                                                            <ColumnDefinition Width="1.1*" />
+                                                            <ColumnDefinition Width="2.2*" />
+                                                            <ColumnDefinition Width="1.0*" />
+                                                            <ColumnDefinition Width="0.7*" />
                                                             <ColumnDefinition Width="0.9*" />
                                                             <ColumnDefinition Width="1.1*" />
+                                                            <ColumnDefinition Width="0.8*" />
                                                             <ColumnDefinition Width="72" />
                                                         </Grid.ColumnDefinitions>
-                                                        <!-- Device: icon + name, policy as subtitle -->
+                                                        <!-- Device: icon + name, threads/policy as subtitle -->
                                                         <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                                                             <FontIcon Glyph="{x:Bind Category, Converter={StaticResource CategoryToIconConverter}}"
                                                                       FontSize="16" Foreground="{ThemeResource TextFillColorPrimaryBrush}" VerticalAlignment="Center" />
@@ -202,29 +274,47 @@
                                                             </StackPanel>
                                                         </StackPanel>
 
-                                                        <!-- MSI mode pill -->
+                                                        <!-- MSI badge: green when on, red when off -->
                                                         <Border Grid.Column="1" Style="{StaticResource StatusBadgeStyle}" Padding="6,2" VerticalAlignment="Center" HorizontalAlignment="Left">
                                                             <StackPanel Orientation="Horizontal" Spacing="4">
                                                                 <FontIcon FontSize="10" VerticalAlignment="Center"
                                                                           Glyph="{x:Bind MsiEnabled, Converter={StaticResource MsiGlyphConverter}}"
-                                                                          Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                                                          Foreground="{x:Bind MsiEnabled, Converter={StaticResource MsiColorConverter}}" />
                                                                 <TextBlock Text="{x:Bind MsiEnabledText, Mode=OneWay}" FontSize="11"
-                                                                           Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                                                           Foreground="{x:Bind MsiEnabled, Converter={StaticResource MsiColorConverter}}" />
                                                             </StackPanel>
                                                         </Border>
 
-                                                        <!-- MSI limit -->
-                                                        <TextBlock Grid.Column="2" Text="{x:Bind MsiLimit, Mode=OneWay}" FontSize="12"
-                                                                   VerticalAlignment="Center" />
+                                                        <!-- MSI limit badge -->
+                                                        <Border Grid.Column="2" Style="{StaticResource StatusBadgeStyle}" Padding="6,2" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                                            <TextBlock Text="{x:Bind MsiLimitShort, Mode=OneWay}" FontSize="11"
+                                                                       Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                                        </Border>
 
                                                         <!-- Priority chip -->
                                                         <Border Grid.Column="3" Style="{StaticResource StatusBadgeStyle}" Padding="6,2" VerticalAlignment="Center" HorizontalAlignment="Left">
                                                             <TextBlock Text="{x:Bind DevicePriority, Mode=OneWay}" FontSize="11"
-                                                                       Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                                                       Foreground="{x:Bind DevicePriority, Converter={StaticResource PriorityColorConverter}}" />
+                                                        </Border>
+
+                                                        <!-- Policy badge -->
+                                                        <Border Grid.Column="4" Style="{StaticResource StatusBadgeStyle}" Padding="6,2" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                                            <TextBlock Text="{x:Bind DevicePolicyShort, Mode=OneWay}" FontSize="11"
+                                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                        </Border>
+
+                                                        <!-- Assigned cores badge -->
+                                                        <Border Grid.Column="5" Style="{StaticResource StatusBadgeStyle}" Padding="6,2" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                                <FontIcon Glyph="&#xE968;" FontSize="10" VerticalAlignment="Center"
+                                                                          Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                                                <TextBlock Text="{x:Bind AssignedCoresShort, Mode=OneWay}" FontSize="11"
+                                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                            </StackPanel>
                                                         </Border>
 
                                                         <!-- Edit action -->
-                                                        <Button Grid.Column="4" Content="Edit" Click="CardButton_Click" Tag="{Binding}"
+                                                        <Button Grid.Column="6" Content="Edit" Click="CardButton_Click" Tag="{Binding}"
                                                                 VerticalAlignment="Center" />
                                                     </Grid>
                                                 </Border>

@@ -71,6 +71,56 @@ namespace KalOS.ViewModels
         [ObservableProperty]
         private bool _hasHighCoreCount;
 
+        // ── Topology summary (CPU name, P/E split, CCD count, SMT) ──
+
+        [ObservableProperty]
+        private CpuTopologySummary? _topologySummary;
+
+        // ── Search + category filter ──
+
+        [ObservableProperty]
+        private string _searchText = string.Empty;
+
+        [ObservableProperty]
+        private string _selectedCategory = "All";
+
+        /// <summary>Filter chip labels mapped to internal PCI categories.</summary>
+        public IReadOnlyList<(string Label, string Category)> CategoryFilters { get; } = new[]
+        {
+            ("All",      "All"),
+            ("GPU",      "Graphics Cards"),
+            ("Audio",    "Audio Controllers"),
+            ("Network",  "Network Interface Controllers"),
+            ("XHCI",     "XHCI Controllers"),
+        };
+
+        /// <summary>Applies the search box + category chip to the grouped table.</summary>
+        private void ApplyFilters()
+        {
+            var query = SearchText?.Trim();
+            var selected = CategoryFilters.FirstOrDefault(f => f.Category == SelectedCategory).Category ?? "All";
+
+            var filtered = AllDevices.Where(d =>
+                (selected == "All" || d.Category == selected) &&
+                (string.IsNullOrEmpty(query)
+                    || d.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
+                    || d.DeviceId.Contains(query, StringComparison.OrdinalIgnoreCase)));
+
+            GroupedDevices.Clear();
+            foreach (var g in filtered.GroupBy(d => d.Category).OrderBy(g => g.Key))
+            {
+                GroupedDevices.Add(new PciDeviceGroup(g.Key, g));
+            }
+
+            StatusText = GroupedDevices.Count == 0 && AllDevices.Count > 0
+                ? $"No devices match \"{SearchText}\"."
+                : StatusText;
+        }
+
+        partial void OnSearchTextChanged(string value) => ApplyFilters();
+
+        partial void OnSelectedCategoryChanged(string value) => ApplyFilters();
+
         /// <summary>Computed: device list is populated AND initial scan finished.</summary>
         public bool HasDevices => !IsLoading && AllDevices.Count > 0;
 
@@ -208,13 +258,15 @@ if (category == "Network Interface Controllers") item.MaxMsiLimit = "32";
                             AllDevices.Add(dev);
                         }
 
-                        var groups = AllDevices.GroupBy(x => x.Category);
-                        foreach (var g in groups)
-                        {
-                            GroupedDevices.Add(new PciDeviceGroup(g.Key, g));
-                        }
                         SystemCores = DetectCpuTopology();
+
+                        // Topology summary card: CPU name + P/E/CCD/SMT breakdown.
+                        TopologySummary = CpuTopologySummary.Build(
+                            KalOS.Helpers.TopologyHelper.GetCpuModelName(), SystemCores);
                         OnPropertyChanged(nameof(CpuCoreCount));
+
+                        // Respect the active search/filter instead of always showing everything.
+                        ApplyFilters();
                     });
                 }
             });
@@ -603,6 +655,68 @@ if (category == "Network Interface Controllers") item.MaxMsiLimit = "32";
             }
         }
 
+        private const string NetworkAdapterClassGuid = "{4d36e972-e325-11ce-bfc1-08002be10318}";
+
+        /// <summary>
+        /// Re-points the NIC's NDIS Receive-Side-Scaling base processor to the
+        /// dedicated core the optimizer assigned it, so RSS queues start on the
+        /// pinned core instead of wherever Windows defaulted them.
+        ///
+        /// Matching is done through the documented join:
+        ///   Control\Class\{net GUID}\&lt;NNNN&gt;\NetCfgInstanceId  →
+        ///   Control\Network\{net GUID}\&lt;{NetCfgInstanceId}&gt;\Connection\PnPInstanceId
+        /// which equals the PCI instance ID we already hold from the PnP scan.
+        ///
+        /// Only *RssBaseProcNumber is written — we deliberately do NOT flip
+        /// *RSS on/off: toggling RSS on a NIC that doesn't support it can drop
+        /// the adapter entirely, and a NIC without RSS support has no base
+        /// processor key to begin with. Missing keys are skipped silently.
+        /// Takes effect after the adapter restart (pnputil is already part of
+        /// the optimize flow for NICs).
+        /// </summary>
+        public void SetNicRssBaseProcessor(string deviceId, int baseProcessor)
+        {
+            try
+            {
+                using var classKey = Registry.LocalMachine.OpenSubKey(
+                    $@"SYSTEM\CurrentControlSet\Control\Class\{NetworkAdapterClassGuid}", writable: true);
+                if (classKey == null) return;
+
+                foreach (var subKeyName in classKey.GetSubKeyNames())
+                {
+                    // Instance keys are numbered 0000, 0001, ... — skip config-only entries.
+                    if (subKeyName.Length != 4 || !subKeyName.All(char.IsDigit)) continue;
+
+                    using var inst = classKey.OpenSubKey(subKeyName, writable: true);
+                    if (inst == null) continue;
+                    if (inst.GetValue("NetCfgInstanceId") is not string netCfgId) continue;
+
+                    // Join through Control\Network to confirm this instance belongs to our PCI device.
+                    using var conn = Registry.LocalMachine.OpenSubKey(
+                        $@"SYSTEM\CurrentControlSet\Control\Network\{NetworkAdapterClassGuid}\{netCfgId}\Connection");
+                    if (conn?.GetValue("PnPInstanceId") is not string pnpId ||
+                        !string.Equals(pnpId, deviceId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    inst.SetValue("*RssBaseProcNumber", baseProcessor, RegistryValueKind.DWord);
+                    Debug.WriteLine($"RSS base processor {baseProcessor} set for {deviceId} (class key {subKeyName}).");
+                    return;
+                }
+
+                Debug.WriteLine($"No NDIS class instance matched {deviceId}; RSS base processor not written.");
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Debug.WriteLine($"RSS base processor write denied for {deviceId}: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to set RSS base processor for {deviceId}: {ex.Message}");
+            }
+        }
+
         /// <summary>
         /// Restores a single device's MSI / affinity registry to Windows defaults. Recovery path
         /// for users whose device misbehaves after Optimize. Deletes AssignmentSetOverride,
@@ -760,11 +874,11 @@ if (category == "Network Interface Controllers") item.MaxMsiLimit = "32";
 
             string dialogContent =
                 "Low-latency profile.\n\n" +
-                "• Audio: pinned to a dedicated physical core (not CPU 0). MSI limit = 1 (only when device natively uses MSI; line-IRQ devices left untouched so driver mode is never changed), Normal priority.\n" +
-                "• USB (XHCI): pinned to a different dedicated physical core (not CPU 0). High priority; MSI limit left at driver default.\n" +
-                "• Network (WiFi / Ethernet): pinned to a different dedicated physical core (not CPU 0). High priority; MSI limit left at driver default.\n" +
-                "• GPU: pinned to up to 4 dedicated physical cores (less than the default all-CPU distribution). High priority (preempts other driver DPCs to minimize render latency). MSI limit = 1. The GPU IS restarted — your screen will flicker/go black for a few seconds while the graphics stack re-initializes.\n" +
-                "\nCPU 0 stays available for system threads. Audio / USB / Network / GPU devices are restarted in the background after the registry writes.\n\n";
+                "• Audio: pinned to a dedicated E-core on hybrid CPUs (interrupt isolation from render threads), else the first non-CPU0 core. MSI limit = 1, Normal priority — eliminates crackling and DPC latency.\n" +
+                "• USB (XHCI): pinned to a dedicated performance core. High priority; MSI vector count left at driver default so high-polling-rate mice (1000–8000 Hz) never micro-stutter.\n" +
+                "• Network (WiFi / Ethernet): pinned to a dedicated performance core. High priority; NDIS RSS base processor re-pointed to the assigned core (*RssBaseProcNumber).\n" +
+                "• GPU: pinned to 2 physical performance cores (up to 4 SMT threads). High priority; MSI limit = 1 to stabilize frame pacing. The GPU IS restarted — your screen will flicker/go black for a few seconds while the graphics stack re-initializes.\n" +
+                "\nCPU 0 stays available for system threads. On 2-4 core CPUs the targets share cores gracefully instead of failing. Audio / USB / Network / GPU devices are restarted in the background after the registry writes.\n\n";
 
             if (audioTouched || xhciTouched || networkTouched || gpuTouched)
             {
@@ -822,86 +936,27 @@ if (category == "Network Interface Controllers") item.MaxMsiLimit = "32";
                 }
                 catch (Exception ex) { _logging.Warn($"Failed to read processor topology: {ex.Message}"); }
 
-                // Build the pinning candidate pool. We exclude CPU 0 (LogicalProcessorMask == 1)
-                // as a *pinning target* but do NOT black-list it from the system — system threads
-                // keep using CPU 0 as normal. Avoiding CPU 0 as a target is purely because that
-                // single logical processor already carries HAL/SMI tick traffic, and adding audio
-                // DPCs there would saturate it.
-                var pinningCandidates = cores.Where(c => c.LogicalProcessorMask != 1UL).ToList();
-                if (pinningCandidates.Count == 0)
-                {
-                    // Edge case: single-core / no-spare systems. Fall back to CPU 0 rather than
-                    // leaving the device's policy unchanged — at least we set a low priority.
-                    pinningCandidates = cores.Take(1).ToList();
-                }
+                // Resolve the whole allocation up-front via the pure, testable plan:
+                //   Audio  → dedicated E-core on hybrid CPUs (interrupt isolation from
+                //            render threads), else the first non-CPU0 core.
+                //   XHCI   → dedicated performance core (vector count left to the driver
+                //            so 1000-8000 Hz mice never micro-stutter).
+                //   Network→ dedicated performance core + NDIS RSS base re-point.
+                //   GPU    → up to 2 physical P-cores (≤4 SMT threads).
+                // CPU 0 is only ever an absolute last resort, and on 2-4 core systems
+                // targets degrade gracefully (network shares the XHCI core before it
+                // would ever share the audio core) so Optimize never fails outright.
+                var plan = KalOS.Helpers.AffinityAllocationPlan.Build(cores);
+                ulong audioMask   = plan.AudioMask;
+                ulong xhciMask    = plan.XhciMask;
+                ulong networkMask = plan.NetworkMask;
+                ulong gpuMask     = plan.GpuMask;
+                bool  gpuMaskUsable = plan.GpuUsable;
 
-            var audioCore = pinningCandidates.FirstOrDefault();
-            var xhciCore = pinningCandidates.Count > 1 ? pinningCandidates[1] : null;
-            var networkCore = pinningCandidates.Count > 2 ? pinningCandidates[2] : null;
-
-                // FullCoreMask covers BOTH SMT threads of the physical core. We deliberately allow
-                // both threads (rather than forcing a single thread) so that if one SMT sibling is
-                // briefly occupied by another thread, the audio/USB DPC has a fallback thread on
-                // the same core — preventing the DPC queue stalling the audio engine under load.
-            ulong audioMask = audioCore?.FullCoreMask ?? 0UL;
-            ulong xhciMask = xhciCore?.FullCoreMask ?? 0UL;
-            ulong networkMask = networkCore?.FullCoreMask ?? 0UL;
-
-                // GPU optimization is always applied in the modern flow (no opt-in checkbox). Gated
-                // only on having enough non-CPU0 cores to give the GPU at least one core above
-                // the Audio + XHCI pinning candidates.
-                // beyond Audio and XHCI. We allocate up to MAX_GPU_CORES cores from the candidate
-                // pool starting at index 2 (slots 0 and 1 are already taken by Audio and XHCI).
-                //
-                // We deliberately use a multi-core span (NOT a single thread) because modern GPUs
-                // (NVIDIA RTX 30/40, AMD RX 6000/7000) parallelize DPCs across their MSI-X vectors
-                // for command list building and completion rings. Less than ~2 physical cores causes
-                // the DPC queue to stall, which is what produced the DPC_WATCHDOG_VIOLATION 0x133
-                // bug check in the previous version of this tool. 2-4 cores is the established
-                // sweet spot. MSI vector limit is left at the driver default for the same reason.
-                // Target up to 4 logical processors for the GPU (user-requested lower bound).
-                // We cap by *logical processors* (set bits in the FullCoreMask) rather than core
-                // count so this works correctly on any SMT layout:
-                //   SMT=2 desktop (typical): selects 2 cores  -> 4 SMT threads.
-                //   SMT=1 (older / disabled): selects up to 4 cores -> 4 logical processors.
-                //   SMT>=4 (rare high-core):   selects 1 core   -> 4 SMT threads.
-                // Pin the GPU to between MinGpuLogicalProcessors (2) and MaxGpuLogicalProcessors (4)
-                // logical processors. Both bounds are enforced by the loop:
-                //   * Below Min: always include cores regardless of nextBits (we need at least Min).
-                //   * At/above Min: stop once the next core would exceed Max.
-                // On underprovisioned systems (e.g. SMT=1 quad-core where Audio+XHCI take 2 of
-                // 3 candidate cores and only 1 LP is left for GPU) the loop ends below Min; we
-                // mark gpuMaskUsable = false and skip the GPU branch so we never write a sub-Min
-                // mask to the GPU's AssignmentSetOverride. On any system with >=4 non-CPU0
-                // cores the user sees a value strictly inside [Min, Max].
-                const int MinGpuLogicalProcessors = 2;
-                const int MaxGpuLogicalProcessors = 2;
-                ulong gpuMask = 0;
-                bool gpuMaskUsable = false;
-                // GPU starts at idx=3 below because Audio (0), XHCI (1), and Network (2)
-                // take the first three candidate cores. The GPU IS added to devicesToRestart
-                // (user-requested): the adapter is restarted after the registry writes so the
-                // affinity + MSI limit apply immediately — expect a brief screen flicker.
-                if (pinningCandidates.Count > 3)
-                {
-                    int idx = 3;
-                    while (idx < pinningCandidates.Count)
-                    {
-                        ulong coreMask = pinningCandidates[idx].FullCoreMask;
-                        int currentBits = System.Numerics.BitOperations.PopCount(gpuMask);
-                        int nextBits = currentBits + System.Numerics.BitOperations.PopCount(coreMask);
-                        // Stop only once we're at Min AND the next core would exceed Max.
-                        if (currentBits >= MinGpuLogicalProcessors && nextBits > MaxGpuLogicalProcessors) break;
-                        gpuMask |= coreMask;
-                        idx++;
-                    }
-                    gpuMaskUsable = System.Numerics.BitOperations.PopCount(gpuMask) >= MinGpuLogicalProcessors;
-                }
-                // True when the user opted INTO GPU optimization but the system couldn't provide
-                // enough cores to satisfy Min. The GPU branch in the per-device loop is then
-                // skipped so we never write a sub-Min mask, but we'd otherwise give the user no
-                // feedback that their intent was heard and rejected. Status text surfaces this state.
-                gpuSkipped = pinningCandidates.Count > 3 && !gpuMaskUsable;
+                // True when the system couldn't spare any core for the GPU after
+                // Audio/USB/Network took theirs. The GPU branch below is skipped so we
+                // never write an empty mask; the status text surfaces this explicitly.
+                gpuSkipped = !gpuMaskUsable;
 
                 var devicesToRestart = new List<string>();
 
@@ -946,10 +1001,17 @@ if (category == "Network Interface Controllers") item.MaxMsiLimit = "32";
                         // Network uses SetDeviceAffinityPolicyOnly for the same reason as XHCI:
                         // NIC drivers scale their vector count based on RSS queues / interrupt
                         // moderation, and force-restricting MessageNumberLimit can stall
-                        // multi-queue traffic. pnputil /restart-device is safe for NICs (the
-                        // adapter briefly disconnects, then reconnects — apps with retry logic
-                        // are unaffected, and Wi-Fi roaming reassociates within seconds).
+                        // multi-queue traffic. In addition to the interrupt affinity we
+                        // re-point NDIS RSS's base processor to the assigned core so the
+                        // first RSS queue lands there. pnputil /restart-device is safe for
+                        // NICs (the adapter briefly disconnects, then reconnects — apps
+                        // with retry logic are unaffected, and Wi-Fi roaming reassociates
+                        // within seconds).
                         SetDeviceAffinityPolicyOnly(item, networkMask, priority: 3);
+                        if (plan.NetworkBaseProcessor is int rssBase)
+                        {
+                            SetNicRssBaseProcessor(item.DeviceId, rssBase);
+                        }
                         devicesToRestart.Add(item.DeviceId);
                         hasChanges = true;
                         hasNetworkChanges = true;
