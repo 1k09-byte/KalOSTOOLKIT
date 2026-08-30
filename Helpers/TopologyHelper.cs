@@ -99,6 +99,48 @@ namespace KalOS.Helpers
             public ushort ProcessorGroup { get; set; }
         }
 
+        /// <summary>
+        /// Reads the marketing CPU model name (e.g. "AMD Ryzen 9 7950X3D",
+        /// "Intel(R) Core(TM) i9-13900K") from the CentralProcessor registry key.
+        /// Used on the Per-CPU Scheduling page to show the detected CPU in the
+        /// topology summary card.
+        /// </summary>
+        public static string GetCpuModelName()
+        {
+            try
+            {
+                using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                    @"HARDWARE\DESCRIPTION\System\CentralProcessor\0");
+                if (key?.GetValue("ProcessorNameString") is string name && !string.IsNullOrWhiteSpace(name))
+                {
+                    return name.Trim();
+                }
+            }
+            catch
+            {
+                // Registry key not readable (rare on Windows) — fall through to WMI.
+            }
+
+            try
+            {
+                using var searcher = new System.Management.ManagementObjectSearcher(
+                    "root\\cimv2", "SELECT Name FROM Win32_Processor");
+                foreach (var obj in searcher.Get())
+                {
+                    if (obj["Name"] is string wmiName && !string.IsNullOrWhiteSpace(wmiName))
+                    {
+                        return wmiName.Trim();
+                    }
+                }
+            }
+            catch
+            {
+                // WMI unavailable — fall through to the generic label.
+            }
+
+            return "Unknown CPU";
+        }
+
         public static List<CoreInfo> GetSystemTopology()
         {
             var cores = new List<CoreInfo>();
