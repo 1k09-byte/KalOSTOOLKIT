@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Management;
 using System.Threading.Tasks;
@@ -33,17 +33,31 @@ namespace KalOS.Services
                     foreach (ManagementObject gpu in searcher.Get())
                     {
                         var date = FormatDriverDate(Convert.ToString(gpu["DriverDate"]));
-                        var name = Convert.ToString(gpu["Name"]);
-                        var pnp = Convert.ToString(gpu["PNPDeviceID"]);
+                        var name = Convert.ToString(gpu["Name"]) ?? "Unknown GPU";
+                        var pnp = Convert.ToString(gpu["PNPDeviceID"]) ?? "";
+                        var wmiVersion = Convert.ToString(gpu["DriverVersion"]) ?? "Unknown";
+
+                        string finalVersion = wmiVersion;
+                        bool isAmd = pnp.Contains("VEN_1002", StringComparison.OrdinalIgnoreCase)
+                            || name.Contains("Radeon", StringComparison.OrdinalIgnoreCase)
+                            || name.Contains("AMD", StringComparison.OrdinalIgnoreCase);
+
+                        if (isAmd)
+                        {
+                            string? amdMarketingVer = GetAmdMarketingVersion();
+                            if (!string.IsNullOrWhiteSpace(amdMarketingVer))
+                            {
+                                finalVersion = amdMarketingVer;
+                            }
+                        }
 
                         gpus.Add(new GpuInfo
                         {
                             Name = string.IsNullOrWhiteSpace(name) ? "Unknown GPU" : name,
-                            DriverVersion = Convert.ToString(gpu["DriverVersion"]) ?? "Unknown",
+                            DriverVersion = finalVersion,
                             DriverDate = date,
-                            PnpDeviceId = string.IsNullOrWhiteSpace(pnp) ? "" : pnp,
-                            Manufacturer = (string.IsNullOrWhiteSpace(pnp) ? "" : pnp) +
-                                           (string.IsNullOrWhiteSpace(name) ? "" : " " + name)
+                            PnpDeviceId = pnp,
+                            Manufacturer = pnp + (string.IsNullOrWhiteSpace(name) ? "" : " " + name)
                         });
                         gpu.Dispose();
                     }
@@ -57,6 +71,72 @@ namespace KalOS.Services
                 return gpus;
             });
         }
+
+        private static string? GetAmdMarketingVersion()
+        {
+            try
+            {
+                // 1. Check Video Adapter Class ReleaseVersion (e.g. "25.10.45.05-260808a-203303C-AMD-Software-Adrenalin-Edition")
+                using var classKey = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}");
+                if (classKey != null)
+                {
+                    foreach (var subName in classKey.GetSubKeyNames())
+                    {
+                        if (subName.StartsWith("000", StringComparison.OrdinalIgnoreCase))
+                        {
+                            using var sub = classKey.OpenSubKey(subName);
+                            var catVer = sub?.GetValue("Catalyst_Version")?.ToString();
+                            if (!string.IsNullOrWhiteSpace(catVer) && catVer.Contains('.'))
+                                return catVer.Trim();
+
+                            var relVer = sub?.GetValue("ReleaseVersion")?.ToString();
+                            if (!string.IsNullOrWhiteSpace(relVer))
+                            {
+                                // Match AMD build timestamp e.g. "-260808a-" -> 26.8.1
+                                var match = System.Text.RegularExpressions.Regex.Match(relVer, @"-(\d{2})(\d{2})\d{2}[a-zA-Z]?-");
+                                if (match.Success)
+                                {
+                                    int yy = int.Parse(match.Groups[1].Value);
+                                    int mm = int.Parse(match.Groups[2].Value);
+                                    return $"{yy}.{mm}.1";
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 2. Check AMD Catalyst Install Manager
+                using var uKey = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\AMD Catalyst Install Manager");
+                var dispVer = uKey?.GetValue("DisplayVersion")?.ToString();
+                if (!string.IsNullOrWhiteSpace(dispVer)) return dispVer.Trim();
+
+                // 3. Check other AMD uninstall entries
+                using var uParent = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall");
+                if (uParent != null)
+                {
+                    foreach (var subName in uParent.GetSubKeyNames())
+                    {
+                        if (subName.Contains("AMD", StringComparison.OrdinalIgnoreCase) || subName.Contains("Radeon", StringComparison.OrdinalIgnoreCase))
+                        {
+                            using var sub = uParent.OpenSubKey(subName);
+                            var v = sub?.GetValue("DisplayVersion")?.ToString();
+                            if (!string.IsNullOrWhiteSpace(v) && v.Contains('.'))
+                                return v.Trim();
+                        }
+                    }
+                }
+
+                // 4. Check AMDInstallManager CheckForUpdates
+                using var imKey = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\AMD\AMDInstallManager\CheckForUpdates");
+                var instDriver = imKey?.GetValue("InstalledDriver")?.ToString();
+                if (!string.IsNullOrWhiteSpace(instDriver)) return instDriver.Trim();
+            }
+            catch
+            {
+            }
+            return null;
+        }
+
 
         private static string FormatDriverDate(string? wmiDate)
         {
