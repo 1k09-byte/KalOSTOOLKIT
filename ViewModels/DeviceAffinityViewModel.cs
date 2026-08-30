@@ -14,6 +14,15 @@ namespace KalOS.ViewModels
         
         public ObservableCollection<CpuCoreInfo> Cores { get; }
 
+        /// <summary>Total threads in the mask (across all cores).</summary>
+        public int TotalThreadCount => Cores.Sum(c => c.Threads.Count);
+
+        /// <summary>How many threads are currently selected in the mask.</summary>
+        public int SelectedThreadCount => Cores.Sum(c => c.Threads.Count(t => t.IsSelected));
+
+        /// <summary>"N of M selected" line shown in the mask header.</summary>
+        public string SelectedSummary => $"{SelectedThreadCount} of {TotalThreadCount} selected";
+
         [ObservableProperty] private bool _msiEnabled;
         [ObservableProperty] private int _msiLimit;
         [ObservableProperty] private string _devicePriority = "Undefined";
@@ -75,6 +84,33 @@ namespace KalOS.ViewModels
             
             DevicePolicy = string.IsNullOrEmpty(device.DevicePolicy) ? "IrqPolicyMachineDefault" : device.DevicePolicy;
             UpdatePolicyDescription(DevicePolicy);
+
+            // Keep the "N of M selected" summary live as checkboxes change.
+            foreach (var core in Cores)
+            {
+                foreach (var thread in core.Threads)
+                {
+                    thread.PropertyChanged += (_, _) =>
+                    {
+                        OnPropertyChanged(nameof(SelectedThreadCount));
+                        OnPropertyChanged(nameof(SelectedSummary));
+                    };
+                }
+            }
+        }
+
+        /// <summary>Selects or clears every thread in the mask at once.</summary>
+        public void SetAllThreads(bool selected)
+        {
+            foreach (var core in Cores)
+            {
+                foreach (var thread in core.Threads)
+                {
+                    thread.IsSelected = selected;
+                }
+            }
+            OnPropertyChanged(nameof(SelectedThreadCount));
+            OnPropertyChanged(nameof(SelectedSummary));
         }
 
         partial void OnDevicePolicyChanged(string value)

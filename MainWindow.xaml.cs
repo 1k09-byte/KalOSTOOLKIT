@@ -97,6 +97,37 @@ namespace KalOS
             _themeService.ThemeChanged += OnThemeChanged;
             _backdropService.BackdropChanging += OnBackdropChanging;
             _backdropService.BackdropChanged += OnBackdropChanged;
+
+            // Apply background image from saved settings.
+            ApplyBackgroundImage();
+
+            // Refresh the background image when settings change.
+            var settingsVm = App.Services.GetRequiredService<ViewModels.SettingsViewModel>();
+            settingsVm.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName is nameof(ViewModels.SettingsViewModel.BackgroundImagePath)
+                    or nameof(ViewModels.SettingsViewModel.BackgroundImageFit)
+                    or nameof(ViewModels.SettingsViewModel.BackgroundImageVerticalAlignment)
+                    or nameof(ViewModels.SettingsViewModel.BackgroundImageHorizontalAlignment))
+                {
+                    DispatcherQueue.TryEnqueue(() => ApplyBackgroundImage());
+                }
+                else if (e.PropertyName is nameof(ViewModels.SettingsViewModel.BackgroundImageOpacity))
+                {
+                    // Opacity changes must NOT re-run ApplyBackgroundImage — re-decoding the
+                    // bitmap blanks the image for a frame ("flicker to blank"). Just set the
+                    // cached element's Opacity directly for a smooth live fade.
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        if (BackgroundImage.Visibility == Visibility.Visible)
+                        {
+                            BackgroundImage.Opacity = App.Services
+                                .GetRequiredService<ViewModels.SettingsViewModel>()
+                                .BackgroundImageOpacity;
+                        }
+                    });
+                }
+            };
             
             // Start background preloading of heavy ViewModels
             var services = App.Services;
@@ -287,6 +318,72 @@ namespace KalOS
                     RootGrid.Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
                 }
             });
+        }
+
+        // Cached decoded bitmap + the path it was decoded from. Re-applying fit/alignment
+        // must not re-decode the file (that blanks the Image for a frame); only a path
+        // change triggers a fresh decode.
+        private string? _backgroundImageLoadedPath;
+        private Microsoft.UI.Xaml.Media.Imaging.BitmapImage? _backgroundImageBitmap;
+
+        /// <summary>
+        /// Loads and applies the background image from saved settings.
+        /// Called on startup and can be called again when settings change.
+        /// </summary>
+        private void ApplyBackgroundImage()
+        {
+            try
+            {
+                var settings = Services.UpdateService.LoadSettings();
+                if (string.IsNullOrEmpty(settings.BackgroundImagePath) || !System.IO.File.Exists(settings.BackgroundImagePath))
+                {
+                    BackgroundImage.Visibility = Visibility.Collapsed;
+                    BackgroundOverlay.Visibility = Visibility.Collapsed;
+                    BackgroundImage.Source = null;
+                    _backgroundImageBitmap = null;
+                    _backgroundImageLoadedPath = null;
+                    return;
+                }
+
+                var uri = new Uri(settings.BackgroundImagePath, UriKind.Absolute);
+                // Reuse the cached bitmap unless the path actually changed.
+                if (_backgroundImageBitmap == null || _backgroundImageLoadedPath != settings.BackgroundImagePath)
+                {
+                    _backgroundImageBitmap = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(uri);
+                    _backgroundImageLoadedPath = settings.BackgroundImagePath;
+                }
+                BackgroundImage.Source = _backgroundImageBitmap;
+                BackgroundImage.Opacity = settings.BackgroundImageOpacity;
+                BackgroundImage.Stretch = settings.BackgroundImageFit switch
+                {
+                    "Uniform" => Microsoft.UI.Xaml.Media.Stretch.Uniform,
+                    "Fill" => Microsoft.UI.Xaml.Media.Stretch.Fill,
+                    "None" => Microsoft.UI.Xaml.Media.Stretch.None,
+                    _ => Microsoft.UI.Xaml.Media.Stretch.UniformToFill
+                };
+                BackgroundImage.HorizontalAlignment = settings.BackgroundImageHorizontalAlignment switch
+                {
+                    "Left" => HorizontalAlignment.Left,
+                    "Right" => HorizontalAlignment.Right,
+                    _ => HorizontalAlignment.Center
+                };
+                BackgroundImage.VerticalAlignment = settings.BackgroundImageVerticalAlignment switch
+                {
+                    "Top" => VerticalAlignment.Top,
+                    "Bottom" => VerticalAlignment.Bottom,
+                    _ => VerticalAlignment.Center
+                };
+                BackgroundImage.Visibility = Visibility.Visible;
+                BackgroundOverlay.Visibility = Visibility.Visible;
+            }
+            catch
+            {
+                BackgroundImage.Visibility = Visibility.Collapsed;
+                BackgroundOverlay.Visibility = Visibility.Collapsed;
+                BackgroundImage.Source = null;
+                _backgroundImageBitmap = null;
+                _backgroundImageLoadedPath = null;
+            }
         }
         
         public void NavigateToPage(Type pageType)

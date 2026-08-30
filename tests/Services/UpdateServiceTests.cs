@@ -144,6 +144,49 @@ public class UpdateServiceTests
     }
 
     [Fact]
+    public void ParseReleaseHistory_SortsNewestFirstAndMarksCurrent()
+    {
+        string json = """
+        [
+          { "tag_name": "v1.0.0.4", "name": "v1.0.0.4", "published_at": "2026-08-29T10:00:00Z", "html_url": "https://github.com/1k09-byte/KalOSTOOLKIT/releases/tag/v1.0.0.4", "body": "Fixed the thing" },
+          { "tag_name": "v1.0.0.3", "name": "v1.0.0.3", "published_at": "2026-08-28T10:00:00Z", "html_url": "https://github.com/1k09-byte/KalOSTOOLKIT/releases/tag/v1.0.0.3", "body": "" },
+          { "tag_name": "v1.0.0.5", "name": "v1.0.0.5", "published_at": "2026-08-30T10:00:00Z", "html_url": "https://github.com/1k09-byte/KalOSTOOLKIT/releases/tag/v1.0.0.5", "body": "Newest" }
+        ]
+        """;
+
+        var history = UpdateService.ParseReleaseHistory(json, Version.Parse("1.0.0.3"));
+
+        Assert.Equal(3, history.Count);
+        Assert.Equal(Version.Parse("1.0.0.5"), history[0].Version);   // newest first
+        Assert.Equal(Version.Parse("1.0.0.4"), history[1].Version);
+        Assert.Equal(Version.Parse("1.0.0.3"), history[2].Version);
+        Assert.True(history[2].IsCurrent);                            // running build marked
+        Assert.False(history[1].IsCurrent);
+        Assert.NotNull(history[0].PublishedAt);
+        Assert.Equal("Fixed the thing", history[1].Notes);
+    }
+
+    [Fact]
+    public void ParseReleaseHistory_SkipsInvalidTagsAndNonArrayPayloads()
+    {
+        string json = """[ { "tag_name": "nightly", "published_at": "2026-08-29T10:00:00Z" } ]""";
+        Assert.Empty(UpdateService.ParseReleaseHistory(json, Version.Parse("1.0.0.3")));
+
+        Assert.Empty(UpdateService.ParseReleaseHistory("{}", Version.Parse("1.0.0.3")));
+    }
+
+    [Fact]
+    public void ParseReleaseHistory_StripsDiscordMarkerFromNotes()
+    {
+        string json = """[ { "tag_name": "v1.0.0.4", "body": "<!-- discord-msg:12 -->\nFixed MMCSS" } ]""";
+
+        var history = UpdateService.ParseReleaseHistory(json, Version.Parse("1.0.0.3"));
+
+        Assert.Single(history);
+        Assert.Equal("Fixed MMCSS", history[0].Notes);
+    }
+
+    [Fact]
     public void BuildApplyScript_WaitsForOldProcessAndRelocatesFiles()
     {
         string script = UpdateService.BuildApplyScript(

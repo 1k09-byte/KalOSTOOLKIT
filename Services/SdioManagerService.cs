@@ -189,10 +189,15 @@ namespace KalOS.Services
             {
                 await Task.Run(() =>
                 {
+                    // SDIO_x64.exe is a console-subsystem executable; with UseShellExecute
+                    // Windows allocates a visible terminal window next to its GUI. Launching
+                    // with CreateNoWindow gives it a hidden console while its own GUI window
+                    // still shows normally.
                     var psi = new ProcessStartInfo
                     {
                         FileName = exePath,
-                        UseShellExecute = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
                         WorkingDirectory = Path.GetDirectoryName(exePath)
                     };
                     using var process = Process.Start(psi);

@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Threading.Tasks;
 using KalOS.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Text;
@@ -22,6 +24,12 @@ namespace KalOS.Views
         /// </summary>
         public SettingsViewModel ViewModel { get; }
 
+        /// <summary>Backs the Startup section of the Settings page.</summary>
+        public StartupViewModel StartupViewModel { get; }
+
+        /// <summary>Keeps the preview banner alive while it is showing.</summary>
+        private StartupBannerWindow? _previewBanner;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="SettingsPage"/> class.
         /// </summary>
@@ -29,6 +37,22 @@ namespace KalOS.Views
         {
             this.InitializeComponent();
             ViewModel = App.Services.GetRequiredService<SettingsViewModel>();
+            StartupViewModel = App.Services.GetRequiredService<StartupViewModel>();
+        }
+
+        /// <summary>
+        /// Shows the login banner as a non-invoking preview so the user can see
+        /// what it looks like without actually running any startup work.
+        /// </summary>
+        private void PreviewStartup_Click(object sender, RoutedEventArgs e)
+        {
+            var startup = App.Services.GetRequiredService<StartupTasksService>();
+            var update = App.Services.GetRequiredService<UpdateService>();
+            var settings = startup.Load();
+
+            _previewBanner = new StartupBannerWindow(startup, update, settings);
+            _previewBanner.Closed += (_, _) => _previewBanner = null;
+            _previewBanner.Preview();
         }
 
         /// <summary>
@@ -153,6 +177,146 @@ namespace KalOS.Views
             catch
             {
                 // Best-effort — Explorer can fail on locked-down shells.
+            }
+        }
+
+        /// <summary>
+        /// Shows every published KalOS version with its date and release notes,
+        /// the running build marked "current", and a link out to GitHub.
+        /// </summary>
+        private async void ShowReleaseHistory_Click(object sender, RoutedEventArgs e)
+        {
+            var status = new TextBlock
+            {
+                Text = "Loading release history…",
+                FontSize = 12,
+                Foreground = ThemeBrush("TextFillColorSecondaryBrush"),
+                Margin = new Thickness(0, 8, 0, 0)
+            };
+            var dialog = new ContentDialog
+            {
+                Title = "Release history",
+                Content = status,
+                PrimaryButtonText = "View on GitHub",
+                CloseButtonText = "Close",
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = this.Content.XamlRoot
+            };
+
+            // Fetch off the UI thread; the dialog is already visible with a
+            // status line so a slow/rate-limited GitHub response isn't silent.
+            IReadOnlyList<ReleaseHistoryEntry> releases;
+            try
+            {
+                releases = await App.Services.GetRequiredService<UpdateService>().GetReleaseHistoryAsync();
+            }
+            catch
+            {
+                releases = Array.Empty<ReleaseHistoryEntry>();
+            }
+
+            if (releases.Count == 0)
+            {
+                status.Text = "Could not load the release history from GitHub. It may be rate-limited or offline — use \"View on GitHub\" instead.";
+            }
+            else
+            {
+                var rows = new StackPanel { Spacing = 2 };
+                foreach (var release in releases)
+                {
+                    if (rows.Children.Count > 0)
+                    {
+                        rows.Children.Add(new Border
+                        {
+                            Height = 1,
+                            Background = ThemeBrush("DividerStrokeColorDefaultBrush")
+                        });
+                    }
+                    rows.Children.Add(BuildReleaseRow(release));
+                }
+                dialog.Content = new ScrollViewer
+                {
+                    Content = rows,
+                    MaxHeight = 460,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                    Padding = new Thickness(0, 0, 12, 0)
+                };
+            }
+
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            {
+                OpenGitHubReleases();
+            }
+        }
+
+        /// <summary>Builds one release row: version + date (+ "current" badge) and the release notes.</summary>
+        private static FrameworkElement BuildReleaseRow(ReleaseHistoryEntry entry)
+        {
+            var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            header.Children.Add(new TextBlock
+            {
+                Text = $"v{entry.Version}",
+                FontWeight = FontWeights.SemiBold,
+                FontSize = 13
+            });
+            if (entry.PublishedAt is { } when)
+            {
+                header.Children.Add(new TextBlock
+                {
+                    Text = when.ToLocalTime().ToString("MMM d, yyyy"),
+                    FontSize = 12,
+                    Foreground = ThemeBrush("TextFillColorTertiaryBrush"),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+            }
+            if (entry.IsCurrent)
+            {
+                header.Children.Add(new Border
+                {
+                    Background = ThemeBrush("AccentFillColorDefaultBrush"),
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(6, 1, 6, 1),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Child = new TextBlock
+                    {
+                        Text = "current",
+                        FontSize = 11,
+                        Foreground = ThemeBrush("TextOnAccentFillColorPrimaryBrush")
+                    }
+                });
+            }
+
+            var panel = new StackPanel { Spacing = 2, Margin = new Thickness(0, 8, 0, 8) };
+            panel.Children.Add(header);
+            panel.Children.Add(new TextBlock
+            {
+                Text = string.IsNullOrWhiteSpace(entry.Notes)
+                    ? "No release notes for this version."
+                    : entry.Notes,
+                TextWrapping = TextWrapping.Wrap,
+                FontSize = 12,
+                Foreground = ThemeBrush(string.IsNullOrWhiteSpace(entry.Notes)
+                    ? "TextFillColorTertiaryBrush"
+                    : "TextFillColorSecondaryBrush")
+            });
+            return panel;
+        }
+
+        /// <summary>Opens the project's GitHub Releases page in the browser.</summary>
+        private static void OpenGitHubReleases()
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo(
+                    $"https://github.com/{UpdateService.DefaultOwner}/{UpdateService.DefaultRepo}/releases")
+                {
+                    UseShellExecute = true
+                });
+            }
+            catch
+            {
+                // Browser launch is best-effort.
             }
         }
 

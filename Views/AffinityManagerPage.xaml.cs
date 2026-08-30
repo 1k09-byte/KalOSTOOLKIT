@@ -1,4 +1,6 @@
-﻿using Microsoft.UI.Xaml.Controls;
+﻿using System;
+using System.Collections.Generic;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using KalOS.ViewModels;
 using Microsoft.UI.Xaml;
@@ -13,7 +15,7 @@ namespace KalOS.Views
         {
             ViewModel = App.Services.GetRequiredService<AffinityManagerViewModel>();
             this.Resources["CategoryToIconConverter"] = new CategoryToIconConverter();
-            this.Resources["MsiColorConverter"] = new MsiColorConverter();
+            this.Resources["MsiGlyphConverter"] = new MsiGlyphConverter();
             this.InitializeComponent();
 
             // Source must be set in code because {x:Bind} is not allowed inside <Page.Resources>.
@@ -101,6 +103,27 @@ namespace KalOS.Views
             }
         }
 
+        /// <summary>Restores every device to Windows defaults after a confirmation.</summary>
+        private async void RestoreAll_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            var xamlRoot = this.Content?.XamlRoot;
+            if (xamlRoot == null || ViewModel.AllDevices.Count == 0) return;
+
+            var dlg = new Microsoft.UI.Xaml.Controls.ContentDialog
+            {
+                Title = "Restore all devices?",
+                Content = $"Clear the MSI/affinity overrides on all {ViewModel.AllDevices.Count} listed devices and let Windows pick their defaults again.\n\nChanges take effect after the devices are restarted or the PC reboots.",
+                PrimaryButtonText = "Restore all",
+                CloseButtonText = "Cancel",
+                DefaultButton = Microsoft.UI.Xaml.Controls.ContentDialogButton.Close,
+                XamlRoot = xamlRoot
+            };
+            var result = await dlg.ShowAsync();
+            if (result != Microsoft.UI.Xaml.Controls.ContentDialogResult.Primary) return;
+
+            ViewModel.RestoreAll();
+        }
+
         /// <summary>Asks whether to restart the device now or defer to the next reboot.</summary>
         private async System.Threading.Tasks.Task<bool> ConfirmRestartDialog(PciDeviceItem item)
         {
@@ -166,19 +189,11 @@ namespace KalOS.Views
         public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
     }
 
-    public class MsiColorConverter : Microsoft.UI.Xaml.Data.IValueConverter
+    /// <summary>Check mark when MSI is on, quiet "off" cross when it isn't.</summary>
+    public class MsiGlyphConverter : Microsoft.UI.Xaml.Data.IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, string language)
-        {
-            if (value is bool isEnabled)
-            {
-                // Return dark green if true, dark red if false
-                return isEnabled 
-                    ? new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 30, 100, 30))
-                    : new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(255, 100, 30, 30));
-            }
-            return new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
-        }
+            => value is true ? "\uE73E" : "\uE711";
         public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
     }
 }

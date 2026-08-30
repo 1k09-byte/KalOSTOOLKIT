@@ -24,6 +24,26 @@ if (-not (Test-Path (Join-Path $out "KalOS.exe"))) { throw "Output not found: $o
 # Strip debug symbols to slim the package.
 Get-ChildItem -Path $out -Recurse -Filter *.pdb -ErrorAction SilentlyContinue | Remove-Item -Force
 
+# OS-changes payload: os-changes.json + every .ps1 it references must sit next to
+# KalOS.exe inside the zip, or the consumer app's "Apply changes" button has
+# nothing to run. Copy from the repo root (source of truth) if the build didn't.
+$osChanges = Join-Path $PSScriptRoot "os-changes.json"
+if (Test-Path $osChanges) {
+    Copy-Item $osChanges $out -Force
+    # Parse the manifest (JSONC — strip // comments) and copy each referenced script.
+    $raw = (Get-Content $osChanges -Raw) -replace '(?m)^\s*//.*$', ''
+    try { $manifest = $raw | ConvertFrom-Json } catch { throw "os-changes.json is not valid JSON: $_" }
+    foreach ($change in $manifest.changes) {
+        if ($change.type -eq 'script' -and $change.script) {
+            $scriptSrc = Join-Path $PSScriptRoot $change.script
+            if (-not (Test-Path $scriptSrc)) { throw "os-changes.json references missing script: $change.script" }
+            Copy-Item $scriptSrc $out -Force
+            Write-Host "Packed OS script: $($change.script)"
+        }
+    }
+    Write-Host "Packed os-changes.json (version $($manifest.version))"
+}
+
 # Version comes from the csproj so the zip name always matches the release tag.
 $csproj = Get-Content (Join-Path $PSScriptRoot "KalOS.csproj") -Raw
 $match = [regex]::Match($csproj, '<Version>([^<]+)</Version>')
