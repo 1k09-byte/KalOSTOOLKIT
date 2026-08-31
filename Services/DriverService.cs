@@ -125,7 +125,8 @@ namespace KalOS.Services
             DriverInfo driver,
             IProgress<DriverUpdateProgress>? progress = null,
             CancellationToken cancellationToken = default,
-            NvidiaInstallComponents? nvidiaComponents = null)
+            NvidiaInstallComponents? nvidiaComponents = null,
+            string? sourceExePath = null)
         {
             var display = driver.DisplayString ?? $"driver {driver.Version}";
             bool hasSilentPath = (gpu.IsNvidia || gpu.IsAmd)
@@ -164,7 +165,25 @@ namespace KalOS.Services
                     Message = $"Installing update (Downloading {display}… {pct:F0}%)"
                 }));
 
-                await _downloads.DownloadAsync(driver.DownloadUrl, exePath, downloadProgress, cancellationToken);
+                if (sourceExePath != null)
+                {
+                    // User-supplied package ("Use driver files on disk"): validate
+                    // it, then copy it to the path the extraction step expects —
+                    // no network download in this flow.
+                    ValidateLocalPackage(sourceExePath);
+                    progress?.Report(new DriverUpdateProgress
+                    {
+                        Phase = DriverUpdatePhase.Downloading,
+                        Percent = 100,
+                        Message = $"Using driver package: {Path.GetFileName(sourceExePath)}"
+                    });
+                    _log.Info($"Using on-disk driver package: {sourceExePath}");
+                    File.Copy(sourceExePath, exePath, overwrite: true);
+                }
+                else
+                {
+                    await _downloads.DownloadAsync(driver.DownloadUrl, exePath, downloadProgress, cancellationToken);
+                }
 
                 bool installed;
                 if (gpu.IsNvidia)
@@ -239,6 +258,24 @@ namespace KalOS.Services
 
                 _installs.CleanupExtracted(extractDir);
             }
+        }
+
+        /// <summary>
+        /// Sanity-checks a user-supplied driver package before it replaces a
+        /// download: it must exist, be a plausible size, and start with the PE
+        /// "MZ" header — the same bar the download pipeline enforces.
+        /// </summary>
+        private static void ValidateLocalPackage(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                throw new InvalidOperationException("The selected driver file does not exist.");
+            if (new FileInfo(path).Length < 10_000_000)
+                throw new InvalidOperationException("The selected file is too small to be a driver package.");
+
+            using var fs = File.OpenRead(path);
+            Span<byte> header = stackalloc byte[2];
+            if (fs.Read(header) < 2 || header[0] != (byte)'M' || header[1] != (byte)'Z')
+                throw new InvalidOperationException("The selected file is not a valid Windows executable.");
         }
 
         /// <summary>

@@ -42,8 +42,33 @@ public sealed partial class GpuDriversPage : Page
         {
             if (item.Latest is null) return;
 
+            // ── NVIDIA: KalOS's own install dialog ───────────────────────
+            // Mirrors NVCleanstall's "Select Driver Version To Install" screen
+            // (best driver / driver files on disk) plus the component checklist,
+            // all in-app — then runs the built-in silent pipeline.
+            if (item.IsNvidia)
+            {
+                var nvDialog = new NvInstallDialog(item)
+                {
+                    XamlRoot = RootPage.XamlRoot,
+                };
+
+                if (await nvDialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+                var validationError = nvDialog.Validate();
+                if (validationError != null)
+                {
+                    ViewModel.HasError = true;
+                    ViewModel.ErrorMessage = validationError;
+                    return;
+                }
+
+                await ViewModel.InstallAsync(item, nvDialog.Components, nvDialog.OnDiskDriverPath);
+                return;
+            }
+
         string vendorDetail = item.IsNvidia
-            ? "The stock installer is never run: only the signed display driver is staged via pnputil, then older driver-store packages, container services, scheduled tasks, and leftover folders are removed — NVIDIA clean-install grade, minus the bloat. Pick below which optional components you want to keep."
+            ? "The stock installer is never run: only the signed display driver is staged via pnputil, then older driver-store packages, container services, scheduled tasks, and leftover folders are removed — NVIDIA clean-install grade, minus the bloat."
             : "The Adrenalin package is extracted silently and stripped down to the display driver only — no Radeon Software, no RAS telemetry, no audio drivers. Only the signed display INF is installed via pnputil, then AMD bloat services, scheduled tasks, and leftover folders are removed.";
 
         var contentPanel = new StackPanel { Spacing = 12 };
@@ -65,54 +90,6 @@ public sealed partial class GpuDriversPage : Page
         };
         contentPanel.Children.Add(text);
 
-        // NVIDIA lets the user choose which optional components to keep. The
-        // display driver is always installed; every unchecked component is stripped.
-        NvidiaInstallComponents components = NvidiaInstallComponents.DisplayOnly;
-        if (item.IsNvidia)
-        {
-            var separator = new Border
-            {
-                BorderBrush = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["DividerStrokeColorDefaultBrush"],
-                BorderThickness = new Thickness(0, 1, 0, 0),
-                Margin = new Thickness(0, 8, 0, 0),
-            };
-            var header = new TextBlock
-            {
-                Text = "Components to keep (display driver is always installed)",
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Margin = new Thickness(0, 8, 0, 0),
-            };
-            contentPanel.Children.Add(separator);
-            contentPanel.Children.Add(header);
-
-            var cbPhysX = new CheckBox { Content = "PhysX System Software" };
-            var cbHdAudio = new CheckBox { Content = "HD Audio driver" };
-            var cbGfe = new CheckBox { Content = "GeForce Experience" };
-            var cbNvApp = new CheckBox { Content = "NVIDIA App" };
-            contentPanel.Children.Add(cbPhysX);
-            contentPanel.Children.Add(cbHdAudio);
-            contentPanel.Children.Add(cbGfe);
-            contentPanel.Children.Add(cbNvApp);
-
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-            {
-                components = new NvidiaInstallComponents
-                {
-                    KeepPhysX = cbPhysX.IsChecked == true,
-                    KeepHDAudio = cbHdAudio.IsChecked == true,
-                    KeepGeForceExperience = cbGfe.IsChecked == true,
-                    KeepNvidiaApp = cbNvApp.IsChecked == true,
-                };
-            }
-            else
-            {
-                return;
-            }
-
-            await ViewModel.InstallAsync(item, components);
-            return;
-        }
-
         if (item.IsAmd)
         {
             await ViewModel.PrepareAndOpenAmdSlimmerAsync(item, RootPage.XamlRoot);
@@ -126,13 +103,7 @@ public sealed partial class GpuDriversPage : Page
 
         await ViewModel.InstallAsync(item);
         }
-    }
-
-
-
-
-
-    private async void PrimaryAction_Click(object sender, RoutedEventArgs e)
+    }    private async void PrimaryAction_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement elem && elem.Tag is GpuDriverItem item)
         {

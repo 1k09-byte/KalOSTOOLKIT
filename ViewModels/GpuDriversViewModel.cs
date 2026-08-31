@@ -381,7 +381,7 @@ namespace KalOS.ViewModels
         /// Runs an already-confirmed update for one GPU with per-row progress,
         /// then quietly re-checks that GPU so the row reflects the new state.
         /// </summary>
-        public async Task InstallAsync(GpuDriverItem? item, NvidiaInstallComponents? nvidiaComponents = null)
+        public async Task InstallAsync(GpuDriverItem? item, NvidiaInstallComponents? nvidiaComponents = null, string? onDiskDriverPath = null)
         {
             if (item is null || !item.CanAutoInstall || IsWorking) return;
 
@@ -401,7 +401,7 @@ namespace KalOS.ViewModels
                     StatusText = $"{item.Name}: {p.Message}";
                 });
 
-                bool ok = await _driverService.UpdateAsync(item.Gpu, item.Latest!, progress, ct, nvidiaComponents);
+                bool ok = await _driverService.UpdateAsync(item.Gpu, item.Latest!, progress, ct, nvidiaComponents, onDiskDriverPath);
 
                 if (ok)
                 {
@@ -952,7 +952,7 @@ namespace KalOS.ViewModels
             }
         }
 
-        private async Task WaitForAmdInstallProcessesAsync(GpuDriverItem item, CancellationToken ct = default)
+    private async Task WaitForAmdInstallProcessesAsync(GpuDriverItem item, CancellationToken ct = default)
         {
             var targetNames = new[] { "AtiSetup", "InstallManagerApp", "AMDSoftwareInstaller", "ATISetup", "Setup" };
             // Give 5 seconds for installer sub-processes to launch
