@@ -120,7 +120,11 @@ public sealed partial class StartupBannerWindow : WindowEx
     /// </summary>
     private async System.Threading.Tasks.Task RunStartupSequenceAsync()
     {
-        // 1. Check for updates.
+        // 1. Check for updates — consumer builds only. The dev/edit tool is
+        //    built from the same repo and often runs a NEWER version than the
+        //    published release, so letting it check would nag about "updates"
+        //    (or even trigger the rollback path) against itself. Skip entirely.
+#if CONSUMER_BUILD
         if (_settings.CheckUpdatesAtStartup)
         {
             TaskProgress.IsIndeterminate = true;
@@ -141,6 +145,7 @@ public sealed partial class StartupBannerWindow : WindowEx
                 return; // an update is on offer — show it briefly, then close
             }
         }
+#endif // CONSUMER_BUILD
 
         // 2. Scan temp files (no deletion yet).
         TaskProgress.IsIndeterminate = true;

@@ -17,7 +17,7 @@
   // update popup only shows "View apply log" (no "Apply changes" button).
   // When you add tweaks later, add entries here (each needs a non-empty
   // description) and reference its .ps1 file.
-  "version": "1.0.0.5",
+  "version": "1.0.0.6",
   "changes": [
   ]
 }
