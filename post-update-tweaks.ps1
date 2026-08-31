@@ -75,19 +75,8 @@ function Set-KalService {
 }
 
 # ══════════════════════════════════════════════════════════════════════════
-#  YOUR TWEAKS GO HERE
+#  YOUR TWEAKS GO HERE — nothing is configured right now.
 # ══════════════════════════════════════════════════════════════════════════
 
-# ── TEST tweak: disable Windows text-input service plumbing ────────────────
-# Equivalent of:
-#   reg add "HKLM\Software\Microsoft\Input" /v InputServiceEnabled /t REG_DWORD /d 0 /f
-#   reg add "HKLM\Software\Microsoft\Input" /v InputServiceEnabledForCCI /t REG_DWORD /d 0 /f
-#   reg add "HKLM\System\CurrentControlSet\Services\TextInputManagementService\Parameters"
-#        /v ServiceDll /t REG_EXPAND_SZ /d "%SystemRoot%\System32\MSCTF.DLL" /f
-Set-KalRegDWord 'HKLM\Software\Microsoft\Input' 'InputServiceEnabled' 0
-Set-KalRegDWord 'HKLM\Software\Microsoft\Input' 'InputServiceEnabledForCCI' 0
-Set-KalRegExpandString 'HKLM\System\CurrentControlSet\Services\TextInputManagementService\Parameters' `
-    'ServiceDll' '%SystemRoot%\System32\MSCTF.DLL'
-
-Write-Output "post-update-tweaks: done."
+Write-Output "post-update-tweaks: no tweaks configured."
 exit 0
