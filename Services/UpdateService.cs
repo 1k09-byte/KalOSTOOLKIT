@@ -18,6 +18,9 @@ public sealed record UpdateInfo(Version Version, string Tag, string ZipAssetUrl,
 /// <summary>What the last update applied, persisted so the app can show an update log after restart.</summary>
 public sealed record UpdateRecord(string Version, DateTime AppliedAt, string Notes);
 
+/// <summary>One entry in a parsed release history (used to show an update log / changelog).</summary>
+public sealed record ReleaseHistoryEntry(Version Version, string Tag, DateTime? PublishedAt, string Notes, bool IsCurrent);
+
 /// <summary>A downloadable asset attached to a GitHub release.</summary>
 public sealed record ReleaseAsset(string Name, string BrowserDownloadUrl);
 
@@ -25,6 +28,14 @@ public sealed record ReleaseAsset(string Name, string BrowserDownloadUrl);
 public sealed class UpdateSettings
 {
     public bool AutoCheckForUpdates { get; set; } = true;
+
+    // Startup banner wallpaper — read by StartupBannerWindow. String values
+    // match the switch cases there; defaults mirror the reader's fallback.
+    public string BackgroundImagePath { get; set; } = string.Empty;
+    public double BackgroundImageOpacity { get; set; } = 0.35;
+    public string BackgroundImageFit { get; set; } = "UniformToFill";
+    public string BackgroundImageHorizontalAlignment { get; set; } = "Center";
+    public string BackgroundImageVerticalAlignment { get; set; } = "Center";
 }
 
 /// <summary>
@@ -176,7 +187,78 @@ public sealed class UpdateService
         return new UpdateInfo(latest, tag, zip, page, notes, latest < currentVersion);
     }
 
+    /// <summary>
+    /// Parses a GitHub "releases" JSON array into a history list, newest first,
+    /// marking the entry that matches the running build. Invalid tags and
+    /// non-array payloads are skipped/ignored. Released notes have the internal
+    /// "<!-- discord-msg:… -->" marker stripped.
+    /// </summary>
+    public static List<ReleaseHistoryEntry> ParseReleaseHistory(string json, Version currentVersion)
+    {
+        var history = new List<ReleaseHistoryEntry>();
+        using (var doc = JsonDocument.Parse(json))
+        {
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Array) return history;
+
+            foreach (var item in root.EnumerateArray())
+            {
+                if (item.ValueKind != JsonValueKind.Object) continue;
+                if (!item.TryGetProperty("tag_name", out var tagEl) || tagEl.GetString() is not { } tag) continue;
+                if (!TryParseReleaseVersion(tag, out var version)) continue;
+
+                string notes = item.TryGetProperty("body", out var body) && body.GetString() is { } bn
+                    ? StripDiscordMarker(bn)
+                    : string.Empty;
+                DateTime? published = item.TryGetProperty("published_at", out var p) &&
+                                      p.TryGetDateTime(out var dt)
+                    ? dt
+                    : (DateTime?)null;
+
+                history.Add(new ReleaseHistoryEntry(version, tag, published, notes, version == currentVersion));
+            }
+        }
+
+        // Newest first.
+        history.Sort((a, b) => b.Version.CompareTo(a.Version));
+        return history;
+    }
+
+    /// <summary>Removes a leading "&lt;!-- discord-msg:… --&gt;" marker (and surrounding whitespace) from release notes.</summary>
+    private static string StripDiscordMarker(string notes)
+    {
+        int start = notes.IndexOf("<!--", StringComparison.Ordinal);
+        if (start < 0) return notes.Trim();
+        int end = notes.IndexOf("-->", start, StringComparison.Ordinal);
+        if (end < 0) return notes.Trim();
+        return (notes.Substring(0, start) + notes.Substring(end + 3)).Trim();
+    }
+
     // ── Network / apply ──────────────────────────────────────────────────
+
+    /// <summary>Fetches all published releases from GitHub for the release-history dialog.</summary>
+    public async Task<IReadOnlyList<ReleaseHistoryEntry>> GetReleaseHistoryAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("KalOS-Updater/1.0");
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+            client.Timeout = TimeSpan.FromSeconds(20);
+            string json = await client.GetStringAsync(
+                $"https://api.github.com/repos/{DefaultOwner}/{DefaultRepo}/releases?per_page=100", cancellationToken);
+            return ParseReleaseHistory(json, CurrentVersion);
+        }
+        catch (OperationCanceledException)
+        {
+            return Array.Empty<ReleaseHistoryEntry>();
+        }
+        catch (Exception ex)
+        {
+            _log.Warn($"Release history fetch failed: {ex.Message}");
+            return Array.Empty<ReleaseHistoryEntry>();
+        }
+    }
 
     /// <summary>Checks GitHub for a newer release. Returns null when up to date, no releases exist, or the check failed.</summary>
     public async Task<UpdateInfo?> CheckForUpdatesAsync(CancellationToken cancellationToken = default)
@@ -412,76 +494,6 @@ try {{
         catch (Exception ex)
         {
             Debug.WriteLine($"Failed to save update settings: {ex.Message}");
-        }
-    }
-}
-
-public class OsChangeManifest
-{
-    public string Version { get; set; } = "1.0";
-    public string Description { get; set; } = string.Empty;
-    public List<string> RegistryTweaks { get; set; } = new();
-}
-
-public class OsChangeResult
-{
-    public List<string> Applied { get; } = new();
-    public List<string> Errors { get; } = new();
-    public string Summary => Errors.Count == 0 ? "All changes applied successfully." : $"{Errors.Count} error(s) occurred.";
-}
-
-public class OsChangeService
-{
-    private const string ManifestFileName = "os-changes.json";
-
-    public static OsChangeManifest? LoadFromInstallDir()
-    {
-        try
-        {
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ManifestFileName);
-            if (File.Exists(path))
-            {
-                string json = File.ReadAllText(path);
-                return JsonSerializer.Deserialize<OsChangeManifest>(json);
-            }
-        }
-        catch { }
-        return null;
-    }
-
-    public static bool IsApplied(OsChangeManifest manifest)
-    {
-        try
-        {
-            string markerPath = Path.Combine(UpdateService.AppDataFolder, $"os-changes-{manifest.Version}.applied");
-            return File.Exists(markerPath);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    public bool TryApply(OsChangeManifest manifest, OsChangeResult result)
-    {
-        try
-        {
-            result.Applied.Add($"Manifest version {manifest.Version} verified");
-
-            try
-            {
-                string markerPath = Path.Combine(UpdateService.AppDataFolder, $"os-changes-{manifest.Version}.applied");
-                Directory.CreateDirectory(Path.GetDirectoryName(markerPath)!);
-                File.WriteAllText(markerPath, DateTime.Now.ToString("o"));
-            }
-            catch { }
-
-            return true;
-        }
-        catch (Exception ex)
-        {
-            result.Errors.Add(ex.Message);
-            return false;
         }
     }
 }

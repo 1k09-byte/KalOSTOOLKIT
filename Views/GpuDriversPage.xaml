@@ -72,7 +72,7 @@
                                         BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
                                         BorderThickness="1" CornerRadius="8" Padding="18" Margin="0,0,0,8">
                                     <StackPanel Spacing="14">
-                                        <!-- Row 1: GPU Icon, Name, and Status Badge -->
+                                        <!-- Row 1: Name, and Status Badge -->
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto" />
@@ -80,15 +80,6 @@
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
 
-
-                                            <!-- GPU Icon in circle badge -->
-                                            <Border Grid.Column="0" Width="40" Height="40" CornerRadius="20"
-                                                    Background="{ThemeResource AccentFillColorTertiaryBrush}"
-                                                    Margin="0,0,14,0" VerticalAlignment="Center">
-                                                <FontIcon Glyph="&#xE7F4;" FontSize="20"
-                                                          Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                                          HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                            </Border>
 
                                             <!-- GPU Name & Version info -->
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">

@@ -17,6 +17,21 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <!-- Background image layer (behind everything) -->
+        <Image x:Name="BackgroundImage"
+               Grid.Row="0" Grid.RowSpan="2"
+               Stretch="UniformToFill"
+               Opacity="0.5"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               Visibility="Collapsed" />
+
+        <!-- Semi-transparent overlay to keep content readable -->
+        <Grid x:Name="BackgroundOverlay"
+              Grid.Row="0" Grid.RowSpan="2"
+              Background="#80000000"
+              Visibility="Collapsed" />
+
         <!-- Title bar with integrated search -->
         <TitleBar x:Name="AppTitleBar"
                   Grid.Row="0"
@@ -51,12 +66,12 @@
                 <!-- ─── Overview ─── -->
                 <NavigationViewItem Content="Home" Tag="Home">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE80F;" FontSize="16" />
+                        <BitmapIcon UriSource="ms-appx:///Assets/icon-home.png" ShowAsMonochrome="False" Width="20" Height="20" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem Content="System Overview" Tag="SystemOverview">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE950;" FontSize="16" />
+                        <BitmapIcon UriSource="ms-appx:///Assets/icon-overview.png" ShowAsMonochrome="False" Width="20" Height="20" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
@@ -64,7 +79,7 @@
                 <NavigationViewItemHeader Content="Tools" />
                 <NavigationViewItem Content="Browsers &amp; Software" Tag="Browsers">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE774;" FontSize="16" />
+                        <BitmapIcon UriSource="ms-appx:///Assets/icon-browser.png" ShowAsMonochrome="False" Width="20" Height="20" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
@@ -72,22 +87,22 @@
                 <NavigationViewItemHeader Content="Hardware" />
                 <NavigationViewItem Content="GPU Drivers" Tag="GpuDrivers">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE7F4;" FontSize="16" />
+                        <BitmapIcon UriSource="ms-appx:///Assets/icon-gpu.png" ShowAsMonochrome="False" Width="20" Height="20" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem Content="Other Drivers" Tag="Sdio">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE95F;" FontSize="16" />
+                        <BitmapIcon UriSource="ms-appx:///Assets/icon-drivers.png" ShowAsMonochrome="False" Width="20" Height="20" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem Content="BIOS Manager" Tag="Bios">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE772;" FontSize="16" />
+                        <BitmapIcon UriSource="ms-appx:///Assets/icon-bios.png" ShowAsMonochrome="False" Width="20" Height="20" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem Content="Per-CPU Scheduling" Tag="AffinityManager">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE9F3;" FontSize="16" />
+                        <BitmapIcon UriSource="ms-appx:///Assets/icon-cpu.png" ShowAsMonochrome="False" Width="20" Height="20" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
@@ -96,12 +111,12 @@
                 <NavigationViewItemHeader Content="Windows" />
                 <NavigationViewItem Content="Personalization" Tag="Personalization">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE790;" FontSize="16" />
+                        <BitmapIcon UriSource="ms-appx:///Assets/icon-personalization.png" ShowAsMonochrome="False" Width="20" Height="20" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem Content="Additional Tweaks" Tag="AdditionalTweaks">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE90F;" FontSize="16" />
+                        <BitmapIcon UriSource="ms-appx:///Assets/icon-tweaks.png" ShowAsMonochrome="False" Width="20" Height="20" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>

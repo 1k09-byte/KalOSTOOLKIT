@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -15,44 +15,41 @@ namespace KalOS.ViewModels
     public partial class AffinityManagerViewModel : ObservableObject
     {
         private readonly LoggingService _logging;
-        private Microsoft.UI.Dispatching.DispatcherQueue? _dispatcherQueue;
 
         public AffinityManagerViewModel(LoggingService logging)
         {
             _logging = logging;
-            try
-            {
-                _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
-            }
-            catch { }
-
             // Determine elevation once at construction so the UI can show an "Admin required" InfoBar
             // before the user attempts to write anything.
             RefreshIsAdmin();
-            // Re-evaluate HasDevices / HasNoDevices any time the underlying collection changes so
-            // x:Bind in the empty-state placeholder and the populated list stay in sync.
-            AllDevices.CollectionChanged += (_, _) =>
+            // Re-evaluate HasDevices / HasNoDevices and the header stat pills any time the
+            // underlying collection changes so x:Bind in the empty-state placeholder, the
+            // populated list, and the stat strip stay in sync.
+            AllDevices.CollectionChanged += (_, e) =>
             {
+                // Per-item listeners keep the "MSI on" / "pinned" pills live when a single
+                // device's registry state is re-read (Edit dialog, Optimize, etc.).
+                if (e.NewItems != null) foreach (PciDeviceItem d in e.NewItems) d.PropertyChanged += OnDevicePropertyChanged;
+                if (e.OldItems != null) foreach (PciDeviceItem d in e.OldItems) d.PropertyChanged -= OnDevicePropertyChanged;
+
                 OnPropertyChanged(nameof(HasDevices));
                 OnPropertyChanged(nameof(HasNoDevices));
-                OnPropertyChanged(nameof(TotalDevicesCount));
-                OnPropertyChanged(nameof(MsiEnabledCount));
+                RefreshCounts();
             };
         }
 
-        public void RunOnUIThread(Action action)
+        private void OnDevicePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
-            var dispatcher = _dispatcherQueue ?? Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
-            if (dispatcher != null && !dispatcher.HasThreadAccess)
-            {
-                dispatcher.TryEnqueue(() => action());
-            }
-            else
-            {
-                action();
-            }
+            if (e.PropertyName is nameof(PciDeviceItem.MsiEnabled) or nameof(PciDeviceItem.SpecifiedProc))
+                RefreshCounts();
         }
 
+        private void RefreshCounts()
+        {
+            OnPropertyChanged(nameof(TotalDevices));
+            OnPropertyChanged(nameof(MsiEnabledCount));
+            OnPropertyChanged(nameof(PinnedCount));
+        }
 
         [ObservableProperty]
         private ObservableCollection<PciDeviceItem> _devices = new();
@@ -67,38 +64,62 @@ namespace KalOS.ViewModels
         [ObservableProperty]
         private string _statusText = "Ready";
 
+        public ObservableCollection<PciDeviceItem> AllDevices { get; } = new();
+        public ObservableCollection<PciDeviceGroup> GroupedDevices { get; } = new();
+        public List<CpuCoreInfo> SystemCores { get; private set; } = new();
+
+        [ObservableProperty]
+        private bool _hasHighCoreCount;
+
+        // ── Topology summary (CPU name, P/E split, CCD count, SMT) ──
+
+        [ObservableProperty]
+        private CpuTopologySummary? _topologySummary;
+
+        // ── Search + category filter ──
+
         [ObservableProperty]
         private string _searchText = string.Empty;
 
         [ObservableProperty]
         private string _selectedCategory = "All";
 
-        public List<string> FilterCategories { get; } = new()
+        /// <summary>Filter chip labels mapped to internal PCI categories.</summary>
+        public IReadOnlyList<(string Label, string Category)> CategoryFilters { get; } = new[]
         {
-            "All",
-            "Graphics Cards",
-            "Audio Controllers",
-            "Network Interface Controllers",
-            "XHCI Controllers"
+            ("All",      "All"),
+            ("GPU",      "Graphics Cards"),
+            ("Audio",    "Audio Controllers"),
+            ("Network",  "Network Interface Controllers"),
+            ("XHCI",     "XHCI Controllers"),
         };
 
-        public ObservableCollection<PciDeviceItem> AllDevices { get; } = new();
-        public ObservableCollection<PciDeviceGroup> GroupedDevices { get; } = new();
-        public List<CpuCoreInfo> SystemCores { get; private set; } = new();
-        public ObservableCollection<CpuCoreGroup> CpuCoreGroups { get; } = new();
+        /// <summary>Applies the search box + category chip to the grouped table.</summary>
+        private void ApplyFilters()
+        {
+            var query = SearchText?.Trim();
+            var selected = CategoryFilters.FirstOrDefault(f => f.Category == SelectedCategory).Category ?? "All";
 
-        [ObservableProperty]
-        [NotifyPropertyChangedFor(nameof(CpuModelName), nameof(CpuSummaryString), nameof(CpuPhysicalCores), nameof(CpuLogicalProcessors))]
-        private CpuTopologySummary? _topologySummary;
+            var filtered = AllDevices.Where(d =>
+                (selected == "All" || d.Category == selected) &&
+                (string.IsNullOrEmpty(query)
+                    || d.Name.Contains(query, StringComparison.OrdinalIgnoreCase)
+                    || d.DeviceId.Contains(query, StringComparison.OrdinalIgnoreCase)));
 
-        public string CpuModelName => TopologySummary?.CpuName ?? "Processor Topology";
-        public string CpuSummaryString => TopologySummary?.SummaryString ?? "Detecting CPU architecture and core topology...";
-        public int CpuPhysicalCores => TopologySummary?.PhysicalCoreCount ?? 0;
-        public int CpuLogicalProcessors => TopologySummary?.LogicalProcessorCount ?? 0;
+            GroupedDevices.Clear();
+            foreach (var g in filtered.GroupBy(d => d.Category).OrderBy(g => g.Key))
+            {
+                GroupedDevices.Add(new PciDeviceGroup(g.Key, g));
+            }
 
-        [ObservableProperty]
-        private bool _hasHighCoreCount;
+            StatusText = GroupedDevices.Count == 0 && AllDevices.Count > 0
+                ? $"No devices match \"{SearchText}\"."
+                : StatusText;
+        }
 
+        partial void OnSearchTextChanged(string value) => ApplyFilters();
+
+        partial void OnSelectedCategoryChanged(string value) => ApplyFilters();
 
         /// <summary>Computed: device list is populated AND initial scan finished.</summary>
         public bool HasDevices => !IsLoading && AllDevices.Count > 0;
@@ -106,37 +127,19 @@ namespace KalOS.ViewModels
         /// <summary>Computed: scan complete AND no devices found — drives the empty-state placeholder.</summary>
         public bool HasNoDevices => !IsLoading && AllDevices.Count == 0;
 
-        public int TotalDevicesCount => AllDevices.Count;
+        // ── Header stat pills (refreshed by RefreshCounts / topology detect) ──
+
+        /// <summary>Total PCI devices shown in the scheduling list.</summary>
+        public int TotalDevices => AllDevices.Count;
+
+        /// <summary>Devices currently running in MSI mode.</summary>
         public int MsiEnabledCount => AllDevices.Count(d => d.MsiEnabled);
 
-        partial void OnSearchTextChanged(string value) => ApplyFilter();
-        partial void OnSelectedCategoryChanged(string value) => ApplyFilter();
+        /// <summary>Devices pinned to specific cores via AssignmentSetOverride.</summary>
+        public int PinnedCount => AllDevices.Count(d => !string.IsNullOrEmpty(d.SpecifiedProc));
 
-        public void ApplyFilter()
-        {
-            var filtered = AllDevices.AsEnumerable();
-
-            if (!string.Equals(SelectedCategory, "All", StringComparison.OrdinalIgnoreCase))
-            {
-                filtered = filtered.Where(d => string.Equals(d.Category, SelectedCategory, StringComparison.OrdinalIgnoreCase));
-            }
-
-            if (!string.IsNullOrWhiteSpace(SearchText))
-            {
-                string query = SearchText.Trim();
-                filtered = filtered.Where(d =>
-                    d.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                    d.DeviceId.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                    d.Category.Contains(query, StringComparison.OrdinalIgnoreCase));
-            }
-
-            GroupedDevices.Clear();
-            var groups = filtered.GroupBy(x => x.Category).OrderBy(g => g.Key);
-            foreach (var g in groups)
-            {
-                GroupedDevices.Add(new PciDeviceGroup(g.Key, g));
-            }
-        }
+        /// <summary>Physical cores available for scheduling (group-0 topology).</summary>
+        public int CpuCoreCount => SystemCores.Count;
 
         [RelayCommand]
         public async Task LoadDevicesAsync()
@@ -155,6 +158,31 @@ namespace KalOS.ViewModels
 
                 try
                 {
+                    // Find disconnected network adapters to exclude
+                    var disconnectedNetAdapters = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    try
+                    {
+                        var netSearcher = new ManagementObjectSearcher(@"root\cimv2", "SELECT PNPDeviceID, NetConnectionStatus FROM Win32_NetworkAdapter WHERE NetConnectionStatus IS NOT NULL");
+                        foreach (ManagementObject netObj in netSearcher.Get())
+                        {
+                            string? id = netObj["PNPDeviceID"] as string;
+                            if (!string.IsNullOrEmpty(id))
+                            {
+                                // NetConnectionStatus: 2 = Connected, 4 = Disconnected, 7 = Media Disconnected
+                                // If it's not 2 (Connected), we consider it unplugged/unused.
+                                int status = Convert.ToInt32(netObj["NetConnectionStatus"]);
+                                if (status != 2)
+                                {
+                                    disconnectedNetAdapters.Add(id);
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Failed to get network adapters: {ex.Message}");
+                    }
+
                     var searcher = new ManagementObjectSearcher(@"root\cimv2", "SELECT * FROM Win32_PnPEntity");
                     foreach (ManagementObject obj in searcher.Get())
                     {
@@ -163,6 +191,7 @@ namespace KalOS.ViewModels
                         string pnpClass = obj["PNPClass"] as string ?? "";
                         
                         // Check if device is working properly (ConfigManagerErrorCode == 0)
+                        // A value other than 0 usually means disabled or not functioning.
                         uint configErrorCode = obj["ConfigManagerErrorCode"] != null ? Convert.ToUInt32(obj["ConfigManagerErrorCode"]) : 0;
                         if (configErrorCode != 0) continue;
 
@@ -171,18 +200,18 @@ namespace KalOS.ViewModels
                         string category = "";
                         if (pnpClass.Equals("Display", StringComparison.OrdinalIgnoreCase)) category = "Graphics Cards";
                         else if (pnpClass.Equals("MEDIA", StringComparison.OrdinalIgnoreCase) || name.Contains("Audio", StringComparison.OrdinalIgnoreCase) || name.Contains("Sound", StringComparison.OrdinalIgnoreCase)) category = "Audio Controllers";
-                        else if (pnpClass.Equals("Net", StringComparison.OrdinalIgnoreCase) 
-                                 || name.Contains("Network", StringComparison.OrdinalIgnoreCase) 
-                                 || name.Contains("Ethernet", StringComparison.OrdinalIgnoreCase) 
-                                 || name.Contains("Wi-Fi", StringComparison.OrdinalIgnoreCase) 
-                                 || name.Contains("Wireless", StringComparison.OrdinalIgnoreCase) 
-                                 || name.Contains("GbE", StringComparison.OrdinalIgnoreCase) 
-                                 || name.Contains("LAN", StringComparison.OrdinalIgnoreCase) 
-                                 || name.Contains("NIC", StringComparison.OrdinalIgnoreCase) 
-                                 || name.Contains("802.11", StringComparison.OrdinalIgnoreCase)) category = "Network Interface Controllers";
+                        else if (pnpClass.Equals("Net", StringComparison.OrdinalIgnoreCase) || name.Contains("Network", StringComparison.OrdinalIgnoreCase) || name.Contains("Wi-Fi", StringComparison.OrdinalIgnoreCase)) category = "Network Interface Controllers";
                         else if ((pnpClass.Equals("USB", StringComparison.OrdinalIgnoreCase) || name.Contains("USB", StringComparison.OrdinalIgnoreCase)) && (name.Contains("xHCI", StringComparison.OrdinalIgnoreCase) || name.Contains("Extensible", StringComparison.OrdinalIgnoreCase))) category = "XHCI Controllers";
+                        // Storage controllers intentionally excluded from the affinity list
+                        // per user request. They were previously shown here but have been removed.
                         
                         if (string.IsNullOrEmpty(category)) continue; // skip non-relevant PCI devices
+                        
+                        // Skip disconnected network adapters
+                        if (category == "Network Interface Controllers" && disconnectedNetAdapters.Contains(deviceId))
+                        {
+                            continue;
+                        }
 
                         var item = new PciDeviceItem
                         {
@@ -191,13 +220,21 @@ namespace KalOS.ViewModels
                             Category = category
                         };
 
-
-                        if (category == "Network Interface Controllers") item.MaxMsiLimit = "32";
-                        else if (category == "XHCI Controllers") item.MaxMsiLimit = "8";
-                        else if (category == "Audio Controllers") item.MaxMsiLimit = "1";
-                        else if (category == "Graphics Cards") item.MaxMsiLimit = "1";
+                        // Best-practice MSI limit defaults per device class:
+                        //   Audio:   1  (Realtek ALC drivers break > 1 — causes crackling/popping)
+                        //   NVMe:   32  (multi-queue parallelism; high random-IOPS ceiling)
+                        //   GPU:     4  (modern GPUs use MSI-X vectors > 1; cap=1 wastes PCIe bandwidth)
+                        //   XHCI:    8  (USB 3.0+ controllers benefit from moderate parallelism)
+                        //   Network:32  (high parallelism for NIC interrupt moderation)
+                        //   SATA:    8  (AHCI single-vector is sufficient for general storage)
+if (category == "Network Interface Controllers") item.MaxMsiLimit = "32";
+            else if (category == "XHCI Controllers") item.MaxMsiLimit = "8";
+            else if (category == "Audio Controllers") item.MaxMsiLimit = "1";
+            else if (category == "Graphics Cards") item.MaxMsiLimit = "1";
                         else if (category == "Storage Controllers")
                         {
+                            // NVMe needs many vectors for IO queue parallelism; SATA AHCI single-vector is fine.
+                            // Match both "NVMe" (marketing spelling) and "NVM Express" (Windows device name).
                             bool isNvme = name.Contains("NVMe", StringComparison.OrdinalIgnoreCase)
                                         || name.Contains("NVM Express", StringComparison.OrdinalIgnoreCase);
                             item.MaxMsiLimit = isNvme ? "32" : "8";
@@ -222,7 +259,14 @@ namespace KalOS.ViewModels
                         }
 
                         SystemCores = DetectCpuTopology();
-                        ApplyFilter();
+
+                        // Topology summary card: CPU name + P/E/CCD/SMT breakdown.
+                        TopologySummary = CpuTopologySummary.Build(
+                            KalOS.Helpers.TopologyHelper.GetCpuModelName(), SystemCores);
+                        OnPropertyChanged(nameof(CpuCoreCount));
+
+                        // Respect the active search/filter instead of always showing everything.
+                        ApplyFilters();
                     });
                 }
             });
@@ -230,7 +274,6 @@ namespace KalOS.ViewModels
             StatusText = $"Loaded {AllDevices.Count} devices.";
             IsLoading = false;
         }
-
 
         public void ReadMsiRegistry(PciDeviceItem item)
         {
@@ -323,45 +366,47 @@ namespace KalOS.ViewModels
             try
             {
                 var topology = KalOS.Helpers.TopologyHelper.GetSystemTopology();
+                
                 var physicalGroups = topology.GroupBy(t => t.PhysicalCoreId).OrderBy(g => g.Key).ToList();
                 
-                int coreIndex = 0;
-                foreach (var group in physicalGroups)
+            int coreIndex = 0;
+            foreach (var group in physicalGroups)
+            {
+                // Skip physical cores whose threads live in Processor Group > 0.
+                // Windows only exposes 64 bits per group in MSI AssignmentSetOverride,
+                // and we don't have a kernel-mode path to write group-aware affinity.
+                if (group.Any(c => c.ProcessorGroup != 0))
                 {
-                    // Skip physical cores whose threads live in Processor Group > 0.
-                    // Windows only exposes 64 bits per group in MSI AssignmentSetOverride.
-                    if (group.Any(c => c.ProcessorGroup != 0))
-                    {
-                        continue;
-                    }
+                    continue;
+                }
 
-                    ulong fullMask = 0;
-                    var threads = new ObservableCollection<CpuThreadInfo>();
+                ulong fullMask = 0;
+                var threads = new ObservableCollection<CpuThreadInfo>();
 
-                    foreach (var logicalCore in group.OrderBy(c => c.LogicalProcessorId))
+                foreach (var logicalCore in group.OrderBy(c => c.LogicalProcessorId))
+                {
+                    if (logicalCore.LogicalProcessorId < 64)
                     {
-                        if (logicalCore.LogicalProcessorId < 64)
-                        {
-                            fullMask |= (1UL << logicalCore.LogicalProcessorId);
-                            threads.Add(new CpuThreadInfo { ThreadId = logicalCore.LogicalProcessorId });
-                        }
-                    }
-
-                    if (fullMask != 0)
-                    {
-                        cores.Add(new CpuCoreInfo
-                        {
-                            CoreId = coreIndex++,
-                            LogicalProcessorMask = (1UL << group.First().LogicalProcessorId),
-                            FullCoreMask = fullMask,
-                            EfficiencyClass = group.First().EfficiencyClass,
-                            L3CacheId = group.First().L3CacheId,
-                            NumaNodeId = group.First().NumaNodeId,
-                            ProcessorGroup = group.First().ProcessorGroup,
-                            Threads = threads
-                        });
+                        fullMask |= (1UL << logicalCore.LogicalProcessorId);
+                        threads.Add(new CpuThreadInfo { ThreadId = logicalCore.LogicalProcessorId });
                     }
                 }
+
+                if (fullMask != 0)
+                {
+                    cores.Add(new CpuCoreInfo
+                    {
+                        CoreId = coreIndex++,
+                        LogicalProcessorMask = (1UL << group.First().LogicalProcessorId),
+                        FullCoreMask = fullMask,
+                        EfficiencyClass = group.First().EfficiencyClass,
+                        L3CacheId = group.First().L3CacheId,
+                        NumaNodeId = group.First().NumaNodeId,
+                        ProcessorGroup = group.First().ProcessorGroup,
+                        Threads = threads
+                    });
+                }
+            }
             }
             catch (Exception ex)
             {
@@ -370,161 +415,11 @@ namespace KalOS.ViewModels
 
             if (cores.Count == 0)
             {
-                var fallback = new CpuCoreInfo { CoreId = 0, LogicalProcessorMask = 1, FullCoreMask = 1, IsPCore = true, CoreTypeLabel = "Core" };
+                var fallback = new CpuCoreInfo { CoreId = 0, LogicalProcessorMask = 1, FullCoreMask = 1 };
                 fallback.Threads.Add(new CpuThreadInfo { ThreadId = 0 });
                 cores.Add(fallback);
             }
-
-            // Classify cores (P-Cores vs E-Cores or CCDs)
-            int distinctEffClasses = cores.Select(c => c.EfficiencyClass).Distinct().Count();
-            int minEff = cores.Min(c => c.EfficiencyClass);
-            int maxEff = cores.Max(c => c.EfficiencyClass);
-            bool isHybrid = distinctEffClasses > 1;
-
-            int distinctL3 = cores.Select(c => c.L3CacheId).Distinct().Count();
-            bool isMultiCcd = distinctL3 > 1 && !isHybrid;
-
-            foreach (var core in cores)
-            {
-                if (isHybrid)
-                {
-                    if (core.EfficiencyClass == maxEff)
-                    {
-                        core.IsPCore = true;
-                        core.IsECore = false;
-                        core.CoreTypeLabel = "P-Core";
-                    }
-                    else
-                    {
-                        core.IsPCore = false;
-                        core.IsECore = true;
-                        core.CoreTypeLabel = "E-Core";
-                    }
-                }
-                else if (isMultiCcd)
-                {
-                    core.IsPCore = true;
-                    core.IsECore = false;
-                    core.CoreTypeLabel = $"CCD {core.L3CacheId}";
-                }
-                else
-                {
-                    core.IsPCore = true;
-                    core.IsECore = false;
-                    core.CoreTypeLabel = "Core";
-                }
-            }
-
-            // Build CpuCoreGroups in a local list first
-            var groupsList = new List<CpuCoreGroup>();
-            if (isHybrid)
-            {
-                var pCores = cores.Where(c => c.IsPCore).ToList();
-                var eCores = cores.Where(c => c.IsECore).ToList();
-
-                if (pCores.Count > 0)
-                {
-                    var pGroup = new CpuCoreGroup
-                    {
-                        Name = "Performance Cores (P-Cores)",
-                        ShortName = "P-Cores",
-                        Description = "High-performance compute cores with HyperThreading",
-                        RecommendedColumns = Math.Clamp(pCores.Count, 2, 4)
-                    };
-                    foreach (var c in pCores) pGroup.Cores.Add(c);
-                    groupsList.Add(pGroup);
-                }
-
-                if (eCores.Count > 0)
-                {
-                    var eGroup = new CpuCoreGroup
-                    {
-                        Name = "Efficiency Cores (E-Cores)",
-                        ShortName = "E-Cores",
-                        Description = "Low-power background cores (Ideal for Audio interrupts)",
-                        RecommendedColumns = Math.Clamp(eCores.Count, 2, 4)
-                    };
-                    foreach (var c in eCores) eGroup.Cores.Add(c);
-                    groupsList.Add(eGroup);
-                }
-            }
-            else if (isMultiCcd)
-            {
-                var ccdGroups = cores.GroupBy(c => c.L3CacheId).OrderBy(g => g.Key);
-                foreach (var ccd in ccdGroups)
-                {
-                    var grp = new CpuCoreGroup
-                    {
-                        Name = $"CCD {ccd.Key} (L3 Cache Domain {ccd.Key})",
-                        ShortName = $"CCD {ccd.Key}",
-                        Description = ccd.Key == 0 ? "Primary Compute Complex / Cache Domain" : "Secondary Compute Complex",
-                        RecommendedColumns = Math.Clamp(ccd.Count(), 2, 4)
-                    };
-                    foreach (var c in ccd) grp.Cores.Add(c);
-                    groupsList.Add(grp);
-                }
-            }
-            else
-            {
-                var allGroup = new CpuCoreGroup
-                {
-                    Name = "Processor Cores",
-                    ShortName = "All Cores",
-                    Description = "Uniform CPU core topology",
-                    RecommendedColumns = Math.Clamp(cores.Count, 2, 4)
-                };
-                foreach (var c in cores) allGroup.Cores.Add(c);
-                groupsList.Add(allGroup);
-            }
-
-            // Build TopologySummary
-            var summary = new CpuTopologySummary
-            {
-                CpuName = KalOS.Helpers.TopologyHelper.GetCpuModelName(),
-                PhysicalCoreCount = cores.Count,
-                LogicalProcessorCount = cores.Sum(c => c.Threads.Count),
-                PCoreCount = cores.Count(c => c.IsPCore),
-                ECoreCount = cores.Count(c => c.IsECore),
-                CcdCount = distinctL3,
-                IsSmtEnabled = cores.Any(c => c.Threads.Count > 1)
-            };
-
-            RunOnUIThread(() =>
-            {
-                CpuCoreGroups.Clear();
-                foreach (var g in groupsList) CpuCoreGroups.Add(g);
-                TopologySummary = summary;
-            });
-
             return cores;
-        }
-
-
-        private void SetNdisRssProperties(PciDeviceItem item, int coreIndex)
-        {
-            try
-            {
-                string enumPath = $@"SYSTEM\CurrentControlSet\Enum\{item.DeviceId}";
-                using var enumKey = Registry.LocalMachine.OpenSubKey(enumPath);
-                string? driverRelPath = enumKey?.GetValue("Driver") as string;
-                if (!string.IsNullOrEmpty(driverRelPath))
-                {
-                    string driverClassPath = $@"SYSTEM\CurrentControlSet\Control\Class\{driverRelPath}";
-                    using var driverKey = Registry.LocalMachine.OpenSubKey(driverClassPath, writable: true);
-                    if (driverKey != null)
-                    {
-                        driverKey.SetValue("*RssBaseProcNumber", coreIndex.ToString(), RegistryValueKind.String);
-                        driverKey.SetValue("*NumRssQueues", "1", RegistryValueKind.String);
-                        driverKey.SetValue("*MaxRssProcessors", "1", RegistryValueKind.String);
-                        driverKey.SetValue("*RssBaseProcGroup", "0", RegistryValueKind.String);
-                        driverKey.SetValue("*NumaNodeId", "0", RegistryValueKind.String);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"Failed to set NDIS RSS for {item.Name}: {ex.Message}");
-            }
         }
 
         private void SetDeviceAffinity(PciDeviceItem item, ulong affinityMask, int priority = 0, int msiLimit = 1)
@@ -541,6 +436,18 @@ namespace KalOS.ViewModels
                     key.SetValue("AssignmentSetOverride", maskBytes, RegistryValueKind.Binary);
                 }
 
+                // SAFETY: Only update MessageNumberLimit when the device is currently
+                // actively running in MSI mode. We deliberately do NOT write MSISupported=1
+                // as a forced override \u2014 a previous version of this tool did, and that 0\u21921 flip
+                // on Audio devices whose native driver uses line-based IRQs (e.g. Realtek
+                // HDAudio on certain chipsets) has been observed to crash in the driver's
+                // ISR/DPC setup path on next reboot, surfacing as
+                // SYSTEM_THREAD_EXCEPTION_NOT_HANDLED (0x7E).
+                //
+                // Distinguish the two meanings here:
+                //   * MsiSupported == true  : the MSI registry subkey exists for this device.
+                //   * MsiEnabled   == true  : the OS is currently using MSI for this device.
+                // Only when BOTH are true do we touch the limit \u2014 otherwise leave MSI alone.
                 if (item.MsiSupported && item.MsiEnabled)
                 {
                     string msiPath = $@"SYSTEM\CurrentControlSet\Enum\{item.DeviceId}\Device Parameters\Interrupt Management\MessageSignaledInterruptProperties";
@@ -556,6 +463,12 @@ namespace KalOS.ViewModels
             }
         }
 
+        /// <summary>
+        /// Forces MSI mode ON for audio controllers and sets affinity + MSI limit.
+        /// Unlike SetDeviceAffinity, this writes MSISupported=1 even if currently disabled,
+        /// which is necessary for audio controllers that ship with MSI off by default.
+        /// The restart after writing makes the change take effect immediately.
+        /// </summary>
         private void ForceEnableMsiAndSetAffinity(PciDeviceItem item, ulong affinityMask, int priority, int msiLimit)
         {
             try
@@ -584,9 +497,16 @@ namespace KalOS.ViewModels
 
         public void RestartDevice(string instanceId)
         {
+            // Backwards-compatible void overload.
             RestartDevice(instanceId, out _);
         }
 
+        /// <summary>
+        /// Restarts the PCI device via pnputil. Returns true if pnputil reported success.
+        /// pnputil exit code 0 means SUCCESS; non-zero (often 0xE000020B or similar) means
+        /// the device driver rejected the hot-restart or no driver supports it \u2014 in which
+        /// case the registry change will only take effect on the next cold boot.
+        /// </summary>
         public bool RestartDevice(string instanceId, out string? error)
         {
             try
@@ -629,9 +549,17 @@ namespace KalOS.ViewModels
 
         public void SetDeviceAffinityManually(PciDeviceItem item, ulong affinityMask, int policy, int priority, bool msiEnabled, int msiLimit)
         {
+            // Backwards-compatible void overload retained for any future callers that don't care about success/failure.
+            // Internally the rich overload (return bool + out error) handles the actual write.
             SetDeviceAffinityManually(item, affinityMask, policy, priority, msiEnabled, msiLimit, out _);
         }
 
+        /// <summary>
+        /// Writes the affinity policy + MSI settings to the device's registry key and returns true
+        /// if the write succeeded. False indicates the registry write was blocked (e.g. not elevated,
+        /// ACL denies access, registry path missing for this device) — callers MUST surface this
+        /// to the user instead of proceeding to a restart prompt that will then re-read stale data.
+        /// </summary>
         public bool SetDeviceAffinityManually(PciDeviceItem item, ulong affinityMask, int policy, int priority, bool msiEnabled, int msiLimit, out string? error)
         {
             try
@@ -676,6 +604,7 @@ namespace KalOS.ViewModels
             }
         }
 
+        /// <summary>True if the current process is elevated to Administrator (required to write MSI / affinity keys).</summary>
         public void RefreshIsAdmin()
         {
             try
@@ -691,8 +620,22 @@ namespace KalOS.ViewModels
             }
         }
 
+        /// <summary>
+        /// Writes DevicePolicy + DevicePriority + AssignmentSetOverride WITHOUT touching MSI/MSI-X.
+        /// Used for XHCI, where a custom core affinity is desired but the driver must keep its own
+        /// MessageNumberLimit (overriding that field crashes isochronous USB transfers — mice /
+        /// keyboards / USB audio interfaces can stall).
+        /// </summary>
         private void SetDeviceAffinityPolicyOnly(PciDeviceItem item, ulong affinityMask, int priority)
         {
+            // SAFETY GATE: only write IrqPolicySpecifiedProcessors (4) to devices that are
+            // ACTIVELY using MSI. Writing DevicePolicy=4 to a line-IRQ device that hasn't been
+            // flipped to MSI can confuse the driver \u2014 the kernel may try to route interrupts
+            // through the AssignmentSetOverride but the ISR/DPC path still expects legacy
+            // line-based routing, which has been observed to cause 0x7E
+            // SYSTEM_THREAD_EXCEPTION_NOT_HANDLED on next reboot. The MSI subkey existing
+            // (MsiSupported) is not sufficient \u2014 we need MsiEnabled, which means the OS is
+            // currently using MSI for this device.
             if (!item.MsiEnabled) return;
 
             try
@@ -712,6 +655,84 @@ namespace KalOS.ViewModels
             }
         }
 
+        private const string NetworkAdapterClassGuid = "{4d36e972-e325-11ce-bfc1-08002be10318}";
+
+        /// <summary>
+        /// Re-points the NIC's NDIS Receive-Side-Scaling base processor to the
+        /// dedicated core the optimizer assigned it, so RSS queues start on the
+        /// pinned core instead of wherever Windows defaulted them.
+        ///
+        /// Matching is done through the documented join:
+        ///   Control\Class\{net GUID}\&lt;NNNN&gt;\NetCfgInstanceId  →
+        ///   Control\Network\{net GUID}\&lt;{NetCfgInstanceId}&gt;\Connection\PnPInstanceId
+        /// which equals the PCI instance ID we already hold from the PnP scan.
+        ///
+        /// Only *RssBaseProcNumber is written — we deliberately do NOT flip
+        /// *RSS on/off: toggling RSS on a NIC that doesn't support it can drop
+        /// the adapter entirely, and a NIC without RSS support has no base
+        /// processor key to begin with. Missing keys are skipped silently.
+        /// Takes effect after the adapter restart (pnputil is already part of
+        /// the optimize flow for NICs).
+        /// </summary>
+        public void SetNicRssBaseProcessor(string deviceId, int baseProcessor)
+        {
+            try
+            {
+                using var classKey = Registry.LocalMachine.OpenSubKey(
+                    $@"SYSTEM\CurrentControlSet\Control\Class\{NetworkAdapterClassGuid}", writable: true);
+                if (classKey == null) return;
+
+                foreach (var subKeyName in classKey.GetSubKeyNames())
+                {
+                    // Instance keys are numbered 0000, 0001, ... — skip config-only entries.
+                    if (subKeyName.Length != 4 || !subKeyName.All(char.IsDigit)) continue;
+
+                    using var inst = classKey.OpenSubKey(subKeyName, writable: true);
+                    if (inst == null) continue;
+                    if (inst.GetValue("NetCfgInstanceId") is not string netCfgId) continue;
+
+                    // Join through Control\Network to confirm this instance belongs to our PCI device.
+                    using var conn = Registry.LocalMachine.OpenSubKey(
+                        $@"SYSTEM\CurrentControlSet\Control\Network\{NetworkAdapterClassGuid}\{netCfgId}\Connection");
+                    if (conn?.GetValue("PnPInstanceId") is not string pnpId ||
+                        !string.Equals(pnpId, deviceId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    inst.SetValue("*RssBaseProcNumber", baseProcessor, RegistryValueKind.DWord);
+                    Debug.WriteLine($"RSS base processor {baseProcessor} set for {deviceId} (class key {subKeyName}).");
+                    return;
+                }
+
+                Debug.WriteLine($"No NDIS class instance matched {deviceId}; RSS base processor not written.");
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Debug.WriteLine($"RSS base processor write denied for {deviceId}: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to set RSS base processor for {deviceId}: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Restores a single device's MSI / affinity registry to Windows defaults. Recovery path
+        /// for users whose device misbehaves after Optimize. Deletes AssignmentSetOverride,
+        /// resets DevicePolicy=0 and DevicePriority=0, and removes MessageNumberLimit. MSISupported
+        /// is intentionally left untouched: flipping it from 1→0 mid-session forces the driver to
+        /// re-run its line-IRQ init path, which is more crash-prone than leaving MSI on with no
+        /// customization.
+        /// </summary>
+        /// <summary>
+        /// Result of <see cref="RestoreDeviceDefaults"/>.
+        /// </summary>
+        /// <param name="Success">True if the registry call did not throw. False on permission/IO error.</param>
+        /// <param name="WasChanged">True if at least one registry value was actually different from
+        /// default and was therefore written/deleted. Lets callers distinguish "device already at
+        /// default" from "device had stale overrides that we cleared".</param>
+        /// <param name="Error">Human-readable error string when <see cref="Success"/> is false.</param>
         public record DeviceRestoreResult(bool Success, bool WasChanged, string? Error);
 
         public DeviceRestoreResult RestoreDeviceDefaults(PciDeviceItem item)
@@ -724,6 +745,9 @@ namespace KalOS.ViewModels
                 {
                     if (affKey != null)
                     {
+                        // Compare-then-write: only mark wasChanged when the registry was actually
+                        // different from the default. Lets the caller accurately report "already at
+                        // default" vs. "we cleared stale state".
                         if (affKey.GetValue("AssignmentSetOverride") != null)
                         {
                             affKey.DeleteValue("AssignmentSetOverride", throwOnMissingValue: false);
@@ -747,11 +771,19 @@ namespace KalOS.ViewModels
                 {
                     if (msiKey != null)
                     {
+                        // Drop MessageNumberLimit so the driver rebuilds / picks its default.
                         if (msiKey.GetValue("MessageNumberLimit") != null)
                         {
                             msiKey.DeleteValue("MessageNumberLimit", throwOnMissingValue: false);
                             wasChanged = true;
                         }
+                        // ALSO drop MSISupported. A previous buggy Optimize run could have flipped
+                        // this from 0 \u2192 1 on a device whose driver uses line-based IRQs; that flag
+                        // would otherwise persist on the next reboot, forcing the driver into MSI
+                        // crash territory (0x7E SYSTEM_THREAD_EXCEPTION_NOT_HANDLED) even after the
+                        // rest of the affinity profile was cleared. Drivers that natively use MSI
+                        // will re-write the value themselves on the next enumeration \u2014 safe to
+                        // delete and let the driver re-assert.
                         if (msiKey.GetValue("MSISupported") != null)
                         {
                             msiKey.DeleteValue("MSISupported", throwOnMissingValue: false);
@@ -775,18 +807,61 @@ namespace KalOS.ViewModels
         }
 
         /// <summary>
-        /// Intelligent low-latency hardware scheduling optimization:
-        ///   - Audio: E-Core (if available) or Core 0 / secondary P-Core, MSI=1, Normal priority.
-        ///   - USB (XHCI): Dedicated P-Core, High priority, driver default MSI limit.
-        ///   - Network (NIC): Dedicated P-Core, High priority, driver default MSI limit, RSS configured.
-        ///   - GPU: 2 physical P-Cores on primary CCD, High priority, MSI limit = 1.
-        ///   - Fallback: Gracefully shares cores on lower-core systems.
+        /// Restores every listed device to Windows defaults (same as
+        /// <see cref="RestoreDeviceDefaults"/> per device), then re-reads the
+        /// registry so the UI and stat pills reflect the cleared state.
+        /// </summary>
+        public void RestoreAll()
+        {
+            if (AllDevices.Count == 0) return;
+            foreach (var item in AllDevices.ToList())
+            {
+                RestoreDeviceDefaults(item);
+            }
+            foreach (var item in AllDevices)
+            {
+                ReadMsiRegistry(item);
+            }
+            StatusText = $"Restored {AllDevices.Count} device(s) to Windows defaults.";
+            RefreshCounts();
+        }
+
+        /// <summary>
+        /// Low-latency optimization that pins every device class except Audio to dedicated
+        /// physical cores with High priority. Audio is kept at Normal priority with MSI=1 to
+        /// avoid crackling/popping on Realtek ALC and similar codecs.
+        ///
+        ///   Audio    : IrqPolicySpecifiedProcessors (4), FullCoreMask of one non-CPU0 physical
+        ///              core, Normal priority (2), MessageNumberLimit=1.
+        ///   XHCI     : IrqPolicySpecifiedProcessors (4), FullCoreMask of one non-CPU0 physical
+        ///              core (distinct from Audio's), High priority (3). MessageNumberLimit is
+        ///              NOT touched — XHCI drivers compute their own vector count.
+        ///   Network  : IrqPolicySpecifiedProcessors (4), FullCoreMask of one non-CPU0 physical
+        ///              core (distinct from Audio/XHCI's), High priority (3). MessageNumberLimit
+        ///              is NOT touched — RSS/RSC depends on multiple vectors.
+        ///   GPU      : IrqPolicySpecifiedProcessors (4), up to 4 logical processors on
+        ///              dedicated physical cores, High priority (3). MessageNumberLimit is
+        ///              NOT touched — NVIDIA/AMD scale MSI-X vectors dynamically.
+        ///
+        /// Other guarantees:
+        ///   * CPU 0 is NOT globally disabled — system threads can still use it. We only avoid
+        ///     CPU 0 as a *pinning target* because of its existing interrupt traffic.
+        ///   * The GPU is NOT restarted via pnputil. Restarting the primary adapter under a WinUI 3
+        ///     app has been observed to TDR-crash dxgkrnl (0x116). Affected Audio/USB/Network
+        ///     devices are restarted instead; GPU changes take effect on the next driver reload
+        ///     or reboot.
         /// </summary>
         [RelayCommand]
         public async Task OptimizeAffinitiesAsync()
         {
             if (IsLoading) return;
 
+            // Per-category skip counters: when MsiEnabled=false but MsiSupported=true, the device
+            // has the MSI subkey but is currently using line-based IRQs. We deliberately skip
+            // writing IrqPolicySpecifiedProcessors to those devices (it would confuse the line-IRQ
+            // driver path and has been observed to cause 0x7E SYSTEM_THREAD_EXCEPTION_NOT_HANDLED).
+            // Track the counts so we can surface them in the final StatusText \u2014 otherwise users
+            // would see "nothing to optimize" with no explanation of why their hardware was skipped.
             int xhciSkippedMsiOff = 0;
             int networkSkippedMsiOff = 0;
             int gpuSkippedMsiOff = 0;
@@ -798,12 +873,18 @@ namespace KalOS.ViewModels
             bool gpuTouched = AllDevices.Any(d => d.Category == "Graphics Cards" && d.MsiSupported);
 
             string dialogContent =
-                "Intelligent Low-Latency Hardware Scheduling Profile:\n\n" +
-                "• Audio: Assigned to an Efficiency Core (E-Core) if available, or dedicated/secondary core. Normal priority, MSI limit = 1 to eliminate DPC audio latency & crackling.\n" +
-                "• USB (XHCI): Dedicated Performance Core (P-Core). High priority (3) for ultra-low mouse jitter (1000–8000Hz) with driver-native MSI vector scaling.\n" +
-                "• Network (Wi-Fi / Ethernet): Dedicated Performance Core (P-Core). High priority (3) with automatic NDIS RSS base processor configuration.\n" +
-                "• GPU: Dedicated adjacent Performance Cores (up to 4 logical threads). High priority (3), MSI limit = 1 for consistent frame pacing.\n\n" +
-                "CPU 0 remains available for OS/HAL system interrupts. Affected devices will be hot-restarted in the background.\n\nProceed?";
+                "Low-latency profile.\n\n" +
+                "• Audio: pinned to a dedicated E-core on hybrid CPUs (interrupt isolation from render threads), else the first non-CPU0 core. MSI limit = 1, Normal priority — eliminates crackling and DPC latency.\n" +
+                "• USB (XHCI): pinned to a dedicated performance core. High priority; MSI vector count left at driver default so high-polling-rate mice (1000–8000 Hz) never micro-stutter.\n" +
+                "• Network (WiFi / Ethernet): pinned to a dedicated performance core. High priority; NDIS RSS base processor re-pointed to the assigned core (*RssBaseProcNumber).\n" +
+                "• GPU: pinned to 2 physical performance cores (up to 4 SMT threads). High priority; MSI limit = 1 to stabilize frame pacing. The GPU IS restarted — your screen will flicker/go black for a few seconds while the graphics stack re-initializes.\n" +
+                "\nCPU 0 stays available for system threads. On 2-4 core CPUs the targets share cores gracefully instead of failing. Audio / USB / Network / GPU devices are restarted in the background after the registry writes.\n\n";
+
+            if (audioTouched || xhciTouched || networkTouched || gpuTouched)
+            {
+                dialogContent += "Affected device(s) will be restarted briefly — including the GPU (screen flicker expected). ";
+            }
+            dialogContent += "Proceed?";
 
             var dialog = new Microsoft.UI.Xaml.Controls.ContentDialog
             {
@@ -822,13 +903,20 @@ namespace KalOS.ViewModels
             }
 
             IsLoading = true;
-            StatusText = "Applying intelligent low-latency scheduling profile...";
+            StatusText = "Optimizing Audio / USB / Network / Storage / GPU affinities (low-latency profile)...";
 
             var devicesCopy = AllDevices.ToList();
             bool hasChanges = false;
             bool hasGpuChanges = false;
             bool hasNetworkChanges = false;
             bool gpuSkipped = false;
+            // Track per-device restart outcomes so the final StatusText can
+            // honestly tell the user whether pnputil's hot-restart actually
+            // took effect or whether they need a reboot. pnputil /restart-device
+            // can silently fail (device in use, driver doesn't support
+            // hot-restart, ACL denies the cycle); the prior code discarded the
+            // error so the user had no signal that their affinity change was
+            // still pending until the next boot.
             int restartSuccessCount = 0;
             int restartFailCount = 0;
             string? firstRestartError = null;
@@ -848,69 +936,27 @@ namespace KalOS.ViewModels
                 }
                 catch (Exception ex) { _logging.Warn($"Failed to read processor topology: {ex.Message}"); }
 
-                // Group cores
-                var pCores = cores.Where(c => c.IsPCore && c.ProcessorGroup == 0).OrderBy(c => c.CoreId).ToList();
-                var eCores = cores.Where(c => c.IsECore && c.ProcessorGroup == 0).OrderBy(c => c.CoreId).ToList();
-                var nonZeroPCores = pCores.Where(c => c.LogicalProcessorMask != 1UL).ToList();
-                if (nonZeroPCores.Count == 0) nonZeroPCores = pCores.Take(1).ToList();
+                // Resolve the whole allocation up-front via the pure, testable plan:
+                //   Audio  → dedicated E-core on hybrid CPUs (interrupt isolation from
+                //            render threads), else the first non-CPU0 core.
+                //   XHCI   → dedicated performance core (vector count left to the driver
+                //            so 1000-8000 Hz mice never micro-stutter).
+                //   Network→ dedicated performance core + NDIS RSS base re-point.
+                //   GPU    → up to 2 physical P-cores (≤4 SMT threads).
+                // CPU 0 is only ever an absolute last resort, and on 2-4 core systems
+                // targets degrade gracefully (network shares the XHCI core before it
+                // would ever share the audio core) so Optimize never fails outright.
+                var plan = KalOS.Helpers.AffinityAllocationPlan.Build(cores);
+                ulong audioMask   = plan.AudioMask;
+                ulong xhciMask    = plan.XhciMask;
+                ulong networkMask = plan.NetworkMask;
+                ulong gpuMask     = plan.GpuMask;
+                bool  gpuMaskUsable = plan.GpuUsable;
 
-                var claimedCoreIds = new HashSet<int>();
-
-                // 1. Audio: E-core if hybrid, else core 0 / dedicated core
-                ulong audioMask = 0;
-                if (eCores.Count > 0)
-                {
-                    var freeE = eCores.FirstOrDefault(c => !claimedCoreIds.Contains(c.CoreId)) ?? eCores.First();
-                    claimedCoreIds.Add(freeE.CoreId);
-                    audioMask = freeE.FullCoreMask;
-                }
-                else
-                {
-                    // Non-hybrid (AMD or uniform Intel): assign Core 0 or first available core
-                    var targetCore = cores.FirstOrDefault(c => c.ProcessorGroup == 0) ?? cores.First();
-                    audioMask = targetCore.FullCoreMask;
-                }
-
-                // 2. XHCI: Dedicated P-Core
-                ulong xhciMask = 0;
-                var freeXhciCore = nonZeroPCores.FirstOrDefault(c => !claimedCoreIds.Contains(c.CoreId)) ?? nonZeroPCores.FirstOrDefault();
-                if (freeXhciCore != null)
-                {
-                    claimedCoreIds.Add(freeXhciCore.CoreId);
-                    xhciMask = freeXhciCore.FullCoreMask;
-                }
-
-                // 3. Network: Dedicated P-Core
-                ulong networkMask = 0;
-                int netFirstProc = 0;
-                var freeNetCore = nonZeroPCores.FirstOrDefault(c => !claimedCoreIds.Contains(c.CoreId)) ?? nonZeroPCores.LastOrDefault();
-                if (freeNetCore != null)
-                {
-                    claimedCoreIds.Add(freeNetCore.CoreId);
-                    networkMask = freeNetCore.FullCoreMask;
-                    netFirstProc = freeNetCore.Threads.FirstOrDefault()?.ThreadId ?? freeNetCore.CoreId;
-                }
-
-                // 4. GPU: 2 adjacent P-Cores
-                ulong gpuMask = 0;
-                bool gpuMaskUsable = false;
-                var freeGpuCores = nonZeroPCores.Where(c => !claimedCoreIds.Contains(c.CoreId)).Take(2).ToList();
-                if (freeGpuCores.Count < 2)
-                {
-                    freeGpuCores = nonZeroPCores.TakeLast(2).ToList();
-                }
-
-                if (freeGpuCores.Count > 0)
-                {
-                    foreach (var c in freeGpuCores)
-                    {
-                        gpuMask |= c.FullCoreMask;
-                        claimedCoreIds.Add(c.CoreId);
-                    }
-                    gpuMaskUsable = true;
-                }
-
-                gpuSkipped = !gpuMaskUsable && gpuTouched;
+                // True when the system couldn't spare any core for the GPU after
+                // Audio/USB/Network took theirs. The GPU branch below is skipped so we
+                // never write an empty mask; the status text surfaces this explicitly.
+                gpuSkipped = !gpuMaskUsable;
 
                 var devicesToRestart = new List<string>();
 
@@ -918,38 +964,65 @@ namespace KalOS.ViewModels
                 {
                     if (!item.MsiSupported) continue;
 
+                    // Audio controllers are always optimized regardless of MSI state.
+                    // Force enable MSI mode and set affinity.
                     if (item.Category == "Audio Controllers" && audioMask != 0)
                     {
                         ForceEnableMsiAndSetAffinity(item, audioMask, priority: 2, msiLimit: 1);
                         devicesToRestart.Add(item.DeviceId);
                         hasChanges = true;
                     }
-                    else if (!item.MsiEnabled)
+
+                    // Per-category skip accounting for the MSI gate. MsiSupported=true but
+                    // MsiEnabled=false means the device has the MSI subkey but is currently
+                    // using line-based IRQs \u2014 unsafe to write IrqPolicySpecifiedProcessors to.
+                    if (!item.MsiEnabled)
                     {
                         switch (item.Category)
                         {
-                            case "XHCI Controllers": xhciSkippedMsiOff++; break;
+                            case "XHCI Controllers":        xhciSkippedMsiOff++;   break;
                             case "Network Interface Controllers": networkSkippedMsiOff++; break;
-                            case "Graphics Cards": gpuSkippedMsiOff++; break;
+                            case "Graphics Cards":          gpuSkippedMsiOff++;     break;
                         }
                         continue;
                     }
                     else if (item.Category == "XHCI Controllers" && xhciMask != 0)
                     {
+                        // XHCI uses SetDeviceAffinityPolicyOnly: we set the affinity mask, but we
+                        // do NOT touch MessageNumberLimit. The XHCI driver sets its own count
+                        // based on enabled ports; overriding it crashes isochronous transfers
+                        // (USB mice / keyboards / audio interfaces).
                         SetDeviceAffinityPolicyOnly(item, xhciMask, priority: 3);
                         devicesToRestart.Add(item.DeviceId);
                         hasChanges = true;
                     }
                     else if (item.Category == "Network Interface Controllers" && networkMask != 0)
                     {
+                        // Network uses SetDeviceAffinityPolicyOnly for the same reason as XHCI:
+                        // NIC drivers scale their vector count based on RSS queues / interrupt
+                        // moderation, and force-restricting MessageNumberLimit can stall
+                        // multi-queue traffic. In addition to the interrupt affinity we
+                        // re-point NDIS RSS's base processor to the assigned core so the
+                        // first RSS queue lands there. pnputil /restart-device is safe for
+                        // NICs (the adapter briefly disconnects, then reconnects — apps
+                        // with retry logic are unaffected, and Wi-Fi roaming reassociates
+                        // within seconds).
                         SetDeviceAffinityPolicyOnly(item, networkMask, priority: 3);
-                        SetNdisRssProperties(item, netFirstProc);
+                        if (plan.NetworkBaseProcessor is int rssBase)
+                        {
+                            SetNicRssBaseProcessor(item.DeviceId, rssBase);
+                        }
                         devicesToRestart.Add(item.DeviceId);
                         hasChanges = true;
                         hasNetworkChanges = true;
                     }
                     else if (item.Category == "Graphics Cards" && gpuMaskUsable)
                     {
+                        // GPU optimization. User-requested behavior: MSI MessageNumberLimit
+                        // is forced to 1 (single vector) and the adapter IS restarted after
+                        // the registry writes so everything applies immediately.
+                        // NOTE: restarting the primary graphics adapter makes the screen
+                        // flicker/go black for a few seconds while dxgkrnl re-initializes.
                         SetDeviceAffinity(item, gpuMask, priority: 3, msiLimit: 1);
                         devicesToRestart.Add(item.DeviceId);
                         hasGpuChanges = true;
@@ -957,6 +1030,9 @@ namespace KalOS.ViewModels
                     }
                 }
 
+                // Restart affected devices so affinity changes take effect immediately.
+                // Use the rich overload so we can capture success/failure per device
+                // and surface the actual outcome to the user.
                 foreach (var id in devicesToRestart)
                 {
                     if (RestartDevice(id, out string? err))
@@ -966,6 +1042,9 @@ namespace KalOS.ViewModels
                     else
                     {
                         restartFailCount++;
+                        // Capture only the first error — the failure pattern is almost
+                        // always the same root cause (e.g. device in use), so showing
+                        // the first is more useful than a noisy list.
                         firstRestartError ??= err;
                     }
                 }
@@ -977,9 +1056,19 @@ namespace KalOS.ViewModels
                 dispatcher.TryEnqueue(async () =>
                 {
                     IsLoading = false;
+                    // Build the final StatusText BEFORE LoadDevicesAsync. The
+                    // rescan overwrites StatusText with "Scanning PCI
+                    // devices..." / "Loaded N devices.", so we re-apply our
+                    // final message AFTER it completes — otherwise the user
+                    // never sees the restart outcome and only sees the
+                    // generic "Loaded N devices." line.
                     string finalStatus;
                     if (!hasChanges)
                     {
+                        // Build a per-category skip summary so the user understands WHY nothing
+                        // was applied \u2014 a device supporting MSI but not actively using it is
+                        // skipped for safety (writing IrqPolicySpecifiedProcessors to a line-IRQ
+                        // device has been observed to cause 0x7E BSODs).
                         int totalSkipped = audioSkippedMsiOff + xhciSkippedMsiOff + networkSkippedMsiOff + gpuSkippedMsiOff;
                         if (totalSkipped == 0)
                         {
@@ -987,40 +1076,60 @@ namespace KalOS.ViewModels
                         }
                         else
                         {
-                            finalStatus = $"Optimization completed with {totalSkipped} device(s) skipped due to line-based IRQ mode. Enable MSI on individual devices to customize.";
+                            var parts = new List<string>();
+                            if (audioSkippedMsiOff   > 0) parts.Add($"Audio: {audioSkippedMsiOff}");
+                            if (xhciSkippedMsiOff    > 0) parts.Add($"XHCI: {xhciSkippedMsiOff}");
+                            if (networkSkippedMsiOff > 0) parts.Add($"Network: {networkSkippedMsiOff}");
+                            if (gpuSkippedMsiOff     > 0) parts.Add($"GPU: {gpuSkippedMsiOff}");
+                            finalStatus = $"No MSI-active devices to optimize (skipped {totalSkipped} device(s) that support MSI but are using line-based IRQs: {string.Join(", ", parts)}). Enable MSI in the per-device dialog to allow optimization, or run the per-device dialog directly.";
                         }
                     }
                     else if (hasGpuChanges)
                     {
-                        finalStatus = "Audio, USB, Network, and GPU affinities successfully optimized.";
+                        finalStatus = "Audio / USB / Network / GPU affinities applied.";
                     }
                     else if (hasNetworkChanges)
                     {
-                        finalStatus = "Audio, USB, and Network affinities successfully optimized.";
+                        finalStatus = "Audio / USB / Network affinities applied.";
+                    }
+                    else if (gpuSkipped)
+                    {
+                        finalStatus = "Audio / USB / Network affinities applied. GPU optimization was skipped because this CPU could not satisfy the 2-logical-processor minimum (Audio + XHCI + Network took the available candidate cores).";
                     }
                     else
                     {
-                        finalStatus = "Affinities successfully optimized.";
+                        // Reached when hasChanges=true but none of the per-category change
+                        // flags are set. In practice this means only Audio/USB were modified
+                        // and the GPU branch in the loop was skipped \u2014 either because
+                        // gpuMaskUsable=false (insufficient candidate cores) or every GPU
+                        // device was skipped by the MsiEnabled gate. Point the user at the
+                        // skip summary (or at the per-device dialog) rather than implying
+                        // the bulk path intentionally skips GPU.
+                        finalStatus = "Audio / USB affinities applied. GPU was skipped in the bulk run \u2014 check the per-device dialog or the skipped-device summary for the reason.";
                     }
 
+                    // Restart outcome suffix — the GPU is now part of the restart
+                    // list, so a plain success/fail summary covers everything.
                     if (hasChanges && (restartSuccessCount + restartFailCount) > 0)
                     {
                         if (restartFailCount == 0)
                         {
                             finalStatus += $" {restartSuccessCount} device(s) restarted in the background.";
                         }
+                        else if (restartSuccessCount == 0)
+                        {
+                            finalStatus += $" Device restart failed ({firstRestartError ?? "pnputil rejected"}) \u2014 affinity change takes effect on next reboot.";
+                        }
                         else
                         {
-                            finalStatus += $" {restartSuccessCount} restarted; {restartFailCount} deferred to next boot.";
+                            finalStatus += $" {restartSuccessCount} restarted; {restartFailCount} failed ({firstRestartError ?? "pnputil rejected"}) \u2014 failed ones take effect on next reboot.";
                         }
                     }
-
                     await LoadDevicesAsync();
                     StatusText = finalStatus;
                 });
             }
         }
-
 
         /// <summary>
         /// Recovery command: clears leftover custom affinity and MSI state on every MSI-capable

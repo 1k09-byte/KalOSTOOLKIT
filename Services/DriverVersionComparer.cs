@@ -38,19 +38,33 @@ namespace KalOS.Services
                     return 0;
                 }
 
-                // Standard marketing format comparison (e.g. 26.8.1 vs 26.8.1 -> 0, 24.10.1 vs 26.8.1 -> -1)
-                var seg = CompareSegments(installed, latestMarketing);
-                if (seg.HasValue)
+                // Only compare when the installed version is actually a marketing
+                // Adrenalin version (YY.MM.N, middle segment a valid month). The
+                // OS sometimes reports a WMI/vehicle version instead (e.g.
+                // "32.0.15.5244" or "32.0.21013") which does NOT correspond to
+                // the Adrenalin number — comparing it would be a guess. Those
+                // pairs return null so the UI shows "Unknown" rather than a
+                // misleading up/down-to-date verdict.
+                if (!IsAmdMarketingVersion(installed))
                 {
-                    return seg.Value;
+                    return null;
                 }
 
-                return 0;
+                var seg = CompareSegments(installed, latestMarketing);
+                return seg.HasValue ? seg.Value : null;
             }
             catch
             {
-                return 0;
+                return null;
             }
+        }
+
+        /// <summary>True for Adrenalin marketing versions like "25.10.1" / "26.8.1" (exactly three parts, middle part a month 1-12).</summary>
+        private static bool IsAmdMarketingVersion(string version)
+        {
+            var parts = version.Split('.');
+            if (parts.Length != 3) return false;
+            return int.TryParse(parts[1], out int month) && month >= 1 && month <= 12;
         }
 
 

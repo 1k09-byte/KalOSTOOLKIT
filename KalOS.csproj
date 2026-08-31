@@ -116,6 +116,13 @@
     <Content Include="os-changes.json" Condition="Exists('os-changes.json')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Scripts referenced by os-changes.json must also ship next to KalOS.exe,
+         otherwise the consumer app's Apply-changes validation fails on a fresh
+         install (the manifest exists but the script is missing). -->
+    <None Remove="post-update-tweaks.ps1" />
+    <Content Include="post-update-tweaks.ps1">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 

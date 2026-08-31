@@ -41,6 +41,14 @@ public sealed class WindhawkManagerService
 {
     // ── Layout (verified on 1.7.3) ─────────────────────────────────────────
     private const string InstallDirName = "Windhawk";
+
+    /// <summary>
+    /// Settle window after a cold engine start: long enough for the engine to
+    /// finish booting (process spawn, mods-tree scan, DLL load) before we
+    /// verify mods or fire the disable→enable reload kick. Kicking earlier
+    /// means the engine misses the toggle — the disable/re-enable bug.
+    /// </summary>
+    private const int EngineSettleDelayMs = 5000;
     private const string EngineModsRegistryPath = @"SOFTWARE\Windhawk\Engine\Mods";
     private const string ModsWritableRegistryPath = @"SOFTWARE\Windhawk\Engine\ModsWritable";
     private const string WindhawkRootRegistryPath = @"SOFTWARE\Windhawk";
@@ -379,6 +387,15 @@ public sealed class WindhawkManagerService
         {
             await StartEngineAsync(cancellationToken);
 
+            // Give the engine time to finish booting (spawn workers, scan the
+            // mods tree, compile/load DLLs) BEFORE we inspect or toggle the
+            // registry. Without this settle window, our own deploy writes
+            // (LibraryFileName + DLL) already satisfy IsModReady, verification
+            // returns instantly, and the disable→enable kick below fires while
+            // the engine is still initializing — it misses the toggle and the
+            // mods end up loaded-but-not-injected (the disable/re-enable bug).
+            await Task.Delay(EngineSettleDelayMs, cancellationToken);
+
             // The engine accepts a mod by keeping its registry entry (and
             // deletes entries for mods it cannot load), so survival of the
             // entry in an enabled state is the acceptance signal.
@@ -465,6 +482,11 @@ public sealed class WindhawkManagerService
 
             progress?.Report(85);
             await StartEngineAsync(cancellationToken);
+
+            // Same settle window as the batch deploy: let the engine finish
+            // booting before verifying / kicking, or it misses the toggle.
+            await Task.Delay(EngineSettleDelayMs, cancellationToken);
+
             bool verified = await WaitForModAcceptedAsync(entry.Id, cancellationToken);
             if (verified)
             {
@@ -1269,8 +1291,10 @@ public sealed class WindhawkManagerService
             }
         }
 
-        // Give the engine time to notice and unload.
-        await Task.Delay(2000, cancellationToken);
+        // Give the engine time to notice and unload. Too short and the
+        // disable and enable land within one engine poll — the engine sees
+        // Disabled back at 0 and treats the whole toggle as a no-op.
+        await Task.Delay(3000, cancellationToken);
 
         // Phase 2: re-enable everything at once → engine loads + re-injects.
         foreach (string modId in ids)
@@ -1437,7 +1461,11 @@ public sealed class WindhawkManagerService
     /// only sets the compiled library after a successful compile. So readiness
     /// (registered + enabled + compiled library) is the acceptance signal.
     /// Compilation of these large mods can take a while, so the timeout is
-    /// generous.
+    /// generous. NOTE: because our own deploy writes (LibraryFileName + DLL)
+    /// already satisfy readiness, this cannot distinguish "we wrote it" from
+    /// "the engine loaded it" — callers must give the engine a settle window
+    /// (EngineSettleDelayMs) after StartEngineAsync before treating readiness
+    /// as engine acceptance.
     /// </summary>
     private async Task<bool> WaitForModAcceptedAsync(string modId, CancellationToken cancellationToken)
     {

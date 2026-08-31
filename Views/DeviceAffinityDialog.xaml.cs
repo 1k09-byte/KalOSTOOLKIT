@@ -1,7 +1,6 @@
-using System.Collections.Generic;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
+﻿using Microsoft.UI.Xaml.Controls;
 using KalOS.ViewModels;
+using System.Collections.Generic;
 
 namespace KalOS.Views
 {
@@ -12,6 +11,13 @@ namespace KalOS.Views
         public DeviceAffinityDialog(PciDeviceItem device, IEnumerable<CpuCoreInfo> cores)
         {
             ViewModel = new DeviceAffinityViewModel(device, cores);
+
+            // WinUI caps ContentDialog width at the ContentDialogMaxWidth theme
+            // resource (548) regardless of the inner layout. Override it on this
+            // instance so the dialog opens wider. Corner radius is set in XAML
+            // via the OverlayCornerRadius resource.
+            this.Resources["ContentDialogMaxWidth"] = 920d;
+
             this.InitializeComponent();
         }
 
@@ -20,27 +26,13 @@ namespace KalOS.Views
         private void SaveClick(ContentDialog sender, ContentDialogButtonClickEventArgs args)
         {
             IsSaved = true;
+            // Native ContentDialogs automatically hide after a button click
         }
 
-        private void SelectAll_Click(object sender, RoutedEventArgs e)
-        {
-            ViewModel.SelectAll();
-        }
+        private void SelectAllThreads_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+            => ViewModel.SetAllThreads(true);
 
-        private void ClearAll_Click(object sender, RoutedEventArgs e)
-        {
-            ViewModel.ClearAll();
-        }
-
-        private void SelectPCores_Click(object sender, RoutedEventArgs e)
-        {
-            ViewModel.SelectPCores();
-        }
-
-        private void SelectECores_Click(object sender, RoutedEventArgs e)
-        {
-            ViewModel.SelectECores();
-        }
+        private void ClearThreads_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+            => ViewModel.SetAllThreads(false);
     }
 }
-
