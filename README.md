@@ -45,4 +45,5 @@ To completely remove the app, run the `uninstall-kalos.ps1` script. This dedicat
 
 - Requires administrator privileges for registry writes, package removal, and service management.
 - Crash logs: `%LOCALAPPDATA%\KalOS\CrashLogs\` (last 5 kept).
+- License: KalOS is MIT — see `LICENSE.md`. Third-party components have their own terms (`THIRD-PARTY-NOTICES.md`).
 - See `THIRD-PARTY-NOTICES.md` for dependency and asset licensing.
