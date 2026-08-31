@@ -69,8 +69,19 @@ public sealed class UpdateService
     public static Version CurrentVersion =>
         typeof(UpdateService).Assembly.GetName().Version ?? new Version(0, 0, 0);
 
+    /// <summary>
+    /// App-data home for settings, logs, and update/rollback state. The dev
+    /// (non-consumer) build uses its own folder so developer preferences — like
+    /// a personal startup-banner background image — never leak into the
+    /// consumer build. Consumers always start with no image; it's the user's
+    /// choice to set one from Personalization.
+    /// </summary>
     public static string AppDataFolder =>
+#if CONSUMER_BUILD
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KalOS");
+#else
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KalOS-Dev");
+#endif
 
     public static string UpdatesFolder => Path.Combine(AppDataFolder, "updates");
 

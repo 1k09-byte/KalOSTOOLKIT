@@ -12,12 +12,12 @@
   //
   // Scripts must be .ps1 files relative to the install dir (next to KalOS.exe),
   // and run with the app's elevation (no UAC prompt). Exit code 0 = success.
+  //
+  // This release ships no OS changes — "changes" is empty on purpose, so the
+  // update popup only shows "View apply log" (no "Apply changes" button).
+  // When you add tweaks later, add entries here (each needs a non-empty
+  // description) and reference its .ps1 file.
   "version": "1.0.0.5",
   "changes": [
-    {
-      "description": "Post-update tweaks",
-      "type": "script",
-      "script": "post-update-tweaks.ps1"
-    }
   ]
 }

@@ -396,7 +396,10 @@ namespace KalOS
             // them right here. The manifest rides inside the update zip, so each
             // release can change the OS without recompiling the app.
             var osManifest = OsChangeService.LoadFromInstallDir();
-            var needsApply = osManifest != null && !OsChangeService.IsApplied(osManifest);
+            // Only offer "Apply changes" when this release actually ships changes.
+            // A manifest with an empty "changes" array (no tweaks this release)
+            // must not nag — the popup falls back to "View apply log" only.
+            var needsApply = osManifest is { Changes.Count: > 0 } && !OsChangeService.IsApplied(osManifest);
 
             var dialog = new ContentDialog
             {
