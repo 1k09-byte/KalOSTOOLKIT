@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Installs the KalOS Setup wizard, or (with -InstallTool) the KalOS app itself.
 
@@ -8,13 +8,13 @@
     launches it. The wizard then walks through deploying KalOS, GPU drivers,
     software, and tweaks.
 
-    -InstallTool: legacy mode — downloads and installs the KalOS app directly
+    -InstallTool: legacy mode - downloads and installs the KalOS app directly
     (same behavior this script had before the Setup wizard existed). The Setup
     wizard's script fallback uses this mode.
 
     Both modes run the full dependency checker first: administrator permission,
     internet connection, and .NET 9 Desktop Runtime (auto-installed when
-    missing) — the KalOS app deployed by the wizard needs that runtime.
+    missing) - the KalOS app deployed by the wizard needs that runtime.
 
 .EXAMPLE
     .\install-kalos.ps1                # install + launch the Setup wizard
@@ -178,8 +178,8 @@ try {
     $html = (Invoke-WebRequest -Uri $assetsUrl -UseBasicParsing -TimeoutSec 15 -Headers @{ "Accept" = "text/html" }).Content
 
     # Pick the payload for this mode:
-    #   default      → the Setup wizard package (KalOS-Setup-v*-win-x64.zip)
-    #   -InstallTool → the consumer app package (KalOS-v*-win-x64.zip)
+    #   default      -> the Setup wizard package (KalOS-Setup-v*-win-x64.zip)
+    #   -InstallTool -> the consumer app package (KalOS-v*-win-x64.zip)
     if ($InstallTool) {
         $assetMatch = [regex]::Match($html, 'href="(/[^"]+/releases/download/[^"]+\.zip)"')
         if (-not $assetMatch.Success) {
@@ -258,7 +258,7 @@ if ($InstallTool) {
         $lnk = $shell.CreateShortcut($lnkPath)
         $lnk.TargetPath = $exePath
         $lnk.WorkingDirectory = $InstallDir
-        $lnk.Description = "KalOS $version — Windows post-install utility"
+        $lnk.Description = "KalOS $version - Windows post-install utility"
         $lnk.Save()
         Write-Host "Shortcut created: $lnkPath"
 
@@ -270,7 +270,7 @@ if ($InstallTool) {
         $lnk2 = $shell.CreateShortcut($desktopLnk)
         $lnk2.TargetPath = $exePath
         $lnk2.WorkingDirectory = $InstallDir
-        $lnk2.Description = "KalOS $version — Windows post-install utility"
+        $lnk2.Description = "KalOS $version - Windows post-install utility"
         $lnk2.Save()
         Write-Host "Shortcut created: $desktopLnk"
     }
@@ -284,8 +284,8 @@ if ($InstallTool) {
             elseif (Test-Path $lnkPath) { $pinned = Invoke-Verb $lnkPath "(?i)^Pin to taskbar" }
         }
         if ($pinned) { Write-Host "Pinned to taskbar." }
-        elseif ($openShell) { Write-Host "Skipped taskbar pin — Open-Shell is installed." }
-        else { Write-Host "Already pinned to taskbar, or pinning unsupported — skipping." }
+        elseif ($openShell) { Write-Host "Skipped taskbar pin - Open-Shell is installed." }
+        else { Write-Host "Already pinned to taskbar, or pinning unsupported - skipping." }
     }
 
     Write-Host ""
@@ -322,7 +322,7 @@ else {
         Write-ErrorAndExit "Extract failed (corrupt download?): $($_.Exception.Message)"
     }
 
-    # The Setup wizard is a self-contained single-file exe — that one file is
+    # The Setup wizard is a self-contained single-file exe - that one file is
     # the whole package. (KalOS-Installer.exe rides along when published.)
     $setupExe = Join-Path $staging "KalOS.Setup.exe"
     if (-not (Test-Path $setupExe)) {
@@ -346,14 +346,14 @@ else {
         $lnk = $shell.CreateShortcut($lnkPath)
         $lnk.TargetPath = $wizardPath
         $lnk.WorkingDirectory = $SetupDir
-        $lnk.Description = "KalOS Setup $version — install KalOS, drivers, software and tweaks"
+        $lnk.Description = "KalOS Setup $version - install KalOS, drivers, software and tweaks"
         $lnk.Save()
         Write-Host "Shortcut created: $lnkPath"
     }
 
     Write-Host ""
     Write-Host "KalOS Setup $version installed successfully!" -ForegroundColor Green
-    Write-Host "The setup wizard opens next — it installs KalOS, GPU drivers, software and tweaks."
+    Write-Host "The setup wizard opens next - it installs KalOS, GPU drivers, software and tweaks."
     Write-Host "Relaunch it any time from the Start Menu (KalOS Setup) or run:"
     Write-Host "    $wizardPath"
 
