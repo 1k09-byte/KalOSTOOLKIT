@@ -128,6 +128,7 @@ namespace KalOS
             // ── ViewModels ─────────────────────────────────────────────
             services.AddTransient<MainViewModel>();
             services.AddTransient<HomeViewModel>();
+            services.AddTransient<PersonalizationViewModel>();
             services.AddSingleton<SettingsViewModel>();
             services.AddSingleton<StartupViewModel>();
             services.AddSingleton<BrowserViewModel>();

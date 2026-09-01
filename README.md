@@ -26,6 +26,28 @@ The `install-kalos.ps1` script handles downloading and updating the application.
 
 To completely remove the app, run the `uninstall-kalos.ps1` script. This dedicated uninstaller safely terminates any running instances, removes the installation folder, deletes all shortcuts, and wipes the deployment clean.
 
+## KalOS Setup wizard
+
+The **KalOS Setup** wizard (`Installer/`) is a separate unpackaged, self-contained, `requireAdministrator` WinUI 3 app that walks a fresh Windows install through the whole KalOS stack in one run:
+
+1. **Welcome** — resolves the latest KalOS release and reports any existing install.
+2. **GPU Driver** — detects adapters, offers a silent NVIDIA/AMD driver update (Intel opens the vendor page).
+3. **Browsers & Software** — the same shared catalog the in-app page uses, with winget → Chocolatey → Scoop → direct-download fallbacks.
+4. **Summary** — recap of selections before committing.
+5. **Progress** — live step log + overall bar.
+6. **Finish** — per-step result list.
+
+The wizard deploys KalOS **natively** (download → validate → wipe-and-copy → shortcuts → taskbar pin) with an automatic fallback to `install-kalos.ps1` when GitHub is unreachable or the package fails validation. It source-shares the WinUI-free backend (driver stack, package managers, the install services) rather than referencing the main project, so the single-file payload stays small.
+
+Build and package it:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File publish-setup.ps1
+# → dist\KalOS-Setup-v{version}-win-x64.zip
+```
+
+Attach that zip to the GitHub release alongside the consumer `KalOS.zip`; a release carrying both never makes the wizard download itself (the asset picker always prefers the app zip).
+
 ## Tech stack
 
 | Package | Version | Purpose |

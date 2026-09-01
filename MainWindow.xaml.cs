@@ -91,8 +91,15 @@ namespace KalOS
             RootGrid.RequestedTheme = _themeService.CurrentTheme;
             UpdateCaptionButtonColors(_themeService.CurrentTheme);
 
-            // Initialize the backdrop service — sets Window.SystemBackdrop
+            // Initialize the backdrop service — sets the composition backdrop
+            // controllers (Mica/Acrylic) so Personalization tints can apply.
             _backdropService.Initialize(this);
+            _backdropService.UpdateSystemBackdropState(ResolveEffectiveTheme(_themeService.CurrentTheme));
+
+            // Keep the backdrop's input state in sync with window focus.
+            Activated += (_, args) => _backdropService.UpdateSystemBackdropState(
+                ResolveEffectiveTheme(_themeService.CurrentTheme),
+                args.WindowActivationState != WindowActivationState.Deactivated);
 
             _themeService.ThemeChanged += OnThemeChanged;
             _backdropService.BackdropChanging += OnBackdropChanging;
@@ -253,7 +260,16 @@ namespace KalOS
                     RootGrid.RequestedTheme = theme;
                 }
                 UpdateCaptionButtonColors(theme);
+                _backdropService.UpdateSystemBackdropState(ResolveEffectiveTheme(theme));
             });
+        }
+
+        /// <summary>Resolves Default to the effective rendered theme (used for the backdrop config).</summary>
+        private ElementTheme ResolveEffectiveTheme(ElementTheme theme)
+        {
+            if (theme != ElementTheme.Default) return theme;
+            var actual = RootGrid.ActualTheme;
+            return actual == ElementTheme.Default ? ElementTheme.Dark : actual;
         }
 
         private void UpdateCaptionButtonColors(ElementTheme theme)

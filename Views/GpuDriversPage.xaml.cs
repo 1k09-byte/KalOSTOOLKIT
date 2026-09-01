@@ -48,7 +48,10 @@ public sealed partial class GpuDriversPage : Page
             // all in-app — then runs the built-in silent pipeline.
             if (item.IsNvidia)
             {
-                var nvDialog = new NvInstallDialog(item)
+                // Version history for the "Manually select a driver version"
+                // list — fetched before the dialog opens so it's populated.
+                var versions = await ViewModel.GetNvidiaVersionHistoryAsync(item);
+                var nvDialog = new NvInstallDialog(item, versions)
                 {
                     XamlRoot = RootPage.XamlRoot,
                 };
@@ -63,7 +66,15 @@ public sealed partial class GpuDriversPage : Page
                     return;
                 }
 
-                await ViewModel.InstallAsync(item, nvDialog.Components, nvDialog.OnDiskDriverPath);
+                // ── Step 2: post-install tweaks (NovaOS-sourced) ────────────
+                var tweaksDialog = new NvTweaksDialog
+                {
+                    XamlRoot = RootPage.XamlRoot,
+                };
+
+                if (await tweaksDialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+                await ViewModel.InstallAsync(item, nvDialog.Components, nvDialog.OnDiskDriverPath, nvDialog.SelectedDriver, tweaksDialog.Tweaks);
                 return;
             }
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
@@ -381,7 +382,29 @@ namespace KalOS.ViewModels
         /// Runs an already-confirmed update for one GPU with per-row progress,
         /// then quietly re-checks that GPU so the row reflects the new state.
         /// </summary>
-        public async Task InstallAsync(GpuDriverItem? item, NvidiaInstallComponents? nvidiaComponents = null, string? onDiskDriverPath = null)
+        /// <summary>
+        /// NVIDIA version history (newest first) for the "Manually select a
+        /// driver version" option in the install dialog. Empty when the API is
+        /// unreachable — the dialog then disables that option.
+        /// </summary>
+        public async Task<IReadOnlyList<DriverInfo>> GetNvidiaVersionHistoryAsync(GpuDriverItem item, CancellationToken ct = default)
+        {
+            try
+            {
+                return await _driverService.GetVersionHistoryAsync(item.Gpu, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _log.Warn($"NVIDIA version history failed for {item.Name}: {ex.Message}");
+                return Array.Empty<DriverInfo>();
+            }
+        }
+
+        public async Task InstallAsync(GpuDriverItem? item, NvidiaInstallComponents? nvidiaComponents = null, string? onDiskDriverPath = null, DriverInfo? driverOverride = null, NvInstallTweaks? nvidiaTweaks = null)
         {
             if (item is null || !item.CanAutoInstall || IsWorking) return;
 
@@ -401,7 +424,8 @@ namespace KalOS.ViewModels
                     StatusText = $"{item.Name}: {p.Message}";
                 });
 
-                bool ok = await _driverService.UpdateAsync(item.Gpu, item.Latest!, progress, ct, nvidiaComponents, onDiskDriverPath);
+                var driver = driverOverride ?? item.Latest!;
+                bool ok = await _driverService.UpdateAsync(item.Gpu, driver, progress, ct, nvidiaComponents, onDiskDriverPath, nvidiaTweaks);
 
                 if (ok)
                 {

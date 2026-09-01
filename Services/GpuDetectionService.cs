@@ -37,12 +37,22 @@ namespace KalOS.Services
                         var pnp = Convert.ToString(gpu["PNPDeviceID"]) ?? "";
                         var wmiVersion = Convert.ToString(gpu["DriverVersion"]) ?? "Unknown";
 
-                        string finalVersion = wmiVersion;
-                        bool isAmd = pnp.Contains("VEN_1002", StringComparison.OrdinalIgnoreCase)
-                            || name.Contains("Radeon", StringComparison.OrdinalIgnoreCase)
-                            || name.Contains("AMD", StringComparison.OrdinalIgnoreCase);
+                        // A GPU whose vendor driver isn't installed (fresh Windows, or a
+                        // device in an error state) reports itself as "Microsoft Basic
+                        // Display Adapter", hiding the AMD/NVIDIA/Intel hardware. Peel
+                        // the real identity out of the device's registry node instead.
+                        var (registryName, hardwareId, service) = ReadDeviceRegistryInfo(pnp);
 
-                        if (isAmd)
+                        // Vendor checks prefer the hardware ID (VEN_xxxx) so a generic
+                        // WMI name can't mask an AMD adapter.
+                        string vendorId = !string.IsNullOrWhiteSpace(hardwareId) ? hardwareId : pnp;
+
+                        name = ResolveDisplayName(name, registryName, vendorId, service);
+
+                        string finalVersion = wmiVersion;
+                        if (VendorOf(vendorId, service) == "AMD"
+                            || name.Contains("Radeon", StringComparison.OrdinalIgnoreCase)
+                            || name.Contains("AMD", StringComparison.OrdinalIgnoreCase))
                         {
                             string? amdMarketingVer = GetAmdMarketingVersion();
                             if (!string.IsNullOrWhiteSpace(amdMarketingVer))
@@ -56,8 +66,10 @@ namespace KalOS.Services
                             Name = string.IsNullOrWhiteSpace(name) ? "Unknown GPU" : name,
                             DriverVersion = finalVersion,
                             DriverDate = date,
-                            PnpDeviceId = pnp,
-                            Manufacturer = pnp + (string.IsNullOrWhiteSpace(name) ? "" : " " + name)
+                            // Keep the vendor's PNP id on the record so IsAmd/IsNvidia/IsIntel
+                            // and the provider routing always see the real hardware.
+                            PnpDeviceId = !string.IsNullOrWhiteSpace(pnp) ? pnp : vendorId,
+                            Manufacturer = vendorId + (string.IsNullOrWhiteSpace(name) ? "" : " " + name)
                         });
                         gpu.Dispose();
                     }
@@ -70,6 +82,114 @@ namespace KalOS.Services
 
                 return gpus;
             });
+        }
+
+        /// <summary>
+        /// Reads the real identity of a device from its registry node
+        /// (HKLM\SYSTEM\CurrentControlSet\Enum\&lt;pnp&gt;): the human-friendly
+        /// driver description, the hardware ID (VEN_xxxx), and the bound kernel
+        /// driver service. All may be null when the node is missing.
+        /// </summary>
+        private static (string? DeviceDesc, string? HardwareId, string? Service) ReadDeviceRegistryInfo(string pnp)
+        {
+            if (string.IsNullOrWhiteSpace(pnp)) return (null, null, null);
+            try
+            {
+                using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                    $@"SYSTEM\CurrentControlSet\Enum\{pnp}");
+                if (key is null) return (null, null, null);
+
+                string? hardwareId = null;
+                if (key.GetValue("HardwareID") is string[] hwIds && hwIds.Length > 0)
+                    hardwareId = hwIds[0];
+
+                return (
+                    key.GetValue("DeviceDesc") as string,
+                    hardwareId,
+                    key.GetValue("Service") as string);
+            }
+            catch
+            {
+                return (null, null, null);
+            }
+        }
+
+        /// <summary>
+        /// Produces the adapter name to show in the UI. A generic WMI name is
+        /// replaced by the real device description when one exists; otherwise the
+        /// vendor (from the hardware ID / driver service) labels the entry so an
+        /// AMD/NVIDIA adapter never masquerades as "Microsoft Basic Display
+        /// Adapter".
+        /// </summary>
+        public static string ResolveDisplayName(string wmiName, string? deviceDesc, string vendorId, string? service)
+        {
+            if (!IsGenericDisplayName(wmiName)) return wmiName;
+
+            string? friendly = ParseDeviceDescFriendlyName(deviceDesc);
+            // The inbox basic-display driver's own DeviceDesc is also a generic
+            // placeholder, so re-check the resolved name before adopting it.
+            if (!string.IsNullOrWhiteSpace(friendly) && !IsGenericDisplayName(friendly))
+                return friendly;
+
+            return VendorOf(vendorId, service) switch
+            {
+                "AMD" => "AMD Radeon (basic display — driver not installed)",
+                "NVIDIA" => "NVIDIA GPU (basic display — driver not installed)",
+                "Intel" => "Intel Graphics (basic display — driver not installed)",
+                _ => wmiName
+            };
+        }
+
+        /// <summary>
+        /// True when a WMI adapter name is the generic placeholder Windows uses
+        /// when no vendor driver is bound (these hide the real hardware).
+        /// </summary>
+        public static bool IsGenericDisplayName(string? name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return true;
+            return name.Contains("Microsoft Basic Display", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("Basic Display Adapter", StringComparison.OrdinalIgnoreCase)
+                || name.Contains("Microsoft Remote Display", StringComparison.OrdinalIgnoreCase)
+                || name.Equals("Unknown GPU", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Extracts the human-friendly name from a driver <c>DeviceDesc</c> value.
+        /// The value is typically <c>"@oem15.inf,%amdxxx%;AMD Radeon(TM) Graphics"</c>
+        /// — everything after the first <c>;</c> is the readable name.
+        /// </summary>
+        public static string? ParseDeviceDescFriendlyName(string? deviceDesc)
+        {
+            if (string.IsNullOrWhiteSpace(deviceDesc)) return null;
+            int semicolon = deviceDesc.IndexOf(';');
+            if (semicolon < 0 || semicolon >= deviceDesc.Length - 1) return null;
+            string candidate = deviceDesc[(semicolon + 1)..].Trim();
+            return string.IsNullOrWhiteSpace(candidate) ? null : candidate;
+        }
+
+        /// <summary>
+        /// Resolves the GPU vendor from the hardware ID's <c>VEN_xxxx</c> token or
+        /// the kernel service string, e.g. <c>amdkmdag</c>/<c>nvlddmkm</c>/<c>igfx</c>.
+        /// Returns "AMD", "NVIDIA", "Intel", or "" when unknown.
+        /// </summary>
+        public static string VendorOf(string vendorId, string? service)
+        {
+            if (!string.IsNullOrWhiteSpace(vendorId))
+            {
+                if (vendorId.Contains("VEN_1002", StringComparison.OrdinalIgnoreCase)) return "AMD";
+                if (vendorId.Contains("VEN_10DE", StringComparison.OrdinalIgnoreCase)) return "NVIDIA";
+                if (vendorId.Contains("VEN_8086", StringComparison.OrdinalIgnoreCase)) return "Intel";
+            }
+            if (!string.IsNullOrWhiteSpace(service))
+            {
+                if (service.Equals("amdkmdag", StringComparison.OrdinalIgnoreCase)
+                    || service.Equals("amdwddmg", StringComparison.OrdinalIgnoreCase)) return "AMD";
+                if (service.Equals("nvlddmkm", StringComparison.OrdinalIgnoreCase)) return "NVIDIA";
+                if (service.Equals("igfx", StringComparison.OrdinalIgnoreCase)
+                    || service.Equals("igd", StringComparison.OrdinalIgnoreCase)
+                    || service.Equals("igfxn", StringComparison.OrdinalIgnoreCase)) return "Intel";
+            }
+            return "";
         }
 
         private static string? GetAmdMarketingVersion()

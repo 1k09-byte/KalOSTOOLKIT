@@ -1,0 +1,119 @@
+<local:WizardPage
+    x:Class="KalOS.Setup.Views.SoftwarePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:KalOS.Setup.Views"
+    xmlns:vm="using:KalOS.Setup.ViewModels">
+
+    <Grid Style="{StaticResource WizardPageRoot}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Spacing="4">
+            <TextBlock Text="BROWSERS &amp; SOFTWARE" Style="{StaticResource ShellCaption}"/>
+            <TextBlock Text="Browsers &amp; Software" Style="{StaticResource PageTitle}"/>
+            <TextBlock Style="{StaticResource PageSubtitle}" Text="Choose what to install alongside KalOS. Everything uses winget, then falls back to direct download."/>
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,4,0">
+            <StackPanel Spacing="20" MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Left">
+
+                <!-- Browsers -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Browsers" Style="{StaticResource SectionHeader}"/>
+                    <ListView ItemsSource="{x:Bind Wizard.BrowserPicks, Mode=OneWay}" SelectionMode="None"
+                              ItemContainerStyle="{StaticResource StretchListViewItem}">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:SoftwarePick">
+                                <Border Style="{StaticResource CardStyle}" Margin="0,2">
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" MinWidth="0" VerticalAlignment="Top"/>
+                                        <StackPanel Grid.Column="1" Spacing="2">
+                                            <TextBlock Text="{x:Bind Entry.Name}" Style="{StaticResource CardHeader}"/>
+                                            <TextBlock Text="{x:Bind Entry.Description}" Style="{StaticResource CardSubtitle}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+
+                <!-- Apps -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Apps" Style="{StaticResource SectionHeader}"/>
+                    <ListView ItemsSource="{x:Bind Wizard.AppPicks, Mode=OneWay}" SelectionMode="None"
+                              ItemContainerStyle="{StaticResource StretchListViewItem}">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:SoftwarePick">
+                                <Border Style="{StaticResource CardStyle}" Margin="0,2">
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" MinWidth="0" VerticalAlignment="Top"/>
+                                        <StackPanel Grid.Column="1" Spacing="2">
+                                            <TextBlock Text="{x:Bind Entry.Name}" Style="{StaticResource CardHeader}"/>
+                                            <TextBlock Text="{x:Bind Entry.Description}" Style="{StaticResource CardSubtitle}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+
+                <!-- Browser extensions -->
+                <Border Style="{StaticResource CardStyle}">
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="3">
+                            <TextBlock Text="Privacy extensions" Style="{StaticResource CardHeader}"/>
+                            <TextBlock Style="{StaticResource CardSubtitle}"
+                                       Text="uBlock Origin, Privacy Badger, &quot;I still don't care about cookies&quot; and SponsorBlock are force-installed via browser policy for every selected browser."/>
+                        </StackPanel>
+                        <ToggleSwitch Grid.Column="1" Header="Force-install"
+                                      IsOn="{x:Bind Wizard.InstallExtensions, Mode=TwoWay}"
+                                      VerticalAlignment="Center"/>
+                    </Grid>
+                </Border>
+
+                <!-- Runtimes -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Runtimes" Style="{StaticResource SectionHeader}"/>
+                    <TextBlock Text="Game and app dependencies. The latest VC++ and .NET 8 are pre-selected." Style="{StaticResource CaptionText}"/>
+                    <ListView ItemsSource="{x:Bind Wizard.RuntimePicks, Mode=OneWay}" SelectionMode="None"
+                              ItemContainerStyle="{StaticResource StretchListViewItem}">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:SoftwarePick">
+                                <Border Style="{StaticResource CardStyle}" Margin="0,2">
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" MinWidth="0" VerticalAlignment="Top"/>
+                                        <StackPanel Grid.Column="1" Spacing="2">
+                                            <TextBlock Text="{x:Bind Entry.Name}" Style="{StaticResource CardHeader}"/>
+                                            <TextBlock Text="{x:Bind Entry.Description}" Style="{StaticResource CardSubtitle}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</local:WizardPage>

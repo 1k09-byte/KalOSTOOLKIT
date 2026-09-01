@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace KalOS.Services
 {
@@ -25,9 +24,16 @@ namespace KalOS.Services
 
         public IReadOnlyList<Models.CleanupLog> Logs => _logs;
 
+        // Lazily-created fallback file logger for callers that construct this
+        // service without DI (tests, tools, the Setup wizard's composition
+        // root). Previously this fell back through App.Services, which made
+        // this file uncompilable outside the WinUI app — the KalOS Setup
+        // installer source-shares it, so the fallback must stay App-free.
+        private static LogService? _fallbackFileLog;
+
         public LoggingService(LogService? logService = null)
         {
-            _fileLog = logService ?? App.Services.GetService<LogService>();
+            _fileLog = logService ?? (_fallbackFileLog ??= new LogService());
             Directory.CreateDirectory(LogDir);
         }
 

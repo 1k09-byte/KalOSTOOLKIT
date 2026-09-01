@@ -83,6 +83,69 @@ public class DriverServiceTests
         Assert.Null(NvidiaDriverProvider.ParseLookupResponse("""{"IDS":[]}"""));
     }
 
+    /// <summary>The live API emits spaced JSON — the old compact-marker parse
+    /// never matched, so this shape must parse to the newest entry.</summary>
+    private const string NvidiaLookupJsonSpaced = """
+        { "IDS" : [{ "downloadInfo": { "Success" : "1", "Name" : "GeForce%20Game%20Ready%20Driver",
+          "Version" : "616.56", "GFE_DisplayVersion" : "11.0.8.299", "DisplayVersion" : "",
+          "IsWHQL" : "1", "ReleaseDateTime" : "Wed Aug 26, 2026",
+          "DetailsURL" : "https://www.nvidia.com/en-us/drivers/details/278153/",
+          "DownloadURL" : "https://us.download.nvidia.com/Windows/616.56/616.56-desktop-win10-win11-64bit-international-dch-whql.exe" } }] }
+        """;
+
+    [Fact]
+    public void ParseLookupResponse_HandlesSpacedLiveApiJson()
+    {
+        var info = NvidiaDriverProvider.ParseLookupResponse(NvidiaLookupJsonSpaced);
+
+        Assert.NotNull(info);
+        Assert.Equal("616.56", info!.Version);
+        Assert.Contains("616.56-desktop-win10-win11-64bit", info.DownloadUrl);
+        Assert.NotNull(info.ReleaseDate);
+        Assert.Equal(2026, info.ReleaseDate!.Value.Year);
+    }
+
+    [Fact]
+    public void ParseLookupVersions_ParsesEveryEntryNewestFirst()
+    {
+        const string json = """
+            {"IDS":[
+              {"downloadInfo":{"Version":"616.56","ReleaseDateTime":"Wed Aug 26, 2026","DownloadURL":"https://us.download.nvidia.com/Windows/616.56/616.56-desktop-win10-win11-64bit-international-dch-whql.exe"}},
+              {"downloadInfo":{"Version":"580.97","ReleaseDateTime":"Wed Jul 01, 2026","DownloadURL":"https://us.download.nvidia.com/Windows/580.97/580.97-desktop-win10-win11-64bit-international-dch-whql.exe"}},
+              {"downloadInfo":{"Version":"566.36","DownloadURL":"https://us.download.nvidia.com/Windows/566.36/566.36-desktop-win10-win11-64bit-international-dch-whql.exe"}}
+            ]}
+            """;
+
+        var versions = NvidiaDriverProvider.ParseLookupVersions(json);
+
+        Assert.Equal(3, versions.Count);
+        Assert.Equal("616.56", versions[0].Version);
+        Assert.Equal("580.97", versions[1].Version);
+        Assert.Equal("566.36", versions[2].Version);
+        Assert.All(versions, v => Assert.StartsWith("https://us.download.nvidia.com/Windows/", v.DownloadUrl));
+        Assert.Equal("580.97", versions[1].ReleaseDate!.Value.Year is 2026 ? "580.97" : "wrong");
+    }
+
+    [Fact]
+    public void ParseLookupVersions_SkipsEntriesWithoutDownloadUrl()
+    {
+        const string json = """
+            {"IDS":[
+              {"downloadInfo":{"Version":"616.56"}},
+              {"downloadInfo":{"Version":"580.97","DownloadURL":"https://us.download.nvidia.com/Windows/580.97/x.exe"}}
+            ]}
+            """;
+
+        var versions = NvidiaDriverProvider.ParseLookupVersions(json);
+
+        // 616.56 has no URL — version-without-URL entries can't be installed.
+        // Its segment leaks no URL to 580.97 either (segmenting by Version
+        // occurrence guarantees that).
+        var entry = Assert.Single(versions);
+        Assert.Equal("580.97", entry.Version);
+        Assert.Contains("580.97", entry.DownloadUrl);
+    }
+
     // ── CheckForUpdateAsync outcomes ──────────────────────────────────
 
     private sealed class StubProvider : IDriverProvider

@@ -1,20 +1,86 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net9.0-windows10.0.22621.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.22621.0</TargetPlatformMinVersion>
-    <RootNamespace>KalOS.Installer</RootNamespace>
-    <AssemblyName>KalOS.Installer</AssemblyName>
+    <RootNamespace>KalOS.Setup</RootNamespace>
+    <AssemblyName>KalOS.Setup</AssemblyName>
     <Version>1.0.0.0</Version>
+    <Platform>x64</Platform>
     <Platforms>x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
     <RuntimeIdentifier Condition="'$(Platform)' == 'x64'">win-x64</RuntimeIdentifier>
     <RuntimeIdentifier Condition="'$(Platform)' == 'ARM64'">win-arm64</RuntimeIdentifier>
+
+    <UseWinUI>true</UseWinUI>
+    <EnableMsixTooling>true</EnableMsixTooling>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <NoWarn>$(NoWarn);MVVMTK0045</NoWarn>
+    <!-- Force invariant culture so the net472 XAML compiler can always find its
+         ErrorMessages.resources satellite (the installer targets any locale, but
+         the XAML compiler ships only en + invariant). -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4654" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
+    <PackageReference Include="System.Management" Version="10.0.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Source-share the WinUI-free backend: the GPU driver stack, the package
+      managers, and the new Phase 1 shared install services. The installer is
+      a *separate* unpackaged WinUI 3 app (it must not reference KalOS.csproj,
+      which pulls in Win2D / WinUIEx / LibreHardwareMonitorLib / the hardware
+      worker — none of which the wizard needs, and all of which would bloat a
+      single-file self-contained exe past any sane size).
+    -->
+    <Compile Include="..\Models\GpuInfo.cs" Link="Shared\Models\GpuInfo.cs" />
+    <Compile Include="..\Models\CleanupModels.cs" Link="Shared\Models\CleanupModels.cs" />
+    <Compile Include="..\Models\SoftwareCatalog.cs" Link="Shared\Models\SoftwareCatalog.cs" />
+    <Compile Include="..\Models\ExtensionModels.cs" Link="Shared\Models\ExtensionModels.cs" />
+    <Compile Include="..\Models\TintPresets.cs" Link="Shared\Models\TintPresets.cs" />
+    <Compile Include="..\Models\RadeonSlimmerModels.cs" Link="Shared\Models\RadeonSlimmerModels.cs" />
+    <Compile Include="..\Models\AffinityModels.cs" Link="Shared\Models\AffinityModels.cs" />
+
+    <Compile Include="..\Services\GpuDetectionService.cs" Link="Shared\Services\GpuDetectionService.cs" />
+    <Compile Include="..\Services\DriverProviders.cs" Link="Shared\Services\DriverProviders.cs" />
+    <Compile Include="..\Services\DriverProvider.cs" Link="Shared\Services\DriverProvider.cs" />
+    <Compile Include="..\Services\DriverDownloadService.cs" Link="Shared\Services\DriverDownloadService.cs" />
+    <Compile Include="..\Services\DriverInstallService.cs" Link="Shared\Services\DriverInstallService.cs" />
+    <Compile Include="..\Services\DriverCleanupService.cs" Link="Shared\Services\DriverCleanupService.cs" />
+    <Compile Include="..\Services\RadeonSlimmerService.cs" Link="Shared\Services\RadeonSlimmerService.cs" />
+    <Compile Include="..\Services\AmdDriverApiService.cs" Link="Shared\Services\AmdDriverApiService.cs" />
+    <Compile Include="..\Services\RadeonPackageSlimmer.cs" Link="Shared\Services\RadeonPackageSlimmer.cs" />
+    <Compile Include="..\Services\CoreSpreadingService.cs" Link="Shared\Services\CoreSpreadingService.cs" />
+    <Compile Include="..\Services\DriverService.cs" Link="Shared\Services\DriverService.cs" />
+    <Compile Include="..\Services\DriverVersionComparer.cs" Link="Shared\Services\DriverVersionComparer.cs" />
+
+    <Compile Include="..\Services\PackageManagerService.cs" Link="Shared\Services\PackageManagerService.cs" />
+    <Compile Include="..\Services\BrowserExtensionService.cs" Link="Shared\Services\BrowserExtensionService.cs" />
+    <Compile Include="..\Services\WingetHelper.cs" Link="Shared\Services\WingetHelper.cs" />
+    <Compile Include="..\Services\ProcessManager.cs" Link="Shared\Services\ProcessManager.cs" />
+    <Compile Include="..\Services\ElevationService.cs" Link="Shared\Services\ElevationService.cs" />
+    <Compile Include="..\Services\LoggingService.cs" Link="Shared\Services\LoggingService.cs" />
+    <Compile Include="..\Services\LogService.cs" Link="Shared\Services\LogService.cs" />
+
+    <Compile Include="..\Services\GitHubReleaseClient.cs" Link="Shared\Services\GitHubReleaseClient.cs" />
+    <Compile Include="..\Services\HttpFileDownloader.cs" Link="Shared\Services\HttpFileDownloader.cs" />
+    <Compile Include="..\Services\ZipPackageInstaller.cs" Link="Shared\Services\ZipPackageInstaller.cs" />
+    <Compile Include="..\Services\ShellLinkService.cs" Link="Shared\Services\ShellLinkService.cs" />
+
+  </ItemGroup>
+
 </Project>

@@ -1,0 +1,67 @@
+<local:WizardPage
+    x:Class="KalOS.Setup.Views.DriversPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:KalOS.Setup.Views">
+
+    <Grid Style="{StaticResource WizardPageRoot}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Spacing="4">
+            <TextBlock Text="GPU DRIVER" Style="{StaticResource ShellCaption}"/>
+            <TextBlock Text="GPU Driver" Style="{StaticResource PageTitle}"/>
+            <TextBlock Style="{StaticResource PageSubtitle}" Text="Pick your graphics adapter and the driver version to install silently."/>
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,4,0">
+            <StackPanel Spacing="16" MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Left">
+
+                <!-- Detection status -->
+                <InfoBar x:Name="DetectBar" IsOpen="True" Severity="Informational"
+                         Title="Detecting graphics adapters…" IsClosable="False">
+                    <InfoBar.Content>
+                        <ProgressRing x:Name="DetectRing" IsActive="True" Width="20" Height="20"/>
+                    </InfoBar.Content>
+                </InfoBar>
+
+                <!-- GPU picker card -->
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Graphics adapter" Style="{StaticResource CardHeader}"/>
+                        <TextBlock Text="Select the adapter you want to update." Style="{StaticResource CardSubtitle}"/>
+                        <ComboBox x:Name="GpuCombo" MinWidth="400" Margin="0,4,0,0"
+                                  ItemsSource="{x:Bind Wizard.Gpus, Mode=OneWay}"
+                                  DisplayMemberPath="Name"
+                                  SelectionChanged="GpuCombo_SelectionChanged"/>
+                        <CheckBox x:Name="UpdateAllCheck" Content="Also update the other detected adapter(s)"
+                                  IsChecked="{x:Bind Wizard.UpdateAllGpus, Mode=TwoWay}"
+                                  Margin="0,6,0,0" Visibility="Collapsed"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Driver version card (NVIDIA only) -->
+                <Border x:Name="DriverCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                    <StackPanel Spacing="10">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Driver version" Style="{StaticResource CardHeader}"/>
+                            <ProgressRing x:Name="VersionsRing" IsActive="False" Width="16" Height="16" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBlock x:Name="DriverHint" Style="{StaticResource CardSubtitle}"/>
+                        <ComboBox x:Name="DriverCombo" MinWidth="400" Margin="0,4,0,0"
+                                  ItemsSource="{x:Bind Wizard.DriverVersions, Mode=OneWay}"
+                                  DisplayMemberPath="Version"
+                                  SelectionChanged="DriverCombo_SelectionChanged"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Intel note -->
+                <InfoBar x:Name="IntelBar" IsOpen="False" Severity="Informational" IsClosable="False"
+                         Title="Intel graphics"
+                         Message="Intel uses a vendor-installed updater. Clicking Next opens Intel's driver download page in your browser."/>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</local:WizardPage>

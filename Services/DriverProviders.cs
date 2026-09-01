@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using KalOS.Models;
@@ -82,6 +83,18 @@ namespace KalOS.Services
 
         public async Task<DriverInfo?> GetLatestDriverAsync(GpuInfo gpu, CancellationToken cancellationToken)
         {
+            var versions = await GetDriverVersionsAsync(gpu, cancellationToken).ConfigureAwait(false);
+            return versions.Count > 0 ? versions[0] : GetCuratedLatest();
+        }
+
+        /// <summary>
+        /// Version history for the GPU's series — the newest WHQL DCH Game Ready
+        /// releases, newest first. Powers the "Manually select a driver version"
+        /// option in the NVIDIA install dialog (NVCleanstall-style version list).
+        /// </summary>
+        public async Task<IReadOnlyList<DriverInfo>> GetDriverVersionsAsync(
+            GpuInfo gpu, CancellationToken cancellationToken, int maxResults = 30)
+        {
             var isNotebook = gpu.Name.Contains("Laptop", StringComparison.OrdinalIgnoreCase)
                 || gpu.Name.Contains("Mobile", StringComparison.OrdinalIgnoreCase)
                 || gpu.Name.Contains("Notebook", StringComparison.OrdinalIgnoreCase);
@@ -95,7 +108,7 @@ namespace KalOS.Services
                 {
                     var url = $"https://gfwsl.geforce.com/services_toolkit/services/com/nvidia/services/AjaxDriverService.php" +
                               $"?func=DriverManualLookup&psid={psid}&pfid={pfid}" +
-                              $"&osID=57&languageCode=1033&isWHQL=1&dch=1&sort1=0&numberOfResults=1";
+                              $"&osID=57&languageCode=1033&isWHQL=1&dch=1&sort1=0&numberOfResults={maxResults}";
 
                     using var resp = await DriverHttp.Client.GetAsync(url, cancellationToken)
                         .ConfigureAwait(false);
@@ -105,8 +118,8 @@ namespace KalOS.Services
                     var json = await DriverHttp.TryReadStringAsync(resp).ConfigureAwait(false);
                     if (string.IsNullOrWhiteSpace(json)) continue;
 
-                    var latest = ParseLookupResponse(json);
-                    if (latest != null) return latest;
+                    var versions = ParseLookupVersions(json);
+                    if (versions.Count > 0) return versions;
                 }
                 catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
                 {
@@ -123,47 +136,73 @@ namespace KalOS.Services
                 }
             }
 
-            // Every API query failed — return curated latest so version comparison
-            // still works and the auto-install button is available.
-            return GetCuratedLatest();
+            return Array.Empty<DriverInfo>();
         }
 
         /// <summary>
         /// Parses the NVIDIA <c>DriverManualLookup</c> JSON response into the
         /// newest <see cref="DriverInfo"/>. Extracted for unit testing.
         /// </summary>
-        internal static DriverInfo? ParseLookupResponse(string json)
+        internal static DriverInfo? ParseLookupResponse(string json) =>
+            ParseLookupVersions(json).FirstOrDefault();
+
+        /// <summary>
+        /// Parses every <c>IDS</c> entry of a <c>DriverManualLookup</c> response
+        /// into a newest-first version list. Tolerant of the API's real output
+        /// shape — the service emits spaced JSON (<c>"Version" : "616.56"</c>),
+        /// so the old <c>"Version":"</c> marker match never hit and the lookup
+        /// silently always fell back to the curated entry.
+        /// </summary>
+        internal static List<DriverInfo> ParseLookupVersions(string json)
         {
-            // Structure: { "IDS": [ { "downloadInfo": { "Version": "...", 
-            // "DownloadURL": "...", "ReleaseDateTime": "..." } } ], ... }
-            const string versionMarker = "\"Version\":\"";
-            const string urlMarker = "\"DownloadURL\":\"";
-            const string dateMarker = "\"ReleaseDateTime\":\"";
+            var results = new List<DriverInfo>();
+            if (string.IsNullOrWhiteSpace(json)) return results;
 
-            int vIdx = json.IndexOf(versionMarker, StringComparison.OrdinalIgnoreCase);
-            int uIdx = json.IndexOf(urlMarker, StringComparison.OrdinalIgnoreCase);
-            if (vIdx < 0 || uIdx < 0) return null;
-
-            string? version = Capture(json, vIdx + versionMarker.Length);
-            string? url = Capture(json, uIdx + urlMarker.Length);
-            if (string.IsNullOrWhiteSpace(version) || string.IsNullOrWhiteSpace(url)) return null;
-
-            DateTime? releaseDate = null;
-            int dIdx = json.IndexOf(dateMarker, StringComparison.OrdinalIgnoreCase);
-            if (dIdx >= 0)
+            var versionMatches = VersionRegex.Matches(json);
+            for (int i = 0; i < versionMatches.Count; i++)
             {
-                string? dateStr = Capture(json, dIdx + dateMarker.Length);
-                if (DateTime.TryParse(dateStr, out var parsed)) releaseDate = parsed;
+                string version = versionMatches[i].Groups["v"].Value;
+                if (string.IsNullOrWhiteSpace(version)) continue;
+
+                // Segment holding this entry's remaining fields: from the end of
+                // this Version match to the start of the next one (or the end).
+                int segStart = versionMatches[i].Index + versionMatches[i].Length;
+                int segEnd = i + 1 < versionMatches.Count ? versionMatches[i + 1].Index : json.Length;
+                string segment = json.Substring(segStart, segEnd - segStart);
+
+                var urlMatch = UrlRegex.Match(segment);
+                if (!urlMatch.Success) continue;
+                string url = urlMatch.Groups["u"].Value;
+                if (string.IsNullOrWhiteSpace(url)) continue;
+
+                DateTime? releaseDate = null;
+                var dateMatch = DateRegex.Match(segment);
+                if (dateMatch.Success && DateTime.TryParse(dateMatch.Groups["d"].Value, out var parsed))
+                    releaseDate = parsed;
+
+                results.Add(new DriverInfo
+                {
+                    Version = version,
+                    DownloadUrl = url,
+                    ReleaseDate = releaseDate,
+                    DisplayString = $"NVIDIA Game Ready {version}"
+                });
             }
 
-            return new DriverInfo
-            {
-                Version = version,
-                DownloadUrl = url,
-                ReleaseDate = releaseDate,
-                DisplayString = $"NVIDIA Game Ready {version}"
-            };
+            // The API's sort isn't guaranteed — order newest first by release date.
+            return results
+                .OrderByDescending(d => d.ReleaseDate ?? DateTime.MinValue)
+                .ToList();
         }
+
+        // Spacing-tolerant: the API emits "Version" : "616.56". "DisplayVersion"
+        // / "GFE_DisplayVersion" can't match because the key needs a leading quote.
+        private static readonly Regex VersionRegex =
+            new("\"Version\"\\s*:\\s*\"(?<v>[^\"]+)\"", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex UrlRegex =
+            new("\"DownloadURL\"\\s*:\\s*\"(?<u>[^\"]+)\"", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex DateRegex =
+            new("\"ReleaseDateTime\"\\s*:\\s*\"(?<d>[^\"]+)\"", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         /// <summary>
         /// Offline/unreachable fallback — a curated recent Game Ready version with

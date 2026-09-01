@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Dispatching;
 using Microsoft.Win32;
 using FluentIcons.Common;
+using KalOS.Models;
 using KalOS.Services;
 
 namespace KalOS.ViewModels
@@ -59,99 +60,119 @@ namespace KalOS.ViewModels
 
         public BrowserViewModel()
         {
-            Browsers = new ObservableCollection<BrowserItem>
-            {
-                new BrowserItem
-                {
-                    Name = "Brave",
-                    Description = "Chromium-based browser with ad and tracker blocking built in at the network level, so pages load faster and you're protected without installing extensions. Also includes HTTPS-Everywhere-style upgrading, fingerprinting resistance, and an optional built-in Tor tab for extra anonymity.",
-                    WingetId = "Brave.Brave",
-                    ChocolateyId = "brave",
-                    ScoopName = "brave",
-                    IconSymbol = Symbol.ShieldKeyhole,
-                    IconPath = "ms-appx:///Assets/icons8-brave-web-browser-48.png",
-                    IsChromium = true,
-                    DataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"BraveSoftware\Brave-Browser"),
-                    Extensions = GetDefaultExtensions(),
-                    FallbackDownloadUrl = "https://brave.com/latest/BraveBrowserWin64.msi",
-                    FallbackInstallerArgs = "/quiet /qn /norestart",
-                    InstallerType = FallbackInstallerType.Msi
-                },
-                new BrowserItem
-                {
-                    Name = "Thorium",
-                    Description = "A Chromium fork rebuilt from source with aggressive compiler optimizations (AVX2/AVX-512, LTO, PGO) rather than feature changes — same Chrome experience and extension support, just noticeably faster page loads and video decoding on modern CPUs.",
-                    WingetId = "Alex313031.Thorium.AVX2",
-                    IconSymbol = Symbol.Flash,
-                    IconPath = "ms-appx:///Assets/thorium.png",
-                    IsChromium = true,
-                    DataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Thorium"),
-                    Extensions = GetDefaultExtensions(),
-                    FallbackDownloadUrl = "https://github.com/Alex313031/Thorium-Win/releases/latest/download/thorium_AVX2_mini_installer.exe",
-                    FallbackInstallerArgs = "/silent /install"
-                },
-                new BrowserItem
-                {
-                    Name = "LibreWolf",
-                    Description = "Firefox with the telemetry, sponsored content, and Mozilla data collection stripped out, plus hardening patches pulled from the Tor Browser project. You get standard Firefox extension support and UI, just locked down by default instead of needing to configure privacy settings yourself.",
-                    WingetId = "LibreWolf.LibreWolf",
-                    ChocolateyId = "librewolf",
-                    ScoopName = "librewolf",
-                    IconSymbol = Symbol.AnimalDog,
-                    IconPath = "ms-appx:///Assets/librewolf.png",
-                    IsChromium = false,
-                    DataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"LibreWolf"),
-                    Extensions = GetDefaultExtensions(),
-                    FallbackDownloadUrl = "https://dl.librewolf.net/librewolf/150.0.1-1/librewolf-150.0.1-1-windows-x86_64-setup.exe",
-                    FallbackInstallerArgs = "/S"
-                },
-                new BrowserItem
-                {
-                    Name = "Zen Browser",
-                    Description = "A Firefox fork focused on interface and workflow rather than just privacy: split-screen tabs, workspaces for separating contexts (work/personal), and a minimal, highly themeable UI — while still inheriting Firefox's engine and privacy tooling underneath.",
-                    WingetId = "Zen-Team.Zen-Browser",
-                    IconSymbol = Symbol.LeafTwo,
-                    IconPath = "ms-appx:///Assets/zen-browser-dark.png",
-                    IsChromium = false,
-                    DataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"Zen"),
-                    Extensions = GetDefaultExtensions(),
-                    FallbackDownloadUrl = "https://github.com/zen-browser/desktop/releases/latest/download/zen.installer.exe",
-                    FallbackInstallerArgs = "/S"
-                }
-            };
-
-            Software = new ObservableCollection<SoftwareItem>
-            {
-                new SoftwareItem { Name = "Discord", Description = "Voice and text chat for gamers.", WingetId = "Discord.Discord", ChocolateyId = "discord", ScoopName = "discord", IconSymbol = Symbol.ChatMultiple, IconPath = "ms-appx:///Assets/discord.png", FallbackDownloadUrl = "https://discord.com/api/download?platform=win", FallbackInstallerArgs = "/silent /install" },
-                new SoftwareItem { Name = "Steam", Description = "Video game digital distribution service.", WingetId = "Valve.Steam", ChocolateyId = "steam", ScoopName = "steam", IconSymbol = Symbol.Games, IconPath = "ms-appx:///Assets/steam.png", FallbackDownloadUrl = "https://cdn.akamai.steamstatic.com/client/installer/SteamSetup.exe", FallbackInstallerArgs = "/S" },
-                new SoftwareItem { Name = "7-Zip", Description = "File archiver with a high compression ratio.", WingetId = "7zip.7zip", ChocolateyId = "7zip", ScoopName = "7zip", IconSymbol = Symbol.FolderZip, IconPath = "ms-appx:///Assets/7zip.png", FallbackDownloadUrl = "https://www.7-zip.org/a/7z2409-x64.exe", FallbackInstallerArgs = "/S" },
-                new SoftwareItem { Name = "Spotify", Description = "Digital music service that gives you access to millions of songs.", WingetId = "Spotify.Spotify", ChocolateyId = "spotify", ScoopName = "spotify", IconSymbol = Symbol.MusicNote2Play, IconPath = "ms-appx:///Assets/spotify.png", FallbackDownloadUrl = "https://download.scdn.co/SpotifySetup.exe", FallbackInstallerArgs = "/silent" }
-            };
-
-            Runtimes = new ObservableCollection<RuntimeItem>
-            {
-                new RuntimeItem { Name = "Visual C++ 2005 (x86)", Description = "Microsoft Visual C++ 2005 Redistributable (x86). Required by older games and legacy software.", WingetId = "Microsoft.VCRedist.2005.x86", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x86.EXE", FallbackInstallerArgs = "/q" },
-                new RuntimeItem { Name = "Visual C++ 2005 (x64)", Description = "Microsoft Visual C++ 2005 Redistributable (x64). Required by older games and legacy software.", WingetId = "Microsoft.VCRedist.2005.x64", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://download.microsoft.com/download/8/B/4/8B42259F-5D70-43F4-AC2E-4B208FD8D66A/vcredist_x64.EXE", FallbackInstallerArgs = "/q" },
-                new RuntimeItem { Name = "Visual C++ 2008 (x86)", Description = "Microsoft Visual C++ 2008 Redistributable (x86). Needed by many mid-2000s applications.", WingetId = "Microsoft.VCRedist.2008.x86", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://download.microsoft.com/download/5/D/8/5D8C65CB-C849-4025-8E95-C3966CAFD8AE/vcredist_x86.exe", FallbackInstallerArgs = "/q" },
-                new RuntimeItem { Name = "Visual C++ 2008 (x64)", Description = "Microsoft Visual C++ 2008 Redistributable (x64). Needed by many mid-2000s applications.", WingetId = "Microsoft.VCRedist.2008.x64", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://download.microsoft.com/download/5/D/8/5D8C65CB-C849-4025-8E95-C3966CAFD8AE/vcredist_x64.exe", FallbackInstallerArgs = "/q" },
-                new RuntimeItem { Name = "Visual C++ 2010 (x86)", Description = "Microsoft Visual C++ 2010 Redistributable (x86). Common dependency for games and apps from ~2010-2015.", WingetId = "Microsoft.VCRedist.2010.x86", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://download.microsoft.com/download/1/6/5/165255E7-1014-4D0A-B094-B6A430A6BFFC/vcredist_x86.exe", FallbackInstallerArgs = "/q" },
-                new RuntimeItem { Name = "Visual C++ 2010 (x64)", Description = "Microsoft Visual C++ 2010 Redistributable (x64). Common dependency for games and apps from ~2010-2015.", WingetId = "Microsoft.VCRedist.2010.x64", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://download.microsoft.com/download/1/6/5/165255E7-1014-4D0A-B094-B6A430A6BFFC/vcredist_x64.exe", FallbackInstallerArgs = "/q" },
-                new RuntimeItem { Name = "Visual C++ 2012 (x86)", Description = "Microsoft Visual C++ 2012 Redistributable (x86). Required by apps targeting VS 2012.", WingetId = "Microsoft.VCRedist.2012.x86", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://download.microsoft.com/download/1/6/B/16B06F60-3B20-4FF2-B699-5E9B7962F9AE/VSU_4/vcredist_x86.exe", FallbackInstallerArgs = "/quiet /norestart" },
-                new RuntimeItem { Name = "Visual C++ 2012 (x64)", Description = "Microsoft Visual C++ 2012 Redistributable (x64). Required by apps targeting VS 2012.", WingetId = "Microsoft.VCRedist.2012.x64", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://download.microsoft.com/download/1/6/B/16B06F60-3B20-4FF2-B699-5E9B7962F9AE/VSU_4/vcredist_x64.exe", FallbackInstallerArgs = "/quiet /norestart" },
-                new RuntimeItem { Name = "Visual C++ 2013 (x86)", Description = "Microsoft Visual C++ 2013 Redistributable (x86). Used by many modern games and applications.", WingetId = "Microsoft.VCRedist.2013.x86", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://aka.ms/highdpimfc2013x86enu", FallbackInstallerArgs = "/quiet /norestart" },
-                new RuntimeItem { Name = "Visual C++ 2013 (x64)", Description = "Microsoft Visual C++ 2013 Redistributable (x64). Used by many modern games and applications.", WingetId = "Microsoft.VCRedist.2013.x64", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://aka.ms/highdpimfc2013x64enu", FallbackInstallerArgs = "/quiet /norestart" },
-                new RuntimeItem { Name = "Visual C++ 2015-2022 (x86)", Description = "Microsoft Visual C++ 2015-2022 Redistributable (x86). The latest VC++ runtime — covers 2015, 2017, 2019 and 2022.", WingetId = "Microsoft.VCRedist.2015+.x86", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://aka.ms/vs/17/release/vc_redist.x86.exe", FallbackInstallerArgs = "/quiet /norestart" },
-                new RuntimeItem { Name = "Visual C++ 2015-2022 (x64)", Description = "Microsoft Visual C++ 2015-2022 Redistributable (x64). The latest VC++ runtime — covers 2015, 2017, 2019 and 2022.", WingetId = "Microsoft.VCRedist.2015+.x64", IconSymbol = Symbol.CodeBlock, FallbackDownloadUrl = "https://aka.ms/vs/17/release/vc_redist.x64.exe", FallbackInstallerArgs = "/quiet /norestart" },
-                new RuntimeItem { Name = ".NET 6.0 Desktop Runtime", Description = "Microsoft .NET 6.0 Desktop Runtime. Required by apps built with .NET 6.", WingetId = "Microsoft.DotNet.DesktopRuntime.6", IconSymbol = Symbol.WindowWrench, FallbackDownloadUrl = "https://aka.ms/dotnet/6.0/windowsdesktop-runtime-win-x64.exe", FallbackInstallerArgs = "/quiet /norestart" },
-                new RuntimeItem { Name = ".NET 7.0 Desktop Runtime", Description = "Microsoft .NET 7.0 Desktop Runtime. Required by apps built with .NET 7.", WingetId = "Microsoft.DotNet.DesktopRuntime.7", IconSymbol = Symbol.WindowWrench, FallbackDownloadUrl = "https://aka.ms/dotnet/7.0/windowsdesktop-runtime-win-x64.exe", FallbackInstallerArgs = "/quiet /norestart" },
-                new RuntimeItem { Name = ".NET 8.0 Desktop Runtime", Description = "Microsoft .NET 8.0 Desktop Runtime. Required by apps built with .NET 8.", WingetId = "Microsoft.DotNet.DesktopRuntime.8", IconSymbol = Symbol.WindowWrench, FallbackDownloadUrl = "https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe", FallbackInstallerArgs = "/quiet /norestart" },
-                new RuntimeItem { Name = ".NET 9.0 Desktop Runtime", Description = "Microsoft .NET 9.0 Desktop Runtime. Required by apps built with .NET 9.", WingetId = "Microsoft.DotNet.DesktopRuntime.9", IconSymbol = Symbol.WindowWrench, FallbackDownloadUrl = "https://aka.ms/dotnet/9.0/windowsdesktop-runtime-win-x64.exe", FallbackInstallerArgs = "/quiet /norestart" },
-                new RuntimeItem { Name = "DirectX End-User Runtime", Description = "Microsoft DirectX End-User Runtime. Installs D3DX9/10/11, XAudio, XInput and other legacy DirectX components needed by older games.", WingetId = "Microsoft.DirectX", IconSymbol = Symbol.XboxController, FallbackDownloadUrl = "https://download.microsoft.com/download/1/7/1/1718CCC4-6315-4D8E-9543-8E28A4E18C4C/dxwebsetup.exe", FallbackInstallerArgs = "/q" },
-                new RuntimeItem { Name = "XNA Framework 4.0", Description = "Microsoft XNA Framework Redistributable 4.0. Required by indie games built with XNA/MonoGame.", WingetId = "Microsoft.XNARedist", IconSymbol = Symbol.XboxController, FallbackDownloadUrl = "https://download.microsoft.com/download/A/C/2/AC2C903B-E6E8-42C2-9FD7-BEBAC362A930/xnafx40_redist.msi", FallbackInstallerArgs = "/quiet /norestart", InstallerType = FallbackInstallerType.Msi },
-                new RuntimeItem { Name = "Java Runtime (JRE)", Description = "Oracle Java Runtime Environment. Required by Minecraft (Java Edition), Eclipse, and many enterprise apps.", WingetId = "Oracle.JavaRuntimeEnvironment", IconSymbol = Symbol.Braces, FallbackDownloadUrl = "https://javadl.oracle.com/webapps/download/AutoDL?BundleId=251406_d79360ef13234098800e0d23e7e2cbb8", FallbackInstallerArgs = "/s" },
-                new RuntimeItem { Name = "OpenAL", Description = "OpenAL audio library. Required by some games (older Unreal Engine titles, Minecraft mods, etc.).", WingetId = "OpenAL.OpenAL", IconSymbol = Symbol.Speaker2, FallbackDownloadUrl = "https://www.openal.org/downloads/oalinst.zip", FallbackInstallerArgs = "/s" },
-            };
+            // The catalog (Models/SoftwareCatalog) is the single source of truth for
+            // what KalOS can install — it is shared with the KalOS Setup wizard.
+            // This VM only maps entries onto UI items: icons, browser data paths,
+            // and the forced-extension list stay presentation-side.
+            Browsers = new ObservableCollection<BrowserItem>(SoftwareCatalog.Browsers.Select(BuildBrowserItem));
+            Software = new ObservableCollection<SoftwareItem>(SoftwareCatalog.Apps.Select(BuildSoftwareItem));
+            Runtimes = new ObservableCollection<RuntimeItem>(SoftwareCatalog.Runtimes.Select(BuildRuntimeItem));
         }
+
+        // ── Catalog → UI item mapping ────────────────────────────────────
+
+        private static BrowserItem BuildBrowserItem(CatalogEntry entry) => new()
+        {
+            Name = entry.Name,
+            Description = entry.Description,
+            WingetId = entry.WingetId,
+            ChocolateyId = entry.ChocolateyId,
+            ScoopName = entry.ScoopName,
+            IconSymbol = BrowserSymbol(entry.Name),
+            IconPath = BrowserIconPath(entry.Name),
+            IsChromium = entry.IsChromium,
+            DataPath = BrowserDataPath(entry.Name),
+            Extensions = GetDefaultExtensions(),
+            FallbackDownloadUrl = entry.FallbackDownloadUrl,
+            FallbackInstallerArgs = entry.FallbackInstallerArgs,
+            InstallerType = ToInstallerType(entry.InstallerKind),
+        };
+
+        private static SoftwareItem BuildSoftwareItem(CatalogEntry entry) => new()
+        {
+            Name = entry.Name,
+            Description = entry.Description,
+            WingetId = entry.WingetId,
+            ChocolateyId = entry.ChocolateyId,
+            ScoopName = entry.ScoopName,
+            IconSymbol = AppSymbol(entry.Name),
+            IconPath = AppIconPath(entry.Name),
+            FallbackDownloadUrl = entry.FallbackDownloadUrl,
+            FallbackInstallerArgs = entry.FallbackInstallerArgs,
+            InstallerType = ToInstallerType(entry.InstallerKind),
+        };
+
+        private static RuntimeItem BuildRuntimeItem(CatalogEntry entry) => new()
+        {
+            Name = entry.Name,
+            Description = entry.Description,
+            WingetId = entry.WingetId,
+            ChocolateyId = entry.ChocolateyId,
+            ScoopName = entry.ScoopName,
+            IconSymbol = RuntimeSymbol(entry.Name),
+            FallbackDownloadUrl = entry.FallbackDownloadUrl,
+            FallbackInstallerArgs = entry.FallbackInstallerArgs,
+            InstallerType = ToInstallerType(entry.InstallerKind),
+        };
+
+        private static FallbackInstallerType ToInstallerType(CatalogInstallerKind kind) =>
+            kind == CatalogInstallerKind.Msi ? FallbackInstallerType.Msi : FallbackInstallerType.Exe;
+
+        private static Symbol BrowserSymbol(string name) => name switch
+        {
+            "Brave" => Symbol.ShieldKeyhole,
+            "Thorium" => Symbol.Flash,
+            "LibreWolf" => Symbol.AnimalDog,
+            "Zen Browser" => Symbol.LeafTwo,
+            _ => Symbol.Globe,
+        };
+
+        private static Symbol AppSymbol(string name) => name switch
+        {
+            "Discord" => Symbol.ChatMultiple,
+            "Steam" => Symbol.Games,
+            "7-Zip" => Symbol.FolderZip,
+            "Spotify" => Symbol.MusicNote2Play,
+            _ => Symbol.Globe,
+        };
+
+        private static Symbol RuntimeSymbol(string name)
+        {
+            if (name.StartsWith("Visual C++", StringComparison.OrdinalIgnoreCase)) return Symbol.CodeBlock;
+            if (name.StartsWith(".NET", StringComparison.OrdinalIgnoreCase)) return Symbol.WindowWrench;
+            if (name.Contains("DirectX", StringComparison.OrdinalIgnoreCase) || name.Contains("XNA", StringComparison.OrdinalIgnoreCase)) return Symbol.XboxController;
+            if (name.Contains("Java", StringComparison.OrdinalIgnoreCase)) return Symbol.Braces;
+            if (name.Contains("OpenAL", StringComparison.OrdinalIgnoreCase)) return Symbol.Speaker2;
+            return Symbol.WindowWrench;
+        }
+
+        private static string BrowserIconPath(string name) => name switch
+        {
+            "Brave" => "ms-appx:///Assets/icons8-brave-web-browser-48.png",
+            "Thorium" => "ms-appx:///Assets/thorium.png",
+            "LibreWolf" => "ms-appx:///Assets/librewolf.png",
+            "Zen Browser" => "ms-appx:///Assets/zen-browser-dark.png",
+            _ => string.Empty,
+        };
+
+        private static string AppIconPath(string name) => name switch
+        {
+            "Discord" => "ms-appx:///Assets/discord.png",
+            "Steam" => "ms-appx:///Assets/steam.png",
+            "7-Zip" => "ms-appx:///Assets/7zip.png",
+            "Spotify" => "ms-appx:///Assets/spotify.png",
+            _ => string.Empty,
+        };
+
+        private static string BrowserDataPath(string name) => name switch
+        {
+            "Brave" => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"BraveSoftware\Brave-Browser"),
+            "Thorium" => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Thorium"),
+            "LibreWolf" => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"LibreWolf"),
+            "Zen Browser" => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"Zen"),
+            _ => string.Empty,
+        };
+
 
         public async Task ScanForInstalledBrowsersAsync()
         {
@@ -495,126 +516,11 @@ namespace KalOS.ViewModels
         }
 
         private static bool CheckIfExtensionIsInstalled(BrowserItem browser, ExtensionItem ext)
-        {
-            try
-            {
-                if (browser.IsChromium)
-                {
-                    // 1. Check registry policy (forced installs)
-                    string policyKeyPath = browser.Name switch
-                    {
-                        "Brave" => @"SOFTWARE\Policies\BraveSoftware\Brave\ExtensionInstallForcelist",
-                        _ => @"SOFTWARE\Policies\Chromium\ExtensionInstallForcelist"
-                    };
-
-                    using (var key = Registry.LocalMachine.OpenSubKey(policyKeyPath))
-                    {
-                        if (key != null)
-                        {
-                            foreach (var valueName in key.GetValueNames())
-                            {
-                                string? val = key.GetValue(valueName) as string;
-                                if (val != null && val.StartsWith(ext.ChromeId, StringComparison.OrdinalIgnoreCase))
-                                {
-                                    return true;
-                                }
-                            }
-                        }
-                    }
-
-                    // 2. Check user profile directory (manual installs)
-                    string userDataPath = Path.Combine(browser.DataPath, "User Data");
-                    if (Directory.Exists(userDataPath))
-                    {
-                        var profiles = Directory.GetDirectories(userDataPath)
-                            .Where(d => Path.GetFileName(d).Equals("Default", StringComparison.OrdinalIgnoreCase) || 
-                                        Path.GetFileName(d).StartsWith("Profile ", StringComparison.OrdinalIgnoreCase));
-
-                        foreach (var profile in profiles)
-                        {
-                            string extPath = Path.Combine(profile, "Extensions", ext.ChromeId);
-                            if (Directory.Exists(extPath)) return true;
-                        }
-                    }
-                }
-                else
-                {
-                    // 1. Check registry policy (forced installs)
-                    string policyKeyPath = browser.Name switch
-                    {
-                        "LibreWolf" => @"SOFTWARE\Policies\LibreWolf\ExtensionSettings",
-                        "Zen Browser" => @"SOFTWARE\Policies\Zen\ExtensionSettings",
-                        _ => @"SOFTWARE\Policies\Mozilla\Firefox\ExtensionSettings"
-                    };
-                    using (var key = Registry.LocalMachine.OpenSubKey(policyKeyPath))
-                    {
-                        if (key != null)
-                        {
-                            var subKeyNames = key.GetSubKeyNames();
-                            foreach (var name in subKeyNames)
-                            {
-                                if (name.Equals(ext.FirefoxId, StringComparison.OrdinalIgnoreCase)) return true;
-                            }
-                        }
-                    }
-
-                    // 1b. Check policies.json (forced installs)
-                    string installDir = GetFirefoxEngineInstallDir(browser.Name);
-                    if (!string.IsNullOrEmpty(installDir))
-                    {
-                        string policyFile = Path.Combine(installDir, "distribution", "policies.json");
-                        if (File.Exists(policyFile))
-                        {
-                            string json = File.ReadAllText(policyFile);
-                            if (json.Contains(ext.FirefoxId)) return true;
-                        }
-                    }
-
-                    // 2. Check user profile directory (manual installs)
-                    string profilesPath = Path.Combine(browser.DataPath, "Profiles");
-                    if (browser.Name == "Zen Browser")
-                    {
-                        // Zen can sometimes store directly in DataPath or under Profiles
-                        profilesPath = Directory.Exists(Path.Combine(browser.DataPath, "Profiles")) 
-                            ? Path.Combine(browser.DataPath, "Profiles") 
-                            : browser.DataPath;
-                    }
-
-                    if (Directory.Exists(profilesPath))
-                    {
-                        var profiles = Directory.GetDirectories(profilesPath);
-                        foreach (var profile in profiles)
-                        {
-                            string extDir = Path.Combine(profile, "extensions");
-                            if (Directory.Exists(extDir))
-                            {
-                                if (File.Exists(Path.Combine(extDir, ext.FirefoxId + ".xpi")) || 
-                                    Directory.Exists(Path.Combine(extDir, ext.FirefoxId)))
-                                {
-                                    return true;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                // Best-effort
-            }
-            return false;
-        }
+            => BrowserExtensionService.IsExtensionInstalled(
+                browser.Name, browser.IsChromium, browser.DataPath, ToBrowserExtension(ext));
 
         private static ObservableCollection<ExtensionItem> GetDefaultExtensions()
-        {
-            return new ObservableCollection<ExtensionItem>
-            {
-                new ExtensionItem { Name = "uBlock Origin", ChromeId = "cjpalhdlnbpafiamejdnhcphjbkeiagm", FirefoxId = "uBlock0@raymondhill.net", FirefoxUrl = "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi" },
-                new ExtensionItem { Name = "Privacy Badger", ChromeId = "pkehgijcmpdhfbdbbnkijodmdjhbjlgp", FirefoxId = "jid1-MnnxcxisBPnSXQ@jetpack", FirefoxUrl = "https://addons.mozilla.org/firefox/downloads/latest/privacy-badger17/latest.xpi" },
-                new ExtensionItem { Name = "I still don't care about cookies", ChromeId = "edibdbjcniadpccecjdfdjjppcpchdlm", FirefoxId = "idcac-pub@guus.ninja", FirefoxUrl = "https://addons.mozilla.org/firefox/downloads/latest/istilldontcareaboutcookies/latest.xpi" },
-                new ExtensionItem { Name = "SponsorBlock", ChromeId = "mnjggcdmjocbbbhaepdhchncahnbgone", FirefoxId = "sponsorBlocker@ajay.app", FirefoxUrl = "https://addons.mozilla.org/firefox/downloads/latest/sponsorblock/latest.xpi" }
-            };
-        }
+            => new(BrowserExtensionService.CreateDefaultExtensions().Select(ToExtensionItem));
 
         [RelayCommand]
         private async Task RepairWingetAsync()
@@ -1106,161 +1012,30 @@ namespace KalOS.ViewModels
         }
 
         private static void ClearExtensionPolicies(BrowserItem browser)
-        {
-            // Clear Chromium registry policies
-            if (browser.IsChromium)
-            {
-                string policyKeyPath = browser.Name switch
-                {
-                    "Brave" => @"SOFTWARE\Policies\BraveSoftware\Brave\ExtensionInstallForcelist",
-                    _ => @"SOFTWARE\Policies\Chromium\ExtensionInstallForcelist"
-                };
-
-                try
-                {
-                    Registry.LocalMachine.DeleteSubKeyTree($@"{policyKeyPath}", throwOnMissingSubKey: false);
-                }
-                catch (Exception)
-                {
-                    // Best-effort
-                }
-            }
-            else
-            {
-                string installDir = GetFirefoxEngineInstallDir(browser.Name);
-                if (!string.IsNullOrEmpty(installDir))
-                {
-                    string policyFile = Path.Combine(installDir, "distribution", "policies.json");
-                    if (File.Exists(policyFile))
-                    {
-                        try { File.Delete(policyFile); } catch { }
-                    }
-                }
-
-                // Clear Firefox registry policies
-                string policyKeyPath = browser.Name switch
-                {
-                    "LibreWolf" => @"SOFTWARE\Policies\LibreWolf\ExtensionSettings",
-                    "Zen Browser" => @"SOFTWARE\Policies\Zen\ExtensionSettings",
-                    _ => @"SOFTWARE\Policies\Mozilla\Firefox\ExtensionSettings"
-                };
-                try
-                {
-                    Registry.LocalMachine.DeleteSubKeyTree(policyKeyPath, throwOnMissingSubKey: false);
-                }
-                catch (Exception) { }
-            }
-        }
+            => BrowserExtensionService.ClearExtensionPolicies(browser.Name, browser.IsChromium);
 
         private void ApplyExtensions(BrowserItem browser)
         {
-            var selectedExtensions = browser.Extensions.Where(e => e.IsSelected).ToList();
-            if (!selectedExtensions.Any()) return;
-
-            if (browser.IsChromium)
-            {
-                string policyKeyPath = browser.Name switch
-                {
-                    "Brave" => @"SOFTWARE\Policies\BraveSoftware\Brave\ExtensionInstallForcelist",
-                    "Thorium" => @"SOFTWARE\Policies\Chromium\ExtensionInstallForcelist",
-                    _ => @"SOFTWARE\Policies\Chromium\ExtensionInstallForcelist"
-                };
-
-                using var key = Registry.LocalMachine.CreateSubKey(policyKeyPath);
-                if (key != null)
-                {
-                    int index = 1;
-                    foreach (var ext in selectedExtensions)
-                    {
-                        key.SetValue(index.ToString(), $"{ext.ChromeId};https://clients2.google.com/service/update2/crx", RegistryValueKind.String);
-                        index++;
-                    }
-                }
-            }
-            else
-            {
-                // Write to policies.json if possible (reliable for forks like LibreWolf/Zen)
-                string installDir = GetFirefoxEngineInstallDir(browser.Name);
-                if (!string.IsNullOrEmpty(installDir))
-                {
-                    string distDir = Path.Combine(installDir, "distribution");
-                    Directory.CreateDirectory(distDir);
-                    string policyFile = Path.Combine(distDir, "policies.json");
-                    
-                    var policies = new System.Text.StringBuilder();
-                    policies.AppendLine("{");
-                    policies.AppendLine("  \"policies\": {");
-                    policies.AppendLine("    \"ExtensionSettings\": {");
-                    
-                    for (int i = 0; i < selectedExtensions.Count; i++)
-                    {
-                        var ext = selectedExtensions[i];
-                        policies.AppendLine($"      \"{ext.FirefoxId}\": {{");
-                        policies.AppendLine("        \"installation_mode\": \"force_installed\",");
-                        policies.AppendLine($"        \"install_url\": \"{ext.FirefoxUrl}\"");
-                        policies.Append("      }");
-                        if (i < selectedExtensions.Count - 1) policies.AppendLine(",");
-                        else policies.AppendLine();
-                    }
-                    
-                    policies.AppendLine("    }");
-                    policies.AppendLine("  }");
-                    policies.AppendLine("}");
-                    
-                    File.WriteAllText(policyFile, policies.ToString());
-                }
-
-                string policyKeyPath = browser.Name switch
-                {
-                    "LibreWolf" => @"SOFTWARE\Policies\LibreWolf\ExtensionSettings",
-                    "Zen Browser" => @"SOFTWARE\Policies\Zen\ExtensionSettings",
-                    _ => @"SOFTWARE\Policies\Mozilla\Firefox\ExtensionSettings"
-                };
-                
-                using var key = Registry.LocalMachine.CreateSubKey(policyKeyPath);
-                if (key != null)
-                {
-                    foreach (var ext in selectedExtensions)
-                    {
-                        using var extKey = key.CreateSubKey(ext.FirefoxId);
-                        if (extKey != null)
-                        {
-                            extKey.SetValue("installation_mode", "force_installed", RegistryValueKind.String);
-                            extKey.SetValue("install_url", ext.FirefoxUrl, RegistryValueKind.String);
-                        }
-                    }
-                }
-            }
+            var selected = browser.Extensions.Where(e => e.IsSelected).Select(ToBrowserExtension).ToList();
+            if (selected.Count == 0) return;
+            BrowserExtensionService.ApplyExtensions(browser.Name, browser.IsChromium, selected);
         }
 
-        private static string GetFirefoxEngineInstallDir(string browserName)
+        private static ExtensionItem ToExtensionItem(BrowserExtension e) => new()
         {
-            string[] possiblePaths = browserName switch
-            {
-                "LibreWolf" => new[] { @"C:\Program Files\LibreWolf" },
-                "Zen Browser" => new[] { @"C:\Program Files\Zen Browser", @"C:\Program Files\Zen", @"C:\Program Files\Zen-Browser" },
-                _ => Array.Empty<string>()
-            };
+            Name = e.Name,
+            ChromeId = e.ChromeId,
+            FirefoxId = e.FirefoxId,
+            FirefoxUrl = e.FirefoxUrl,
+        };
 
-            foreach (var path in possiblePaths)
-            {
-                if (Directory.Exists(path))
-                {
-                    return path;
-                }
-            }
-
-            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            if (browserName == "Zen Browser")
-            {
-                string localZen = Path.Combine(localAppData, "Programs", "Zen Browser");
-                if (Directory.Exists(localZen)) return localZen;
-                string localZen2 = Path.Combine(localAppData, "Programs", "Zen");
-                if (Directory.Exists(localZen2)) return localZen2;
-            }
-
-            return string.Empty;
-        }
+        private static BrowserExtension ToBrowserExtension(ExtensionItem e) => new()
+        {
+            Name = e.Name,
+            ChromeId = e.ChromeId,
+            FirefoxId = e.FirefoxId,
+            FirefoxUrl = e.FirefoxUrl,
+        };
     }
 
 }

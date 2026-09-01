@@ -18,18 +18,68 @@ namespace KalOS.Services
         bool IsNvidia);
 
     /// <summary>
-    /// Optional NVIDIA components to KEEP from a driver package during install.
-    /// When null, the package is stripped to the display driver only. The
-    /// display driver itself is always installed regardless of these flags.
+    /// Optional NVIDIA components to KEEP from a driver package during install,
+    /// mirroring NVCleanstall's "Select Components To Install" list. When null,
+    /// the package is stripped to the display driver only. The display driver
+    /// itself is always installed regardless of these flags.
     /// </summary>
     public sealed record NvidiaInstallComponents
     {
         public bool KeepHDAudio { get; init; }
         public bool KeepPhysX { get; init; }
-        public bool KeepGeForceExperience { get; init; }
         public bool KeepNvidiaApp { get; init; }
+        public bool KeepUSBC { get; init; }
+        public bool KeepTelemetry { get; init; }
+
+        public bool KeepMsvcRuntimes { get; init; }
+        public bool KeepFrameViewSdk { get; init; }
+        public bool KeepVirtualAudio { get; init; }
+        public bool KeepNvPlatformControllers { get; init; }
+        public bool KeepDlsr { get; init; }
+
+        // NV App Components group (sub-stripped inside the kept app folder).
+        public bool KeepNvContainer { get; init; }
+        public bool KeepShadowPlay { get; init; }
+        public bool KeepNvBackend { get; init; }
+        public bool KeepNvidiaAppMessageBus { get; init; }
+
+        /// <summary>Any kept component that depends on the NV Container services.</summary>
+        public bool KeepsAnyContainerUser =>
+            KeepNvidiaApp || KeepNvContainer || KeepShadowPlay ||
+            KeepNvBackend || KeepNvidiaAppMessageBus;
 
         public static NvidiaInstallComponents DisplayOnly => new();
+    }
+
+    /// <summary>
+    /// Optional post-install NVIDIA tweaks, ported from NovaOS's
+    /// "Disable Nvidia Telemetry" script (registry telemetry opt-outs,
+    /// NvCamera removal, task disabling, NvBackend startup removal, and
+    /// telemetry/camera file sweeps). Applied after the driver install when
+    /// the user opts in on the tweaks dialog.
+    /// </summary>
+    public sealed record NvInstallTweaks
+    {
+        /// <summary>Registry telemetry opt-outs: SendTelemetryData=0, FTS RID flags=0, Control Panel opt-out, NvCamera key deleted.</summary>
+        public bool DisableDriverTelemetry { get; init; }
+
+        /// <summary>Uninstall Display.3DVision / Display.Audio / Ansel leftovers via Installer2 (best-effort; fresh installs already strip them).</summary>
+        public bool UninstallVisionAndAnsel { get; init; }
+
+        /// <summary>Disable NVIDIA telemetry/update scheduled tasks (NvTm*, NvProfile, NvNodeLauncher, driver-update checks…).</summary>
+        public bool DisableNvidiaTasks { get; init; }
+
+        /// <summary>Delete the NvBackend Run-key autostart entry.</summary>
+        public bool RemoveNvBackendStartup { get; init; }
+
+        /// <summary>Delete telemetry/camera files: NvTelemetry64.dll, NvCamera folders, DisplayDriverRAS plugin, System32\drivers\NVIDIA Corporation.</summary>
+        public bool DeleteTelemetryFiles { get; init; }
+
+        public bool IsDefault =>
+            !DisableDriverTelemetry && !UninstallVisionAndAnsel && !DisableNvidiaTasks &&
+            !RemoveNvBackendStartup && !DeleteTelemetryFiles;
+
+        public static NvInstallTweaks None => new();
     }
 
     /// <summary>
@@ -78,81 +128,156 @@ namespace KalOS.Services
 
         /// <summary>
         /// Locates the display INF inside an extracted package. Modern NVIDIA
-        /// packages ship <c>nv_disp.inf</c>; some mobile/OEM variants use
-        /// <c>nv_dispi.inf</c>.
+        /// packages ship <c>nv_disp.inf</c>; some mobile/OEM/hybrid variants use
+        /// <c>nv_dispi.inf</c>. Kept for compatibility — prefer
+        /// <see cref="FindNvidiaDisplayInfs"/> when several candidates are useful.
         /// </summary>
-        internal static string? FindDisplayInf(string extractedDir)
-        {
-            if (!Directory.Exists(extractedDir)) return null;
+        internal static string? FindDisplayInf(string extractedDir) =>
+            FindNvidiaDisplayInfs(extractedDir).FirstOrDefault();
 
+        /// <summary>
+        /// All display INFs inside an extracted NVIDIA package, preferred first:
+        /// <c>Display.Driver\nv_disp.inf</c>, then <c>nv_dispi.inf</c>, then a
+        /// recursive search for either name. Trying each in turn lets pnputil pick
+        /// the one that actually matches the device (e.g. hybrid systems where the
+        /// Intel-flavoured nv_dispi.inf does not apply to the discrete GPU).
+        /// </summary>
+        internal static IEnumerable<string> FindNvidiaDisplayInfs(string extractedDir)
+        {
+            if (!Directory.Exists(extractedDir)) return Array.Empty<string>();
+
+            var found = new List<string>();
             var displayDir = Path.Combine(extractedDir, "Display.Driver");
             foreach (var name in new[] { "nv_disp.inf", "nv_dispi.inf" })
             {
                 var candidate = Path.Combine(displayDir, name);
-                if (File.Exists(candidate)) return candidate;
+                if (File.Exists(candidate)) found.Add(candidate);
+            }
+            foreach (var name in new[] { "nv_disp.inf", "nv_dispi.inf" })
+            {
+                found.AddRange(Directory.GetFiles(extractedDir, name, SearchOption.AllDirectories));
             }
 
-            return new[] { "nv_disp.inf", "nv_dispi.inf" }
-                .Select(name => Directory.GetFiles(extractedDir, name, SearchOption.AllDirectories).FirstOrDefault())
-                .FirstOrDefault(path => path != null);
+            // The recursive pass re-finds the Display.Driver copies — dedupe so
+            // each INF is tried exactly once, in preference order.
+            return found.Distinct(StringComparer.OrdinalIgnoreCase);
+        }
+
+        /// <summary>Outcome of a single pnputil install attempt.</summary>
+        public enum PnpUtilInstallOutcome
+        {
+            /// <summary>The driver was installed (or is already staged and in use).</summary>
+            Installed,
+
+            /// <summary>pnputil exit 259 (ERROR_NO_MORE_ITEMS): no device matched this INF,
+            /// or the device is already using a newer/better driver. Nothing to do.</summary>
+            NothingToInstall,
         }
 
         /// <summary>
         /// Installs the display-only driver from an already-extracted package via
-        /// pnputil. Throws <see cref="InvalidOperationException"/> with the actual
-        /// pnputil output on failure so callers surface actionable errors.
+        /// pnputil. Returns <see cref="PnpUtilInstallOutcome.Installed"/> on success
+        /// (exit 0 or 3010 — reboot required is still a success), and
+        /// <see cref="PnpUtilInstallOutcome.NothingToInstall"/> for exit 259, which
+        /// Microsoft documents as "no devices match the supplied driver or the target
+        /// device is already using a better or newer driver". Any other exit code
+        /// throws <see cref="InvalidOperationException"/> with the actual pnputil
+        /// output (stdout + stderr) so callers surface actionable errors.
         /// The app manifest requires administrator, so no extra elevation is needed.
         /// </summary>
-        public async Task InstallViaPnpUtilAsync(string infPath)
+        public async Task<PnpUtilInstallOutcome> InstallViaPnpUtilAsync(string infPath)
         {
             _log.Info($"Installing display driver: {infPath}");
 
-            var (_, error, exitCode) = await _processManager.RunWithOutputAndErrorAsync(
+            var (output, error, exitCode) = await _processManager.RunWithOutputAndErrorAsync(
                 "pnputil", $"/add-driver \"{infPath}\" /install", TimeSpan.FromMinutes(5));
 
-            if (exitCode == 0)
+            if (exitCode == 0 || exitCode == 3010) // 3010 = installed, reboot required
             {
                 _log.Success("Display driver installed successfully via pnputil");
-                return;
+                return PnpUtilInstallOutcome.Installed;
             }
 
-            string detail = string.IsNullOrWhiteSpace(error)
+            // pnputil writes its status text to stdout, so surface that first;
+            // stderr is a fallback when stdout is empty.
+            string detail = string.IsNullOrWhiteSpace(output)
+                ? error.Trim()
+                : output.Trim();
+
+            if (exitCode == 259)
+            {
+                _log.Info($"pnputil: nothing to install for {Path.GetFileName(infPath)} (exit 259): {detail}");
+                return PnpUtilInstallOutcome.NothingToInstall;
+            }
+
+            string failureDetail = string.IsNullOrWhiteSpace(detail)
                 ? $"pnputil exit code {exitCode}"
-                : error.Trim();
-            _log.Error($"pnputil failed: {detail}");
+                : detail;
+            _log.Error($"pnputil failed: {failureDetail}");
             throw new InvalidOperationException(
-                $"pnputil failed to install the display driver (exit code {exitCode}).\n\n{detail}");
+                $"pnputil failed to install the display driver (exit code {exitCode}).\n\n{failureDetail}");
         }
 
         /// <summary>
-        /// Locates the display INF via the supplied finder function, then installs
-        /// it with pnputil. Retries once after a short delay on transient failures
-        /// (driver-store races during device re-enumeration).
+        /// Tries each candidate display INF (in order) until one installs. When a
+        /// candidate reports "nothing to install" (exit 259 — no matching device
+        /// or an already-newer driver) the next candidate is tried, so a package
+        /// that ships several display INFs (e.g. NVIDIA nv_disp vs nv_dispi, or
+        /// AMD Display vs Display2 for iGPU/dGPU) still lands on the right one.
+        /// If every candidate reports 259 the machine's driver is already current
+        /// and the step counts as done — not a failure. Hard failures are retried
+        /// once after a short delay (driver-store races during re-enumeration),
+        /// then thrown with the accumulated pnputil output.
         /// </summary>
-        private async Task InstallViaPnpUtilWithRetryAsync(
-            string extractedDir,
-            Func<string, string?> infFinder,
+        private async Task InstallViaPnpUtilCandidatesAsync(
+            IEnumerable<string> infCandidates,
             string vendor)
         {
-            _log.Info($"Locating {vendor} display driver INF...");
-
-            var infPath = infFinder(extractedDir);
-            if (infPath is null)
+            var candidates = infCandidates.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (candidates.Count == 0)
             {
                 throw new InvalidOperationException(
                     $"No display INF found in extracted {vendor} package. " +
                     "The extraction may have produced an unexpected folder layout.");
             }
 
-            try
+            _log.Info($"Locating {vendor} display driver INF ({candidates.Count} candidate(s))...");
+
+            for (int pass = 0; pass < 2; pass++)
             {
-                await InstallViaPnpUtilAsync(infPath);
-            }
-            catch (InvalidOperationException ex) when (!ex.Message.Contains("No display INF"))
-            {
-                _log.Warn($"First pnputil attempt failed — retrying in 3 seconds: {ex.Message}");
-                await Task.Delay(3000);
-                await InstallViaPnpUtilAsync(infPath);
+                var failures = new List<string>();
+
+                foreach (var inf in candidates)
+                {
+                    try
+                    {
+                        var outcome = await InstallViaPnpUtilAsync(inf);
+                        if (outcome == PnpUtilInstallOutcome.Installed) return;
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        failures.Add(ex.Message);
+                        _log.Warn($"{vendor}: INF '{Path.GetFileName(inf)}' failed — {ex.Message}");
+                    }
+                }
+
+                // All candidates said "nothing to install" — deterministic, so no
+                // retry pass needed. The machine's display keeps working and the
+                // driver is already current (or the INF simply doesn't apply).
+                if (failures.Count == 0)
+                {
+                    _log.Info($"{vendor}: nothing to install — pnputil reported no matching device or an already-newer driver for every candidate.");
+                    return;
+                }
+
+                if (pass == 0)
+                {
+                    _log.Warn($"{vendor}: install failed on first pass — retrying in 3 seconds...");
+                    await Task.Delay(3000);
+                    continue;
+                }
+
+                throw new InvalidOperationException(string.Join(" | ", failures));
             }
         }
 
@@ -168,7 +293,8 @@ namespace KalOS.Services
             string extractDir,
             IProgress<string>? status = null,
             CancellationToken cancellationToken = default,
-            NvidiaInstallComponents? components = null)
+            NvidiaInstallComponents? components = null,
+            NvInstallTweaks? tweaks = null)
         {
             _log.Info("Extracting NVIDIA driver package silently...");
             status?.Report("Extracting driver package silently...");
@@ -200,10 +326,16 @@ namespace KalOS.Services
             StripPackageContents(extractDir, components);
 
             status?.Report("Installing display driver (display-only)...");
-            await InstallViaPnpUtilWithRetryAsync(extractDir, FindDisplayInf, "NVIDIA");
+            await InstallViaPnpUtilCandidatesAsync(FindNvidiaDisplayInfs(extractDir), "NVIDIA");
 
             status?.Report("Removing NVIDIA telemetry and update tasks...");
-            await DebloatNvidiaAsync();
+            await DebloatNvidiaAsync(components);
+
+            if (tweaks is { IsDefault: false })
+            {
+                status?.Report("Applying post-install tweaks...");
+                await ApplyNvTweaksAsync(tweaks, components);
+            }
 
             status?.Report("Removing older NVIDIA driver packages (clean install)…");
             await RemovePreviousNvidiaPackagesAsync();
@@ -426,7 +558,7 @@ namespace KalOS.Services
             StripAmdPackageContents(extractDir);
 
             status?.Report("Installing AMD display driver (display-only)...");
-            await InstallViaPnpUtilWithRetryAsync(extractDir, FindAmdDisplayInf, "AMD");
+            await InstallViaPnpUtilCandidatesAsync(FindAllAmdDisplayInfs(extractDir), "AMD");
 
             status?.Report("Removing AMD telemetry and Radeon Software services...");
             await DebloatAmdAsync();
@@ -629,13 +761,16 @@ namespace KalOS.Services
         /// Strips the extracted NVIDIA package to the selected components using an
         /// allowlist. The display driver (<c>Display.Driver</c>) and catalog
         /// metadata (<c>NVI2</c>) are always kept. The caller chooses which extra
-        /// components (HD Audio, PhysX, GeForce Experience, NVIDIA App) to keep.
-        /// Everything unselected is deleted so pnputil can never pull in anything
-        /// beyond what was asked for. Passing null keeps the display driver only.
+        /// components to keep; everything unselected is deleted so pnputil can
+        /// never pull in anything beyond what was asked for. Passing null keeps
+        /// the display driver only. The NV App Components group is additionally
+        /// sub-stripped inside the kept app folder.
         /// </summary>
         internal void StripPackageContents(string extractDir, NvidiaInstallComponents? components = null)
         {
             if (!Directory.Exists(extractDir)) return;
+
+            var chosen = components ?? NvidiaInstallComponents.DisplayOnly;
 
             // Directories to keep — everything else is a separate optional component
             var allowedDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -643,7 +778,7 @@ namespace KalOS.Services
                 "Display.Driver",  // signed display driver (always)
                 "NVI2",            // installer metadata / catalog references (always)
             };
-            foreach (var folder in OptionalComponentFolders(components ?? NvidiaInstallComponents.DisplayOnly))
+            foreach (var folder in OptionalComponentFolders(chosen))
                 allowedDirs.Add(folder);
 
             // Root files to keep — pnputil may need these for INF resolution
@@ -672,12 +807,61 @@ namespace KalOS.Services
                     _log.Warn($"Could not strip '{entry.Name}': {ex.Message}");
                 }
             }
+
+            if (chosen.KeepNvidiaApp)
+                StripAppSubcomponents(extractDir, chosen);
+        }
+
+        /// <summary>
+        /// The NV App Components group (NV Container, ShadowPlay, NV Backend,
+        /// MessageBus) lives as subfolders inside the kept app folder rather than
+        /// at the package root. Delete the unselected ones; unknown subfolders are
+        /// left alone (runtimes, display helpers, localizations …).
+        /// </summary>
+        private static void StripAppSubcomponents(string extractDir, NvidiaInstallComponents c)
+        {
+            string[] appFolders = { "NVIDIA App", "NVIDIAapp", "NVApp", "GFExperience" };
+
+            foreach (var folder in appFolders)
+            {
+                string appDir = Path.Combine(extractDir, folder);
+                if (!Directory.Exists(appDir)) continue;
+
+                foreach (var sub in new DirectoryInfo(appDir).EnumerateDirectories().ToArray())
+                {
+                    if (ShouldKeepAppSubcomponent(sub.Name, c)) continue;
+
+                    try
+                    {
+                        DeleteRecursive(sub.FullName);
+                    }
+                    catch
+                    {
+                        // Best effort — an unremovable subfolder doesn't fail the install.
+                    }
+                }
+            }
+        }
+
+        private static bool ShouldKeepAppSubcomponent(string name, NvidiaInstallComponents c)
+        {
+            if (name.Equals("NV Container", StringComparison.OrdinalIgnoreCase) ||
+                name.Equals("NVContainer", StringComparison.OrdinalIgnoreCase)) return c.KeepNvContainer;
+            if (name.Equals("ShadowPlay", StringComparison.OrdinalIgnoreCase)) return c.KeepShadowPlay;
+            if (name.Equals("NV Backend", StringComparison.OrdinalIgnoreCase) ||
+                name.Equals("NvBackend", StringComparison.OrdinalIgnoreCase)) return c.KeepNvBackend;
+            if (name.Equals("NVIDIA App MessageBus", StringComparison.OrdinalIgnoreCase) ||
+                name.Equals("MessageBus", StringComparison.OrdinalIgnoreCase)) return c.KeepNvidiaAppMessageBus;
+
+            return true; // unknown subfolders are not a listed component — keep
         }
 
         /// <summary>
         /// Top-level folder name(s) for each NVIDIA component the user chose to
         /// keep. Multiple aliases are listed because folder casing/spacing varies
         /// between driver versions (e.g. <c>HDAudio</c> vs <c>HD Audio</c>).
+        /// Components with no matching folder in the current package are simply
+        /// absent — the aliases are harmless in both directions.
         /// </summary>
         private static IEnumerable<string> OptionalComponentFolders(NvidiaInstallComponents c)
         {
@@ -687,13 +871,53 @@ namespace KalOS.Services
                 yield return "HD Audio";
             }
             if (c.KeepPhysX) yield return "PhysX";
-            if (c.KeepGeForceExperience) yield return "GFExperience";
             if (c.KeepNvidiaApp)
             {
                 yield return "NVIDIA App";
                 yield return "NVApp";
                 yield return "NVIDIAapp";
+                // Legacy packages ship GeForce Experience instead of the App.
+                yield return "GFExperience";
             }
+            if (c.KeepUSBC)
+            {
+                yield return "USB-C";
+                yield return "USBC";
+                yield return "USB-C Driver";
+            }
+            if (c.KeepTelemetry)
+            {
+                yield return "NvTelemetry";
+                yield return "Telemetry";
+            }
+            if (c.KeepMsvcRuntimes)
+            {
+                yield return "MSVCRT";
+                yield return "MSVC";
+            }
+            if (c.KeepFrameViewSdk)
+            {
+                yield return "FrameViewSDK";
+                yield return "FrameView SDK";
+            }
+            if (c.KeepVirtualAudio)
+            {
+                yield return "VirtualAudio";
+                yield return "NVIDIA Virtual Audio";
+                yield return "NVVAD";
+            }
+            if (c.KeepNvPlatformControllers)
+            {
+                yield return "NVPlatformControllers";
+                yield return "NV Platform Controllers";
+            }
+            if (c.KeepDlsr)
+            {
+                yield return "NVIDIA DLSR";
+                yield return "DLSR";
+            }
+            // NV Container / ShadowPlay / NV Backend / MessageBus are sub-stripped
+            // inside the kept app folder — see StripAppSubcomponents.
         }
 
         private static void DeleteRecursive(string path)
@@ -844,18 +1068,24 @@ namespace KalOS.Services
         /// purged — the same sweep NVIDIA's "clean installation" performs. A
         /// display-only pnputil install never creates these itself.
         /// </summary>
-        public async Task DebloatNvidiaAsync()
+        public async Task DebloatNvidiaAsync(NvidiaInstallComponents? components = null)
         {
+            var chosen = components ?? NvidiaInstallComponents.DisplayOnly;
             _log.Info("Debloating NVIDIA: disabling telemetry/container/tracker services, tasks, and stale folders...");
 
-            string[] servicesToDisable =
+            // Services the user explicitly kept (NV App group) must not be disabled.
+            var servicesToDisable = new List<string>
             {
-                "NvTelemetryContainer",          // NVIDIA Telemetry Container
-                "NvContainerLocalSystem",        // NVIDIA LocalSystem Container
-                "NvContainerNetworkService",     // NVIDIA NetworkService Container
-                "NVDisplay.ContainerLocalSystem",// NVIDIA Display Container (telemetry / update checks)
                 "NvModuleTracker"                // NVIDIA Module Tracker (driver usage tracking)
             };
+            if (!chosen.KeepTelemetry)
+                servicesToDisable.Add("NvTelemetryContainer");  // NVIDIA Telemetry Container
+            if (!chosen.KeepsAnyContainerUser)
+            {
+                servicesToDisable.Add("NvContainerLocalSystem");        // NVIDIA LocalSystem Container
+                servicesToDisable.Add("NvContainerNetworkService");     // NVIDIA NetworkService Container
+                servicesToDisable.Add("NVDisplay.ContainerLocalSystem");// NVIDIA Display Container
+            }
 
             foreach (var service in servicesToDisable)
             {
@@ -878,9 +1108,15 @@ namespace KalOS.Services
 
             try
             {
-                const string command =
-                    "-NoProfile -ExecutionPolicy Bypass -Command \"Get-ScheduledTask | " +
-                    "Where-Object { $_.TaskName -like 'Nv*' -or $_.TaskName -like 'NVIDIA*' } | " +
+                // Telemetry tasks always go unless the user kept telemetry; other
+                // NVIDIA tasks are only removed when nothing from the NV App group
+                // was kept (their update/helper tasks must survive for those).
+                string taskFilter = chosen.KeepsAnyContainerUser
+                    ? "($_.TaskName -like 'NvTelemetry*' -or $_.TaskName -like '*Telemetry*')"
+                    : "($_.TaskName -like 'Nv*' -or $_.TaskName -like 'NVIDIA*')";
+                string command =
+                    $"-NoProfile -ExecutionPolicy Bypass -Command \"Get-ScheduledTask | " +
+                    $"Where-Object {{ {taskFilter} }} | " +
                     "Unregister-ScheduledTask -Confirm:$false\"";
                 int exit = await _processManager.RunAsync("powershell", command, TimeSpan.FromMinutes(2));
                 if (exit == 0)
@@ -895,20 +1131,25 @@ namespace KalOS.Services
 
             // Purge component folders a previous full install may have dropped.
             // The NVIDIA Control Panel + driver service folders are left alone —
-            // only telemetry/backends/installer caches go.
+            // only telemetry/backends/installer caches go. NvBackend is skipped
+            // when the user explicitly kept it.
             string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
             string programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-            string[] staleFolders =
+            var staleFolders = new List<string>
             {
-                Path.Combine(programFiles, "NVIDIA Corporation", "NvTelemetry"),
                 Path.Combine(programFiles, "NVIDIA Corporation", "DisplayDriverRAS"),
-                Path.Combine(programFiles, "NVIDIA Corporation", "NvBackend"),
                 Path.Combine(programFiles, "NVIDIA Corporation", "Installer2"),
                 Path.Combine(programFiles, "NVIDIA Corporation", "Updater"),
-                Path.Combine(programData, "NVIDIA Corporation", "NvBackend"),
                 Path.Combine(programData, "NVIDIA Corporation", "NVSMI"),
-                Path.Combine(programData, "NVIDIA", "NvBackend")
             };
+            if (!chosen.KeepTelemetry)
+                staleFolders.Add(Path.Combine(programFiles, "NVIDIA Corporation", "NvTelemetry"));
+            if (!chosen.KeepNvBackend)
+            {
+                staleFolders.Add(Path.Combine(programFiles, "NVIDIA Corporation", "NvBackend"));
+                staleFolders.Add(Path.Combine(programData, "NVIDIA Corporation", "NvBackend"));
+                staleFolders.Add(Path.Combine(programData, "NVIDIA", "NvBackend"));
+            }
 
             foreach (var folder in staleFolders)
             {
@@ -925,6 +1166,243 @@ namespace KalOS.Services
             }
 
             _log.Success("NVIDIA debloat complete");
+        }
+
+        // ── NVIDIA post-install tweaks (ported from NovaOS's "Disable Nvidia Telemetry" script) ──
+
+        /// <summary>
+        /// Applies the user-selected NovaOS-sourced tweaks after the driver
+        /// install. Every step is best-effort: a missing key/task/file is
+        /// logged and skipped, a real failure warns but never aborts the
+        /// install (the driver itself is already in place). Steps that could
+        /// break kept NV App components are guarded by the component choices.
+        /// </summary>
+        public async Task ApplyNvTweaksAsync(NvInstallTweaks tweaks, NvidiaInstallComponents? components = null)
+        {
+            var chosen = components ?? NvidiaInstallComponents.DisplayOnly;
+            _log.Info("Applying NVIDIA post-install tweaks (NovaOS debloat)...");
+
+            if (tweaks.DisableDriverTelemetry)
+            {
+                await SetRegDwordAsync(@"SYSTEM\CurrentControlSet\Services\nvlddmkm\Global\Startup", "SendTelemetryData", 0);
+                await SetRegDwordAsync(@"SOFTWARE\NVIDIA Corporation\Global\FTS", "EnableRID44231", 0);
+                await SetRegDwordAsync(@"SOFTWARE\NVIDIA Corporation\Global\FTS", "EnableRID64640", 0);
+                await SetRegDwordAsync(@"SOFTWARE\NVIDIA Corporation\Global\FTS", "EnableRID66610", 0);
+                await SetRegDwordAsync(@"SOFTWARE\NVIDIA Corporation\NvControlPanel2\Client", "OptInOrOutPreference", 0);
+
+                try
+                {
+                    const string cameraPath = @"SYSTEM\CurrentControlSet\Services\nvlddmkm\NvCamera";
+                    using var probe = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(cameraPath);
+                    if (probe != null)
+                    {
+                        probe.Close();
+                        Microsoft.Win32.Registry.LocalMachine.DeleteSubKeyTree(cameraPath, throwOnMissingSubKey: false);
+                        _log.Success("Removed nvlddmkm\\NvCamera registry key");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _log.Warn($"Could not remove nvlddmkm\\NvCamera key: {ex.Message}");
+                }
+
+                // NvTelemetryContainer disable/stop is already part of the debloat
+                // unless the user kept telemetry — the registry writes above are the
+                // driver-side opt-out that debloat alone cannot cover.
+            }
+
+            if (tweaks.UninstallVisionAndAnsel)
+            {
+                // Fresh installs already strip 3D Vision / Ansel from the package,
+                // so this only matters for leftovers from a previous full install.
+                // Installer2 may have been purged by the debloat — run only when present.
+                string nvi2 = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                    "NVIDIA Corporation", "Installer2", "InstallerCore", "NVI2.dll");
+                if (File.Exists(nvi2))
+                {
+                    foreach (var package in new[] { "Display.3DVision", "Display.Audio", "Ansel" })
+                    {
+                        try
+                        {
+                            int code = await _processManager.RunAsync("rundll32.exe",
+                                $"\"{nvi2}\",UninstallPackage {package}", TimeSpan.FromMinutes(2));
+                            if (code == 0)
+                                _log.Success($"Uninstalled NVIDIA package: {package}");
+                            else
+                                _log.Info($"NVIDIA package {package} not installed (exit {code}) — skipped");
+                        }
+                        catch (Exception ex)
+                        {
+                            _log.Warn($"Could not uninstall NVIDIA package {package}: {ex.Message}");
+                        }
+                    }
+                }
+                else
+                {
+                    _log.Info("Installer2 not present — 3D Vision/Ansel already stripped on this install");
+                }
+            }
+
+            if (tweaks.DisableNvidiaTasks)
+            {
+                // The debloat unregisters Nv*/NVIDIA* tasks, but only when nothing
+                // from the NV App group was kept. These named disables cover the
+                // update/telemetry tasks that must survive that filter, using the
+                // same names as the NovaOS script (GUID-suffixed crash-report tasks too).
+                var taskNames = new List<string>
+                {
+                    "NvTmMon", "NvTmRep", "NvProfile", "NvNodeLauncher",
+                    "NvDriverUpdateCheckDaily", "NvBatteryBoostCheckOnLogon",
+                    "NVIDIA GeForce Experience SelfUpdate",
+                };
+                for (int i = 1; i <= 4; i++)
+                    taskNames.Add($"NvTmRep_CrashReport{i}_{{B2FE1952-0186-46C3-BAEC-A80AA35AC5B8}}");
+
+                foreach (var name in taskNames)
+                {
+                    try
+                    {
+                        int code = await _processManager.RunAsync("schtasks",
+                            $"/Change /TN \"{name}\" /Disable", TimeSpan.FromSeconds(30));
+                        if (code == 0)
+                            _log.Success($"Disabled scheduled task: {name}");
+                    }
+                    catch (Exception ex)
+                    {
+                        _log.Warn($"Could not disable task {name}: {ex.Message}");
+                    }
+                }
+            }
+
+            if (tweaks.RemoveNvBackendStartup && !chosen.KeepNvBackend)
+            {
+                try
+                {
+                    using var runKey = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
+                        @"Software\Microsoft\Windows\CurrentVersion\Run", writable: true);
+                    if (runKey?.GetValue("NvBackend") != null)
+                    {
+                        runKey.DeleteValue("NvBackend", throwOnMissingValue: false);
+                        _log.Success("Removed NvBackend autostart entry");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _log.Warn($"Could not remove NvBackend autostart: {ex.Message}");
+                }
+            }
+
+            if (tweaks.DeleteTelemetryFiles)
+            {
+                string systemRoot = Environment.GetFolderPath(Environment.SpecialFolder.System);
+                string driverStore = Path.Combine(systemRoot, "DriverStore", "FileRepository");
+
+                if (!chosen.KeepTelemetry)
+                {
+                    // NvTelemetry64.dll lives in every nv* driver-store package folder.
+                    try
+                    {
+                        if (Directory.Exists(driverStore))
+                        {
+                            int removed = 0;
+                            foreach (var dll in Directory.EnumerateFiles(driverStore, "NvTelemetry64.dll", SearchOption.AllDirectories))
+                            {
+                                try { File.Delete(dll); removed++; }
+                                catch (Exception ex) { _log.Warn($"Could not delete {dll}: {ex.Message}"); }
+                            }
+                            _log.Success($"Deleted {removed} NvTelemetry64.dll file(s) from the driver store");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _log.Warn($"NvTelemetry64.dll sweep failed: {ex.Message}");
+                    }
+                }
+
+                // NvCamera (ShadowPlay capture) folders in driver-store packages.
+                try
+                {
+                    if (Directory.Exists(driverStore))
+                    {
+                        int removed = 0;
+                        foreach (var dir in Directory.EnumerateDirectories(driverStore, "NvCamera", SearchOption.AllDirectories))
+                        {
+                            try { Directory.Delete(dir, recursive: true); removed++; }
+                            catch (Exception ex) { _log.Warn($"Could not delete {dir}: {ex.Message}"); }
+                        }
+                        if (removed > 0) _log.Success($"Deleted {removed} NvCamera folder(s) from the driver store");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _log.Warn($"NvCamera sweep failed: {ex.Message}");
+                }
+
+                // DisplayDriverRAS telemetry plugin — only when no NV Container user was kept.
+                if (!chosen.KeepsAnyContainerUser)
+                {
+                    string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+                    string programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+
+                    TryDeleteFile(Path.Combine(programFiles, "NVIDIA Corporation", "Display.NvContainer",
+                        "plugins", "LocalSystem", "_DisplayDriverRAS.dll"));
+                    TryDeleteFolder(Path.Combine(programFiles, "NVIDIA Corporation",
+                        "Display.NvContainer", "plugins", "LocalSystem", "DisplayDriverRAS"));
+                    TryDeleteFolder(Path.Combine(programData, "NVIDIA Corporation", "DisplayDriverRAS"));
+
+                    // The drivers\NVIDIA Corporation folder NovaOS removes wholesale.
+                    TryDeleteFolder(Path.Combine(systemRoot, "drivers", "NVIDIA Corporation"));
+                }
+            }
+
+            _log.Success("NVIDIA post-install tweaks complete");
+        }
+
+        private async Task SetRegDwordAsync(string keyPath, string name, int value)
+        {
+            try
+            {
+                using var key = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(keyPath, writable: true);
+                key.SetValue(name, value, Microsoft.Win32.RegistryValueKind.DWord);
+                _log.Success($"[reg-dword] HKLM\\{keyPath} \\ {name} = {value}");
+            }
+            catch (Exception ex)
+            {
+                _log.Warn($"[reg-dword] Could not set HKLM\\{keyPath} \\ {name}: {ex.Message}");
+            }
+            await Task.CompletedTask;
+        }
+
+        private void TryDeleteFile(string path)
+        {
+            try
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                    _log.Success($"Deleted file: {path}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.Warn($"Could not delete {path}: {ex.Message}");
+            }
+        }
+
+        private void TryDeleteFolder(string path)
+        {
+            try
+            {
+                if (Directory.Exists(path))
+                {
+                    Directory.Delete(path, recursive: true);
+                    _log.Success($"Deleted folder: {path}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.Warn($"Could not delete {path}: {ex.Message}");
+            }
         }
 
         // ── AMD debloat ───────────────────────────────────────────────

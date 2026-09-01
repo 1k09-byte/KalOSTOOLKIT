@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -54,6 +55,31 @@ namespace KalOS.Services
         /// <summary>The provider that owns this GPU, or null for unsupported adapters.</summary>
         public IDriverProvider? FindProvider(GpuInfo gpu) =>
             _providers.FirstOrDefault(p => p.CanHandle(gpu));
+
+        /// <summary>
+        /// Version history for NVIDIA GPUs (newest-first WHQL DCH Game Ready
+        /// releases) — powers the "Manually select a driver version" option in
+        /// the install dialog. Empty for non-NVIDIA adapters or when the API is
+        /// unreachable.
+        /// </summary>
+        public async Task<IReadOnlyList<DriverInfo>> GetVersionHistoryAsync(
+            GpuInfo gpu, CancellationToken cancellationToken = default)
+        {
+            if (FindProvider(gpu) is not NvidiaDriverProvider nvidia) return Array.Empty<DriverInfo>();
+            try
+            {
+                return await nvidia.GetDriverVersionsAsync(gpu, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _log.Warn($"NVIDIA version history unavailable: {ex.Message}");
+                return Array.Empty<DriverInfo>();
+            }
+        }
 
         /// <summary>
         /// Detect → query the vendor source → compare versions. Never throws
@@ -126,7 +152,8 @@ namespace KalOS.Services
             IProgress<DriverUpdateProgress>? progress = null,
             CancellationToken cancellationToken = default,
             NvidiaInstallComponents? nvidiaComponents = null,
-            string? sourceExePath = null)
+            string? sourceExePath = null,
+            NvInstallTweaks? nvidiaTweaks = null)
         {
             var display = driver.DisplayString ?? $"driver {driver.Version}";
             bool hasSilentPath = (gpu.IsNvidia || gpu.IsAmd)
@@ -199,7 +226,8 @@ namespace KalOS.Services
                             Message = message
                         })),
                         cancellationToken,
-                        nvidiaComponents);
+                        nvidiaComponents,
+                        nvidiaTweaks);
                 }
                 else
                 {

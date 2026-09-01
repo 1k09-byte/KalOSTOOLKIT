@@ -331,4 +331,38 @@ public class DriverInstallServiceTests : IDisposable
         Assert.Null(DriverInstallService.FindDisplayInf(root));
         Assert.Null(DriverInstallService.FindDisplayInf(Path.Combine(_tempDir, "never-created")));
     }
+
+    [Fact]
+    public void FindNvidiaDisplayInfs_YieldsEveryCandidatePreferredFirst()
+    {
+        var root = Path.Combine(_tempDir, "inf-e");
+        var disp = Path.Combine(root, "Display.Driver");
+        var nested = Path.Combine(root, "Other", "Drivers");
+        Directory.CreateDirectory(disp);
+        Directory.CreateDirectory(nested);
+        File.WriteAllText(Path.Combine(disp, "nv_disp.inf"), "");
+        File.WriteAllText(Path.Combine(disp, "nv_dispi.inf"), "");
+        File.WriteAllText(Path.Combine(nested, "nv_disp.inf"), "");
+
+        var candidates = DriverInstallService.FindNvidiaDisplayInfs(root).ToList();
+
+        // Preferred order: Display.Driver\nv_disp.inf, Display.Driver\nv_dispi.inf,
+        // then the recursive finds. No duplicates from the recursive pass.
+        Assert.Equal(new[]
+        {
+            Path.Combine(disp, "nv_disp.inf"),
+            Path.Combine(disp, "nv_dispi.inf"),
+            Path.Combine(nested, "nv_disp.inf"),
+        }, candidates);
+    }
+
+    [Fact]
+    public void FindNvidiaDisplayInfs_ReturnsEmptyWhenNothingMatches()
+    {
+        var root = Path.Combine(_tempDir, "inf-f");
+        Directory.CreateDirectory(root);
+
+        Assert.Empty(DriverInstallService.FindNvidiaDisplayInfs(root));
+        Assert.Empty(DriverInstallService.FindNvidiaDisplayInfs(Path.Combine(_tempDir, "never-created")));
+    }
 }

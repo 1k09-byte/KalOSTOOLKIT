@@ -1,0 +1,135 @@
+<local:WizardPage
+    x:Class="KalOS.Setup.Views.CustomizePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:KalOS.Setup.Views"
+    xmlns:vm="using:KalOS.Setup.ViewModels"
+    xmlns:models="using:KalOS.Models">
+
+    <Page.Resources>
+        <Style x:Key="TintItemContainerStyle" TargetType="GridViewItem">
+            <Setter Property="Margin" Value="2" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="0" />
+        </Style>
+    </Page.Resources>
+
+    <Grid Style="{StaticResource WizardPageRoot}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Spacing="4">
+            <TextBlock Text="CUSTOMIZE" Style="{StaticResource ShellCaption}"/>
+            <TextBlock Text="Customize" Style="{StaticResource PageTitle}"/>
+            <TextBlock Style="{StaticResource PageSubtitle}" Text="Pick the background image and window tint KalOS starts with."/>
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,4,0">
+            <StackPanel Spacing="20" MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Left">
+
+                <!-- Background image -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Background Image" Style="{StaticResource SectionHeader}"/>
+                    <Border Style="{StaticResource CardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="Background image" Style="{StaticResource CardHeader}"/>
+                                <TextBlock Style="{StaticResource CardSubtitle}"
+                                           Text="A picture KalOS shows behind its window. The file is copied into KalOS's data folder, so it stays even if you move or delete the original."/>
+                                <TextBlock Text="{x:Bind Wizard.BackgroundImageFileName, Mode=OneWay}"
+                                           Style="{StaticResource CaptionText}" Margin="0,6,0,0"
+                                           Visibility="{x:Bind Wizard.HasBackgroundImage, Mode=OneWay, Converter={StaticResource BoolToVis}}"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+                                <Button Content="Browse…" Command="{x:Bind Wizard.BrowseBackgroundImageCommand}"/>
+                                <Button Content="Clear" Command="{x:Bind Wizard.ClearBackgroundImageCommand}"
+                                        Visibility="{x:Bind Wizard.HasBackgroundImage, Mode=OneWay, Converter={StaticResource BoolToVis}}"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+                <!-- Tint color -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Tint Color" Style="{StaticResource SectionHeader}"/>
+                    <Border Style="{StaticResource CardStyle}">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="Window tint" Style="{StaticResource CardHeader}"/>
+                                <TextBlock Style="{StaticResource CardSubtitle}"
+                                           Text="Add tint to KalOS's window, or keep the standard look with Default."/>
+                            </StackPanel>
+                            <Button Grid.Column="1" x:Name="CustomTintButton" Padding="10,6"
+                                    Click="CustomTintButton_Click" VerticalAlignment="Center"
+                                    ToolTipService.ToolTip="Pick a custom tint color">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Grid Width="18" Height="18">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition/>
+                                            <RowDefinition/>
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition/>
+                                            <ColumnDefinition/>
+                                        </Grid.ColumnDefinitions>
+                                        <Rectangle Grid.Row="0" Grid.Column="0" Fill="White"/>
+                                        <Rectangle Grid.Row="0" Grid.Column="1" Fill="#808080"/>
+                                        <Rectangle Grid.Row="1" Grid.Column="0" Fill="#808080"/>
+                                        <Rectangle Grid.Row="1" Grid.Column="1" Fill="White"/>
+                                    </Grid>
+                                    <FontIcon Glyph="&#xE70D;" FontSize="10"
+                                              Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                    <!-- Tint palette: Default + 69 colors in hue-family order -->
+                    <GridView ItemsSource="{x:Bind Wizard.Tints}"
+                              SelectedItem="{x:Bind Wizard.SelectedTint, Mode=TwoWay}"
+                              SelectionMode="Single" IsItemClickEnabled="False"
+                              ItemContainerStyle="{StaticResource TintItemContainerStyle}">
+                        <GridView.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <ItemsWrapGrid Orientation="Horizontal"
+                                               ItemWidth="88" ItemHeight="64"/>
+                            </ItemsPanelTemplate>
+                        </GridView.ItemsPanel>
+                        <GridView.ItemTemplate>
+                            <DataTemplate x:DataType="models:TintPreset">
+                                <StackPanel Spacing="3" Width="84">
+                                    <Grid Width="80" Height="42">
+                                        <Border Width="40" Height="13" CornerRadius="5,5,0,0"
+                                                HorizontalAlignment="Center" VerticalAlignment="Top"
+                                                Background="{x:Bind Brush}"
+                                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                BorderThickness="1"/>
+                                        <Border Width="80" Height="36" CornerRadius="6" VerticalAlignment="Bottom"
+                                                Background="{x:Bind Brush}"
+                                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                                BorderThickness="1"/>
+                                    </Grid>
+                                    <TextBlock Text="{x:Bind Name}" FontSize="11" TextAlignment="Center"
+                                               TextWrapping="Wrap" MaxLines="1" TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </GridView.ItemTemplate>
+                    </GridView>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</local:WizardPage>
