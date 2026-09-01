@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 using KalOS.Models;
 using Microsoft.Extensions.DependencyInjection;
@@ -347,100 +346,6 @@ namespace KalOS.Views
                 // Browser launch is best-effort.
             }
         }
-
-        /// <summary>
-        /// Scans the running build for every expected feature and shows the
-        /// results: the app version, a present/total count, and one row per
-        /// feature with its check marker.
-        /// </summary>
-        private void FeatureCheck_Click(object sender, RoutedEventArgs e)
-        {
-            var results = FeatureSelfCheck.Run();
-            int present = results.Count(r => r.Present);
-
-            var rows = new StackPanel { Spacing = 2 };
-            foreach (var feature in results)
-            {
-                rows.Children.Add(BuildFeatureRow(feature));
-            }
-
-            var summary = new StackPanel { Spacing = 10 };
-            summary.Children.Add(new TextBlock
-            {
-                Text = $"KalOS {UpdateService.CurrentVersion} — {present} of {results.Count} features present.",
-                FontWeight = FontWeights.SemiBold,
-                TextWrapping = TextWrapping.Wrap,
-            });
-            if (present < results.Count)
-            {
-                summary.Children.Add(new TextBlock
-                {
-                    Text = "This build is missing features (marked above). Reinstall the current version to restore them.",
-                    Foreground = ThemeBrush("ErrorBrush"),
-                    TextWrapping = TextWrapping.Wrap,
-                });
-            }
-            summary.Children.Add(new ScrollViewer
-            {
-                Content = rows,
-                MaxHeight = 420,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                Padding = new Thickness(0, 4, 12, 0),
-            });
-
-            var dialog = new ContentDialog
-            {
-                Title = "Feature check",
-                Content = summary,
-                CloseButtonText = "Close",
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = this.Content.XamlRoot,
-            };
-            _ = dialog.ShowAsync();
-        }
-
-        /// <summary>Builds one feature row: ✓/✗ glyph, name, and the checked marker.</summary>
-        private static FrameworkElement BuildFeatureRow(FeatureStatus feature)
-        {
-            var glyph = new FontIcon
-            {
-                Glyph = feature.Present ? "\uE73E" : "\uE711", // CheckMark / Cancel
-                FontSize = 14,
-                Foreground = ThemeBrush(feature.Present ? "SuccessBrush" : "ErrorBrush"),
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            var name = new TextBlock
-            {
-                Text = feature.Name,
-                TextWrapping = TextWrapping.Wrap,
-                FontSize = 13,
-                Foreground = feature.Present
-                    ? ThemeBrush("TextFillColorPrimaryBrush")
-                    : ThemeBrush("ErrorBrush"),
-            };
-            var marker = new TextBlock
-            {
-                Text = feature.Marker,
-                FontSize = 11,
-                Foreground = ThemeBrush("TextFillColorTertiaryBrush"),
-                TextTrimming = TextTrimming.CharacterEllipsis,
-                HorizontalAlignment = HorizontalAlignment.Right,
-            };
-
-            var grid = new Grid { ColumnSpacing = 10 };
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            Grid.SetColumn(glyph, 0);
-            Grid.SetColumn(name, 1);
-            Grid.SetColumn(marker, 2);
-            grid.Children.Add(glyph);
-            grid.Children.Add(name);
-            grid.Children.Add(marker);
-            return grid;
-        }
-
         /// <summary>Shows the third-party notices file in a scrollable dialog.</summary>
         private async void ShowNotices_Click(object sender, RoutedEventArgs e)
         {

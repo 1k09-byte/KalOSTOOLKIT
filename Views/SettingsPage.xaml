@@ -384,27 +384,6 @@
 
                 <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                         BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
-                        BorderThickness="1" CornerRadius="6" Padding="16"
-                        Visibility="{x:Bind ViewModel.IsFeatureCheckVisible, Mode=OneWay, Converter={StaticResource BoolToVis}}">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="40" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <FontIcon Grid.Column="0" Glyph="&#xE9D9;" FontSize="18"
-                                  Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                        <StackPanel Grid.Column="1" Spacing="3">
-                            <TextBlock Text="Feature check" FontWeight="SemiBold" />
-                            <TextBlock Text="Verifies every KalOS feature is present in this build and shows the app version."
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                        </StackPanel>
-                        <Button Grid.Column="2" Content="Run check" Click="FeatureCheck_Click" />
-                    </Grid>
-                </Border>
-
-                <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                        BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
                         BorderThickness="1" CornerRadius="6" Padding="16">
                     <Grid>
                         <Grid.ColumnDefinitions>

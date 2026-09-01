@@ -73,17 +73,6 @@ namespace KalOS.ViewModels
         public bool IsUpdateFeatureVisible => false;
 #endif
 
-        /// <summary>
-        /// The Settings → Diagnostics "Feature check" is a consumer-build diagnostic
-        /// too: the dev/edit toolkit hides the card (it's built from the same repo,
-        /// so a marker scan against its own assembly is noise).
-        /// </summary>
-#if CONSUMER_BUILD
-        public bool IsFeatureCheckVisible => true;
-#else
-        public bool IsFeatureCheckVisible => false;
-#endif
-
         public List<string> Themes { get; } = new() { "Light", "Dark" };
 
         public List<string> Backdrops { get; } = new() { "Mica", "Mica Alt", "Acrylic" };
