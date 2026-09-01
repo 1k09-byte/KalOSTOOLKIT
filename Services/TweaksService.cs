@@ -28,12 +28,20 @@ namespace KalOS.Services
     /// </summary>
     public sealed class TweaksService
     {
-        /// <summary>Every tweak, including the hand-implemented OneDrive/Edge composites.</summary>
-        public static IReadOnlyList<TweakDef> All { get; } = TweakCatalog.All
+        /// <summary>
+        /// Every tweak: the generated catalog plus hand-added composites.
+        /// Hand-added tweaks live here (not in TweakCatalog.g.cs) so re-running
+        /// the generator never removes them.
+        /// </summary>
+        public static IReadOnlyList<TweakDef> All { get; } =
+            TweakCatalog.All
             .Concat(new[]
             {
-                new TweakDef("Remove OneDrive", TweakGroup.OneDrive, new RemoveOneDriveAction()),
-                new TweakDef("Remove Microsoft Edge", TweakGroup.Edge, new RemoveEdgeAction()),
+                new TweakDef("Enable \"End Task\" in the taskbar right-click menu (Windows 11)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(
+                        @"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarDeveloperSettings",
+                        @"TaskbarEndTask", TweakValueKind.Dword, @"1")),
             })
             .ToList();
 
@@ -95,6 +103,7 @@ namespace KalOS.Services
                 RemoveCapabilityAction a => RemoveCapabilitiesAsync(a, ct),
                 DisableServiceAction a => DisableServiceAsync(a, ct),
                 DisableTaskAction a => DisableTasksAsync(a, ct),
+                HostsBlockAction a => Task.Run(() => BlockHosts(a), ct),
                 ClearEventLogsAction _ => ClearEventLogsAsync(ct),
                 RunToolAction a => RunAsync(a.FileName, a.Arguments, ct),
                 RemoveOneDriveAction _ => RemoveOneDriveAsync(ct),
@@ -265,10 +274,54 @@ namespace KalOS.Services
 
         // ── Store apps (PowerShell — the only removal API Windows exposes) ─
 
-        private static Task RemoveAppxAsync(AppxRemoveAction a, CancellationToken ct)
+        /// <summary>Escapes a string for use inside a single-quoted PowerShell literal.</summary>
+        private static string PsQuote(string s) => s.Replace("'", "''");
+
+        private static async Task RemoveAppxAsync(AppxRemoveAction a, CancellationToken ct)
         {
-            string ps = $"-NoProfile -NonInteractive -Command \"Get-AppxPackage '{a.PackageName}' | Remove-AppxPackage -ErrorAction SilentlyContinue\"";
-            return RunAsync("powershell.exe", ps, ct);
+            string name = PsQuote(a.PackageName);
+
+            // The installer runs elevated, and on Windows 11 24H2+ an elevated
+            // session only sees the interactive user's Appx packages through
+            // -AllUsers — the old plain "Get-AppxPackage 'X' |
+            // Remove-AppxPackage" matched nothing from that context, so apps
+            // silently "survived" the cleanup. Remove for every user, drop the
+            // provisioned (staged) copy so new accounts never receive it, and
+            // mark every copy deprovisioned so Windows Update cannot reinstall
+            // it later. The final check turns a failed removal into a reported
+            // failure instead of a silent "success".
+            string script =
+                "$pkgs = @(Get-AppxPackage -AllUsers -Name '" + name + "'); " +
+                "$pkgs | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue; " +
+                "$pkgs | ForEach-Object { New-Item -Path ('HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Appx\\AppxAllUserStore\\Deprovisioned\\' + $_.PackageFullName) -Force -ErrorAction SilentlyContinue | Out-Null }; " +
+                "Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -eq '" + name + "' } | Remove-AppxProvisionedPackage -Online | Out-Null; " +
+                "if (Get-AppxPackage -AllUsers -Name '" + name + "') { exit 1 }";
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"{script}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            using var p = Process.Start(psi);
+            if (p is null) throw new InvalidOperationException($"Could not launch PowerShell to remove '{a.PackageName}'.");
+
+            // Drain both streams while waiting — a full pipe buffer would
+            // otherwise deadlock WaitForExitAsync.
+            var stdoutTask = p.StandardOutput.ReadToEndAsync();
+            var stderrTask = p.StandardError.ReadToEndAsync();
+            await p.WaitForExitAsync(ct);
+            var errors = (await stderrTask).Trim();
+
+            if (p.ExitCode != 0)
+            {
+                throw new InvalidOperationException(
+                    $"Package '{a.PackageName}' could not be removed" +
+                    (errors.Length == 0 ? "." : $": {errors.Split('\n')[0].Trim()}"));
+            }
         }
 
         // ── capabilities / features (DISM) ────────────────────────────────
@@ -313,7 +366,11 @@ namespace KalOS.Services
                 using var key = Registry.LocalMachine.OpenSubKey(
                     $@"SYSTEM\CurrentControlSet\Services\{name}", writable: true);
                 key?.SetValue("Start", 4, RegistryValueKind.DWord);
-                await RunAsync("sc.exe", $"stop \"{name}\"", ct, ignoreErrors: true);
+                // net stop /y — NOT sc.exe stop. When a service has running
+                // dependents, sc.exe prompts "Continue? (Y/N)" on stdin and
+                // with no console input attached it waits forever, hanging
+                // the whole tweaks step (seen on wlidsvc).
+                await RunAsync("net.exe", $"stop \"{name}\" /y", ct, ignoreErrors: true);
             }
         }
 
@@ -375,6 +432,38 @@ namespace KalOS.Services
                 if (f == index) return field;
             }
             return string.Empty;
+        }
+
+        // ── hosts-file blocking (0.0.0.0 sinkhole entries) ───────────────
+
+        /// <summary>
+        /// Appends 0.0.0.0 entries for each domain to the hosts file, skipping
+        /// any domain that is already blocked (by any address). Idempotent.
+        /// </summary>
+        private static void BlockHosts(HostsBlockAction a)
+        {
+            string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),
+                "drivers", "etc", "hosts");
+
+            var blocked = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (File.Exists(path))
+            {
+                foreach (var line in File.ReadAllLines(path))
+                {
+                    var parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length >= 2 && !parts[0].StartsWith("#"))
+                        blocked.Add(parts[1]);
+                }
+            }
+
+            var toAdd = a.Domains.Where(d => !blocked.Contains(d)).ToList();
+            if (toAdd.Count == 0) return;
+
+            using var writer = File.AppendText(path);
+            writer.WriteLine();
+            writer.WriteLine("# Blocked by KalOS tweaks");
+            foreach (var d in toAdd)
+                writer.WriteLine($"0.0.0.0\t{d} # KalOS");
         }
 
         // ── event logs ────────────────────────────────────────────────────
@@ -493,7 +582,8 @@ namespace KalOS.Services
                          "Microsoft.MicrosoftEdgeDevToolsClient",
                      })
             {
-                await RemoveAppxAsync(new AppxRemoveAction(pkg, null), ct);
+                try { await RemoveAppxAsync(new AppxRemoveAction(pkg, null), ct); }
+                catch { /* best-effort — the setup.exe uninstall below is the real remover */ }
                 CreateRegistryKey(new RegistryKeyCreateAction(
                     $@"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\Deprovisioned\{pkg}_8wekyb3d8bbwe"));
             }
@@ -578,7 +668,33 @@ namespace KalOS.Services
             };
             using var p = Process.Start(psi);
             if (p is null) return;
-            await p.WaitForExitAsync(ct);
+
+            // Drain both pipes while waiting. Output is redirected but was
+            // never read — once a child fills its ~4 KB stdout buffer (DISM
+            // progress, verbose tools, …) it blocks on its next write and
+            // WaitForExitAsync never returns, hanging the tweaks step.
+            var stdoutTask = p.StandardOutput.ReadToEndAsync();
+            var stderrTask = p.StandardError.ReadToEndAsync();
+
+            // Last-resort timeout: a wedged child (interactive prompt, stuck
+            // driver operation) must never hang the install indefinitely.
+            // The thrown TimeoutException is caught per-tweak by ApplyAsync,
+            // counted as failed, and the install moves on.
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromMinutes(10));
+            try
+            {
+                await p.WaitForExitAsync(timeoutCts.Token);
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                try { p.Kill(entireProcessTree: true); } catch { }
+                throw new TimeoutException(
+                    $"\"{fileName} {arguments}\" did not finish within 10 minutes and was terminated.");
+            }
+
+            _ = await stdoutTask;
+            _ = await stderrTask;
         }
 
         private static async Task<int> RunExitAsync(string fileName, string arguments, CancellationToken ct)
@@ -612,7 +728,10 @@ namespace KalOS.Services
             using var p = Process.Start(psi);
             if (p is null) return lines;
             var readTask = p.StandardOutput.ReadToEndAsync();
+            // Drain stderr too — same pipe-buffer deadlock as RunAsync.
+            var stderrTask = p.StandardError.ReadToEndAsync();
             await p.WaitForExitAsync(ct);
+            _ = await stderrTask;
             var output = await readTask;
             foreach (var line in output.Replace("\r\n", "\n").Split('\n'))
             {

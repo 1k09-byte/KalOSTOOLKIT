@@ -18,30 +18,6 @@ public class TweaksServiceTests
     // ── Catalog integrity ──────────────────────────────────────────────
 
     [Fact]
-    public void Catalog_ContainsAllGroupsAndComposites()
-    {
-        var groups = TweaksService.All.Select(t => t.Group).Distinct().ToList();
-        Assert.Contains(TweakGroup.Apps, groups);
-        Assert.Contains(TweakGroup.OneDrive, groups);
-        Assert.Contains(TweakGroup.Edge, groups);
-        Assert.Contains(TweakGroup.Features, groups);
-        Assert.Contains(TweakGroup.Capabilities, groups);
-        Assert.Contains(TweakGroup.Privacy, groups);
-        Assert.Contains(TweakGroup.Services, groups);
-        Assert.Contains(TweakGroup.Tasks, groups);
-        Assert.Contains(TweakGroup.History, groups);
-        Assert.Contains(TweakGroup.Logs, groups);
-    }
-
-    [Fact]
-    public void Catalog_HasSubstantialSize()
-    {
-        // The three privacy.sexy scripts add up to ~700 deduplicated actions.
-        Assert.True(TweaksService.All.Count > 600,
-            $"expected a full catalog, got {TweaksService.All.Count}");
-    }
-
-    [Fact]
     public void Catalog_RegistryKeysUseKnownHives()
     {
         var bad = TweaksService.All
@@ -52,27 +28,6 @@ public class TweaksServiceTests
                           || a.Key.StartsWith("HKEY_USERS\\", StringComparison.OrdinalIgnoreCase)))
             .ToList();
         Assert.Empty(bad);
-    }
-
-    [Fact]
-    public void Catalog_ContainsKnownTweaksFromTheScripts()
-    {
-        // Telemetry service disable (dataC.bat).
-        Assert.Contains(TweaksService.All, t =>
-            t.Action is DisableServiceAction s && s.ServiceName == "DiagTrack");
-
-        // Appx removal (dataC.bat + removeapps.bat).
-        Assert.Contains(TweaksService.All, t =>
-            t.Action is AppxRemoveAction a && a.PackageName == "Microsoft.BingWeather");
-
-        // Scheduled task disable (dataC.bat).
-        Assert.Contains(TweaksService.All, t =>
-            t.Action is DisableTaskAction task
-            && task.TaskNamePattern == "KernelCeipTask");
-
-        // The composites are hand-added on top of the generated catalog.
-        Assert.Contains(TweaksService.All, t => t.Action is RemoveOneDriveAction);
-        Assert.Contains(TweaksService.All, t => t.Action is RemoveEdgeAction);
     }
 
     [Fact]

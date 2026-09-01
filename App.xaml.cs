@@ -57,6 +57,28 @@ namespace KalOS
         private static extern uint SetErrorMode(uint uMode);
 
         /// <summary>
+        /// Exits the process one dispatcher pass later. Calling
+        /// Environment.Exit from inside a window's Closed event kills threads
+        /// while WinUI teardown is still unwinding — on machines where Windows
+        /// Error Reporting is disabled (privacy-tweaked installs), that surfaces
+        /// as the native "Exception Processing Message 0xc0000005 - Unexpected
+        /// parameters" System Error dialog instead of a silent exit. Deferring
+        /// to the dispatcher lets the window teardown finish first.
+        /// </summary>
+        internal static void ExitSoon()
+        {
+            try
+            {
+                var app = Current as App;
+                var queue = app?._window?.DispatcherQueue ?? app?._startupBanner?.DispatcherQueue;
+                if (queue is not null && queue.TryEnqueue(() => Environment.Exit(0)))
+                    return;
+            }
+            catch { /* no dispatcher on this thread — exit directly below */ }
+            Environment.Exit(0);
+        }
+
+        /// <summary>
         /// Initializes the singleton application object.
         /// </summary>
         public App()
@@ -321,7 +343,10 @@ namespace KalOS
                 {
                     // When the banner closes (auto-hide, close button, or update
                     // notice dismissed), exit the process so the login launch ends.
-                    Environment.Exit(0);
+                    // Deferred (ExitSoon): a synchronous Environment.Exit here fires
+                    // while the window teardown is mid-flight and raises the
+                    // native 0xc0000005 hard-error dialog on some machines.
+                    ExitSoon();
                 };
                 banner.Run();
             }
@@ -409,7 +434,7 @@ namespace KalOS
                     });
 
                     await Services.GetRequiredService<UpdateService>().DownloadAndApplyAsync(update, progress);
-                    Environment.Exit(0);
+                    ExitSoon(); // deferred so the dialog deferral's finally block still runs
                 }
                 catch { }
                 finally { deferral.Complete(); }
@@ -745,7 +770,7 @@ namespace KalOS
                     // Startup-banner mode (no main window): the banner is broken,
                     // so exit instead of lingering as an invisible process that
                     // holds the single-instance mutex and blocks the next launch.
-                    Environment.Exit(0);
+                    ExitSoon();
                 }
             }
             catch
@@ -811,7 +836,7 @@ namespace KalOS
                 }
             }
             catch { }
-            Environment.Exit(0);
+            ExitSoon();
         }
 
         private void LogCrash(string source, Exception ex)

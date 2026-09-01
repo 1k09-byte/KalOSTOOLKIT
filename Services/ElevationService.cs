@@ -29,6 +29,17 @@ namespace KalOS.Services
             catch
             {
             }
+            // Deferred (one dispatcher pass later) so the UI thread unwinds
+            // before the process dies — a synchronous exit here races the
+            // window teardown and raises the native 0xc0000005 hard-error box
+            // on machines with Windows Error Reporting disabled.
+            try
+            {
+                var queue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+                if (queue is not null && queue.TryEnqueue(() => Environment.Exit(0)))
+                    return;
+            }
+            catch { /* no dispatcher on this thread — exit directly below */ }
             Environment.Exit(0);
         }
     }

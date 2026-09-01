@@ -20,29 +20,6 @@ public sealed partial class PersonalizationPage : Page
         ViewModel = App.Services.GetRequiredService<PersonalizationViewModel>();
     }
 
-    /// <summary>Opens a color picker for a fully custom tint; applied live.</summary>
-    private void CustomTintButton_Click(object sender, RoutedEventArgs e)
-    {
-        var picker = new ColorPicker
-        {
-            Width = 300,
-            IsAlphaEnabled = false,
-            IsColorSliderVisible = true,
-            IsColorSpectrumVisible = true,
-            IsHexInputVisible = true,
-            Color = Windows.UI.Color.FromArgb(0xFF, 0x3E, 0x6F, 0xB8),
-        };
-
-        picker.ColorChanged += (_, args) => ViewModel.ApplyCustomColor(args.NewColor);
-
-        var flyout = new Flyout
-        {
-            Content = picker,
-            Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.BottomEdgeAlignedRight,
-        };
-        flyout.ShowAt(CustomTintButton);
-    }
-
     private void VisualEffectsButton_Click(object sender, RoutedEventArgs e)
     {
         NavigateTo(typeof(VisualEffectsPage));

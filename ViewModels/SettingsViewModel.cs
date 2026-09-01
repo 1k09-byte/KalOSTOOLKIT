@@ -313,8 +313,9 @@ namespace KalOS.ViewModels
                     UpdateService.SaveLastUpdateRecord(_pendingUpdate);
                     UpdateStatusText = "Installing — the app will restart automatically.";
                     // The apply helper is already running: exit so it can swap
-                    // the files and relaunch the new build.
-                    Environment.Exit(0);
+                    // the files and relaunch the new build. Deferred so the UI
+                    // thread unwinds first (avoids the native hard-error box).
+                    App.ExitSoon();
                 }
                 else
                 {

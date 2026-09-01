@@ -35,6 +35,10 @@
                          Title="Tweaks by privacy.sexy — nothing is removed from your Windows ISO"
                          Message="Every tweak here is reversible: removed apps can be reinstalled from the Microsoft Store and disabled features, services and tasks can be re-enabled in Windows Settings — nothing is baked out of your Windows image. Some changes only fully apply after a restart."/>
 
+                <InfoBar IsOpen="True" Severity="Informational" IsClosable="False"
+                         Title="This step can take a while"
+                         Message="Tweaks &amp; cleanup runs hundreds of changes (app removals, Windows capabilities, services) and is often the slowest part of the install — several minutes is normal, and the progress bar can sit near 100% while a slow Windows operation finishes. It is not stuck."/>
+
                 <!-- Credit line -->
                 <Border Style="{StaticResource CardStyle}">
                     <StackPanel Spacing="6">
@@ -59,24 +63,6 @@
                                 <CheckBox Grid.Column="0" MinWidth="0"
                                           Content="{x:Bind Wizard.TweakAppsLabel, Mode=OneWay}"
                                           IsChecked="{x:Bind Wizard.TweakApps, Mode=TwoWay}"/>
-                            </Grid>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <CheckBox Grid.Column="0" MinWidth="0"
-                                          Content="{x:Bind Wizard.TweakOneDriveLabel, Mode=OneWay}"
-                                          IsChecked="{x:Bind Wizard.TweakOneDrive, Mode=TwoWay}"/>
-                            </Grid>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <CheckBox Grid.Column="0" MinWidth="0"
-                                          Content="{x:Bind Wizard.TweakEdgeLabel, Mode=OneWay}"
-                                          IsChecked="{x:Bind Wizard.TweakEdge, Mode=TwoWay}"/>
                             </Grid>
                             <Grid>
                                 <Grid.ColumnDefinitions>

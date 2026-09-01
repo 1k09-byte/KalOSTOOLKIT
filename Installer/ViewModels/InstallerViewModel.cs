@@ -146,32 +146,21 @@ namespace KalOS.Setup.ViewModels
         [ObservableProperty] private bool _applyTweaks = true;
 
         [ObservableProperty] private bool _tweakApps = true;
-        [ObservableProperty] private bool _tweakOneDrive = true;
-        [ObservableProperty] private bool _tweakEdge = true;
         [ObservableProperty] private bool _tweakFeatures = true;
         [ObservableProperty] private bool _tweakPrivacy = true;
         [ObservableProperty] private bool _tweakServices = true;
         [ObservableProperty] private bool _tweakHistory = true;
         [ObservableProperty] private bool _tweakLogs = true;
 
-        /// <summary>How many tweaks the catalog has per group (for the page labels).</summary>
-        public static IReadOnlyDictionary<TweakGroup, int> TweakCounts { get; } =
-            TweaksService.All.GroupBy(t => t.Group).ToDictionary(g => g.Key, g => g.Count());
-
-        public string TweakAppsLabel => $"Remove preinstalled apps ({TweakCounts[TweakGroup.Apps]})";
-        public string TweakOneDriveLabel => $"Remove OneDrive ({TweakCounts[TweakGroup.OneDrive]})";
-        public string TweakEdgeLabel => $"Remove Microsoft Edge ({TweakCounts[TweakGroup.Edge]})";
-        public string TweakFeaturesLabel => $"Disable features & remove capabilities ({TweakCounts[TweakGroup.Features] + TweakCounts[TweakGroup.Capabilities]})";
-        public string TweakPrivacyLabel => $"Privacy & telemetry ({TweakCounts[TweakGroup.Privacy]})";
-        public string TweakServicesLabel => $"Disable services & scheduled tasks ({TweakCounts[TweakGroup.Services] + TweakCounts[TweakGroup.Tasks]})";
-        public string TweakHistoryLabel => $"Clear recent history & activity ({TweakCounts[TweakGroup.History]})";
-        public string TweakLogsLabel => $"Clear logs, temp & shadow copies ({TweakCounts[TweakGroup.Logs]})";
-
-        public string TweakTotalLabel =>
-            $"{TweakCounts.Values.Sum()} tweaks, every category on by default";
+        public string TweakAppsLabel => "Remove preinstalled apps";
+        public string TweakFeaturesLabel => "Disable features & remove capabilities";
+        public string TweakPrivacyLabel => "Privacy & telemetry";
+        public string TweakServicesLabel => "Disable services & scheduled tasks";
+        public string TweakHistoryLabel => "Clear recent history & activity";
+        public string TweakLogsLabel => "Clear logs, temp & shadow copies";
 
         public string TweakSubtitle =>
-            $"{TweakTotalLabel} — run your privacy tweaks, app removals and cleanup natively after the install. Uncheck anything you want to keep.";
+            "Run your privacy tweaks, app removals and cleanup natively after the install. Every category is on by default — uncheck anything you want to keep.";
 
         /// <summary>The groups the pipeline will run, in a sensible order.</summary>
         public IReadOnlyList<TweakGroup> SelectedTweakGroups
@@ -181,8 +170,6 @@ namespace KalOS.Setup.ViewModels
                 if (!ApplyTweaks) return Array.Empty<TweakGroup>();
                 var groups = new List<TweakGroup>();
                 if (TweakApps) groups.Add(TweakGroup.Apps);
-                if (TweakOneDrive) groups.Add(TweakGroup.OneDrive);
-                if (TweakEdge) groups.Add(TweakGroup.Edge);
                 if (TweakFeatures)
                 {
                     groups.Add(TweakGroup.Features);
@@ -262,30 +249,95 @@ namespace KalOS.Setup.ViewModels
         [RelayCommand]
         private async Task BrowseBackgroundImageAsync()
         {
-            var picker = new Windows.Storage.Pickers.FileOpenPicker
+            // The broker-based WinUI picker can hard-fail in elevated contexts
+            // (this app runs requireAdministrator, and on machines logged in as
+            // the built-in Administrator its activation can take the process
+            // down with no managed exception at all). So: try the native picker,
+            // and only fall back to a helper-process dialog when it THROWS — a
+            // normal user cancel must not open a second dialog.
+            string? picked;
+            try
             {
-                SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.PicturesLibrary,
-                ViewMode = Windows.Storage.Pickers.PickerViewMode.Thumbnail,
-            };
-            picker.FileTypeFilter.Add(".jpg");
-            picker.FileTypeFilter.Add(".jpeg");
-            picker.FileTypeFilter.Add(".png");
-            picker.FileTypeFilter.Add(".bmp");
-            picker.FileTypeFilter.Add(".gif");
-            picker.FileTypeFilter.Add(".tiff");
-            picker.FileTypeFilter.Add(".webp");
-
-            // Unpackaged WinUI 3 interop: the picker needs the window handle.
-            if (App.MainWindow is { } window)
+                var (succeeded, path) = await PickImageViaWinUiAsync();
+                if (succeeded)
+                {
+                    picked = path;
+                }
+                else
+                {
+                    picked = await PickImageViaHelperProcessAsync();
+                }
+            }
+            catch
             {
-                var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
-                WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+                try { picked = await PickImageViaHelperProcessAsync(); }
+                catch { return; }
             }
 
-            var file = await picker.PickSingleFileAsync();
-            if (file is null) return; // user cancelled
-            BackgroundImagePath = file.Path;
+            if (string.IsNullOrEmpty(picked) || !File.Exists(picked)) return; // user cancelled
+            BackgroundImagePath = picked;
             BackgroundTouched = true;
+        }
+
+        /// <summary>
+        /// The normal WinUI file picker. Returns (true, path-or-null) when the
+        /// picker itself worked (regardless of whether the user picked a file)
+        /// and (false, null) when it threw — the caller falls back then.
+        /// </summary>
+        private async Task<(bool Succeeded, string? Path)> PickImageViaWinUiAsync()
+        {
+            try
+            {
+                var picker = new Windows.Storage.Pickers.FileOpenPicker
+                {
+                    SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.PicturesLibrary,
+                    ViewMode = Windows.Storage.Pickers.PickerViewMode.Thumbnail,
+                };
+                picker.FileTypeFilter.Add(".jpg");
+                picker.FileTypeFilter.Add(".jpeg");
+                picker.FileTypeFilter.Add(".png");
+                picker.FileTypeFilter.Add(".bmp");
+                picker.FileTypeFilter.Add(".gif");
+                picker.FileTypeFilter.Add(".tiff");
+                picker.FileTypeFilter.Add(".webp");
+
+                // Unpackaged WinUI 3 interop: the picker needs the window handle.
+                if (App.MainWindow is { } window)
+                {
+                    var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+                    WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+                }
+
+                var file = await picker.PickSingleFileAsync();
+                return (true, file?.Path);
+            }
+            catch
+            {
+                return (false, null);
+            }
+        }
+
+        /// <summary>
+        /// Fallback image picker: an OpenFileDialog owned by a helper
+        /// powershell process. The dialog belongs to that process instead of
+        /// this one, so elevation / package-identity / broker restrictions
+        /// never apply. Prints the chosen path to stdout; empty = cancelled.
+        /// </summary>
+        private static async Task<string?> PickImageViaHelperProcessAsync()
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = "-NoProfile -STA -Command \"Add-Type -AssemblyName System.Windows.Forms; $d = New-Object System.Windows.Forms.OpenFileDialog; $d.Filter = 'Images|*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.tiff;*.webp'; $d.Title = 'Choose a background image'; if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.Write($d.FileName) }\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+            };
+            using var p = System.Diagnostics.Process.Start(psi);
+            if (p is null) return null;
+            string output = (await p.StandardOutput.ReadToEndAsync()).Trim();
+            await p.WaitForExitAsync();
+            return output.Length > 0 ? output : null;
         }
 
         [RelayCommand]

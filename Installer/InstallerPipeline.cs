@@ -213,7 +213,7 @@ namespace KalOS.Setup
             {
                 var tweaks = _services.GetRequiredService<TweaksService>();
                 var defs = tweaks.Catalog.Where(t => tweakGroups.Contains(t.Group)).ToList();
-                vm.CurrentStep = "Applying tweaks & cleanup";
+                vm.CurrentStep = "Applying tweaks & cleanup (this can take several minutes)";
                 bool tweaksOk;
                 string tweakDetail;
                 try

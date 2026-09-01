@@ -55,8 +55,27 @@ RE_REG_ADD = re.compile(
 RE_FEATURE = re.compile(r"\$featureName\s*=\s*'([^']+)'")
 RE_CAPABILITY = re.compile(
     r"Get-WindowsCapability -Online -Name '([^']+)' \| Remove-WindowsCapability")
+
+# Capabilities whose DISM removal is known to hang for many minutes (or look
+# stuck near 100%) on common installs — excluded so the tweaks step never
+# stalls on them.
+EXCLUDED_CAPABILITIES = {
+    "Rsat.StorageReplica.Tools*",
+}
 RE_SERVICE = re.compile(r"\$service(?:Query|Name)\s*=\s*'([^']+)'")
+
+# Services whose disable breaks connectivity itself, not just telemetry:
+# NlaSvc off → network identification fails and Wi-Fi drops/fails to
+# reconnect; netprofm (Network List Service) depends on NlaSvc, compounding
+# it. WlanSvc excluded defensively — disabling it literally turns Wi-Fi off.
+EXCLUDED_SERVICES = {
+    "NlaSvc",
+    "netprofm",
+    "WlanSvc",
+    "Wcmsvc",
+}
 RE_TASK = re.compile(r"\$taskPathPattern='([^']*)';\s*\$taskNamePattern='([^']*)'")
+RE_HOSTS = re.compile(r"^:: Add hosts entries for (\S+)\s*$")
 
 
 def unescape(line: str) -> str:
@@ -80,11 +99,26 @@ def parse_file(path: Path, catalog: dict, order: list):
     text = path.read_text(encoding="utf-8", errors="replace")
     lines = text.splitlines()
     section = ""
+    hosts: dict[str, list] = {}  # section title -> domains, flushed on section change
+
+    def flush_hosts(sec: str):
+        doms = hosts.pop(sec, None)
+        if doms:
+            add(catalog, order, Action("HostsBlock", Domains=tuple(doms)), sec, "Privacy")
+
     for raw in lines:
         line = raw.rstrip()
         m = re.match(r"^echo --- (.+)$", line)
         if m:
+            if section:
+                flush_hosts(section)
             section = m.group(1)
+            continue
+        m = RE_HOSTS.match(line)
+        if m:
+            doms = hosts.setdefault(section, [])
+            if m.group(1) not in doms:
+                doms.append(m.group(1))
             continue
         if not section or classify_section(section):
             continue
@@ -152,6 +186,8 @@ def parse_file(path: Path, catalog: dict, order: list):
             continue
         m = RE_CAPABILITY.search(cmd)
         if m:
+            if m.group(1) in EXCLUDED_CAPABILITIES:
+                continue
             add(catalog, order, Action("RemoveCapability", Capability=m.group(1)),
                 section, "Capabilities")
             continue
@@ -162,6 +198,8 @@ def parse_file(path: Path, catalog: dict, order: list):
             continue
         m = RE_SERVICE.search(cmd)
         if m and re.search(r"(?i)disable", section):
+            if m.group(1) in EXCLUDED_SERVICES:
+                continue
             add(catalog, order, Action("DisableService", Service=m.group(1)), section, "Services")
             continue
         if "wevtutil.exe el" in cmd or "wevtutil sl" in cmd:
@@ -186,6 +224,10 @@ def parse_file(path: Path, catalog: dict, order: list):
                        Desc="Remove associations of default apps"),
                 section, "Logs")
             continue
+
+
+    if section:
+        flush_hosts(section)
 
 
 def add(catalog: dict, order: list, action: Action, section: str, group: str):
@@ -265,6 +307,9 @@ def emit_action(a: Action) -> str:
         return f"new DisableServiceAction({cs_escape(k['Service'])})"
     if a.kind == "DisableTask":
         return f"new DisableTaskAction({cs_escape(k['Path'])}, {cs_escape(k['Name'])})"
+    if a.kind == "HostsBlock":
+        domains = ", ".join(cs_escape(d) for d in k["Domains"])
+        return f"new HostsBlockAction(new[] {{ {domains} }})"
     if a.kind == "ClearEventLogs":
         return "new ClearEventLogsAction()"
     if a.kind == "RunTool":

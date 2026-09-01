@@ -698,7 +698,8 @@ namespace KalOS.ViewModels
                             item.ChocolateyId,
                             item.ScoopName,
                             text => dispatcher.TryEnqueue(() => item.StatusText = text),
-                            uninstallCts.Token);
+                            uninstallCts.Token,
+                            displayName: item.Name);
 
                         if (item is BrowserItem browser)
                         {
@@ -802,12 +803,20 @@ namespace KalOS.ViewModels
                     using var uninstallTimeoutCts = new CancellationTokenSource(TimeSpan.FromMinutes(10));
                     using var uninstallCts = CancellationTokenSource.CreateLinkedTokenSource(uninstallTimeoutCts.Token, item.BeginOperation());
                     var packageManager = App.Services.GetRequiredService<PackageManagerService>();
-                    await packageManager.UninstallAsync(
+                    var result = await packageManager.UninstallAsync(
                         item.WingetId,
                         item.ChocolateyId,
                         item.ScoopName,
                         text => dispatcher.TryEnqueue(() => item.StatusText = text),
-                        uninstallCts.Token);
+                        uninstallCts.Token,
+                        displayName: item.Name);
+                    if (!result.Success)
+                    {
+                        // Never fake success: report exactly which managers were
+                        // tried and why they failed, and keep the item installed
+                        // (and its data intact) so the user can retry.
+                        throw new InvalidOperationException($"No uninstaller ran successfully — {result.Detail}");
+                    }
 
                     if (item is BrowserItem browser)
                     {
