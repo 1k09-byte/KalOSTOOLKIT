@@ -94,6 +94,10 @@ namespace KalOS.Setup
             services.AddSingleton<GitHubReleaseClient>();
             services.AddSingleton<HttpFileDownloader>();
 
+            // Native tweaks engine (privacy/cleanup catalog generated from the
+            // privacy.sexy scripts — no batch files at runtime).
+            services.AddSingleton<TweaksService>();
+
             // The pipeline orchestrator that ties it all together.
             services.AddSingleton<InstallerPipeline>();
         }

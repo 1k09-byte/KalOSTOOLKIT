@@ -48,10 +48,13 @@ namespace KalOS.Setup.Views
             if (card.Child is not Grid grid) return;
             if (grid.Children[0] is not FontIcon glyph) return;
 
-            glyph.Glyph = step.Success ? "\uE73E" : "\uE711"; // CheckMark / Cancel
-            glyph.Foreground = step.Success
-                ? (Brush)Application.Current.Resources["SuccessBrush"]
-                : (Brush)Application.Current.Resources["ErrorBrush"];
+            // Info (skipped) / CheckMark / Cancel
+            glyph.Glyph = step.Skipped ? "\uE946" : step.Success ? "\uE73E" : "\uE711";
+            glyph.Foreground = step.Skipped
+                ? (Brush)Application.Current.Resources["InfoBrush"]
+                : step.Success
+                    ? (Brush)Application.Current.Resources["SuccessBrush"]
+                    : (Brush)Application.Current.Resources["ErrorBrush"];
         }
     }
 }

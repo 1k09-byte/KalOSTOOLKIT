@@ -8,7 +8,8 @@ namespace KalOS.Setup.Views
 {
     /// <summary>
     /// Step 6 — the final page. Shows the overall result and a per-step list,
-    /// plus a Close button (the shell renames Next→Finish here).
+    /// plus a Close button (the shell footer has no Next/Cancel anymore, so
+    /// this page owns exiting the wizard).
     /// </summary>
     public sealed partial class FinishPage : WizardPage
     {
@@ -37,10 +38,18 @@ namespace KalOS.Setup.Views
 
             FinishText.Text = Wizard.FinishSummary;
 
+            // Skipped steps (e.g. "GPU driver" when the user opted out) were
+            // never installed — keep them off the "What was installed" list.
             ResultsList.ItemsSource = Wizard.StepLog
+                .Where(s => !s.Skipped)
                 .Select(s => $"{(s.Success ? "✓" : "✗")}  {s.Name}")
                 .ToList();
             RefreshNav();
+        }
+
+        private void CloseButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (App.MainWindow is { } window) window.Close();
         }
 
         public override bool CanProceed => true;

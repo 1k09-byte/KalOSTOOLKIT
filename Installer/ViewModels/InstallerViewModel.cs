@@ -33,14 +33,22 @@ namespace KalOS.Setup.ViewModels
         [ObservableProperty] private bool _updateAllGpus = true;
 
         /// <summary>
-        /// The adapters the driver step will update, in order. When
-        /// <see cref="UpdateAllGpus"/> is off this is just the selected one.
+        /// Opt-out for the GPU driver step. When true the wizard skips driver
+        /// detection, downloads, and installs entirely — the pipeline only
+        /// deploys KalOS and the selected software.
+        /// </summary>
+        [ObservableProperty] private bool _skipGpuDrivers;
+
+        /// <summary>
+        /// The adapters the driver step will update, in order. Empty when the
+        /// user opted out of GPU drivers. When <see cref="UpdateAllGpus"/> is
+        /// off this is just the selected one.
         /// </summary>
         public IReadOnlyList<GpuInfo> GpusToUpdate
         {
             get
             {
-                if (SelectedGpu is null) return Array.Empty<GpuInfo>();
+                if (SkipGpuDrivers || SelectedGpu is null) return Array.Empty<GpuInfo>();
                 if (!UpdateAllGpus) return new[] { SelectedGpu };
                 return _gpus.Where(g => !ReferenceEquals(g, SelectedGpu))
                             .Prepend(SelectedGpu)
@@ -57,6 +65,64 @@ namespace KalOS.Setup.ViewModels
         public bool CanAutoInstallDriver =>
             SelectedGpu is { IsNvidia: true } or { IsAmd: true } && SelectedDriver is not null;
 
+        // ── NVIDIA strip/keep checklist (Drivers page) ───────────────────
+        // Mirrors the edit tool's install dialog: everything unchecked is
+        // stripped from the package before the display-only pnputil install.
+        // Defaults to display driver only — the same stripped install the
+        // wizard has always done.
+        [ObservableProperty] private bool _keepHdAudio;
+        [ObservableProperty] private bool _keepPhysX;
+        [ObservableProperty] private bool _keepNvidiaApp;
+        [ObservableProperty] private bool _keepUsbc;
+        [ObservableProperty] private bool _keepTelemetry;
+        [ObservableProperty] private bool _keepMsvcRuntimes;
+        [ObservableProperty] private bool _keepFrameViewSdk;
+        [ObservableProperty] private bool _keepVirtualAudio;
+        [ObservableProperty] private bool _keepNvPlatformControllers;
+        [ObservableProperty] private bool _keepDlsr;
+        [ObservableProperty] private bool _keepNvContainer;
+        [ObservableProperty] private bool _keepShadowPlay;
+        [ObservableProperty] private bool _keepNvBackend;
+        [ObservableProperty] private bool _keepNvidiaAppMessageBus;
+
+        /// <summary>The user's keep-choices, consumed by the pipeline's driver step.</summary>
+        public NvidiaInstallComponents SelectedNvidiaComponents => new()
+        {
+            KeepHDAudio = KeepHdAudio,
+            KeepPhysX = KeepPhysX,
+            KeepNvidiaApp = KeepNvidiaApp,
+            KeepUSBC = KeepUsbc,
+            KeepTelemetry = KeepTelemetry,
+            KeepMsvcRuntimes = KeepMsvcRuntimes,
+            KeepFrameViewSdk = KeepFrameViewSdk,
+            KeepVirtualAudio = KeepVirtualAudio,
+            KeepNvPlatformControllers = KeepNvPlatformControllers,
+            KeepDlsr = KeepDlsr,
+            KeepNvContainer = KeepNvContainer,
+            KeepShadowPlay = KeepShadowPlay,
+            KeepNvBackend = KeepNvBackend,
+            KeepNvidiaAppMessageBus = KeepNvidiaAppMessageBus,
+        };
+
+        // ── AMD strip/keep checklist (Drivers page) ──────────────────────
+        // Mirrors the edit tool's Radeon Software Slimmer options: everything
+        // unchecked is stripped from the Adrenalin package before the
+        // display-only pnputil install, and AMD scheduled tasks are removed
+        // during debloat unless kept.
+        [ObservableProperty] private bool _keepRadeonSoftware;
+        [ObservableProperty] private bool _keepAmdAudio;
+        [ObservableProperty] private bool _keepAmdTelemetry;
+        [ObservableProperty] private bool _keepAmdScheduledTasks;
+
+        /// <summary>The user's AMD keep-choices, consumed by the pipeline's driver step.</summary>
+        public AmdInstallComponents SelectedAmdComponents => new()
+        {
+            KeepRadeonSoftware = KeepRadeonSoftware,
+            KeepAudio = KeepAmdAudio,
+            KeepTelemetry = KeepAmdTelemetry,
+            KeepScheduledTasks = KeepAmdScheduledTasks,
+        };
+
         // ── Software selection (Software page) ────────────────────────────
 
         /// <summary>Force-install the privacy extensions on every selected browser.</summary>
@@ -67,6 +133,72 @@ namespace KalOS.Setup.ViewModels
         public List<SoftwarePick> RuntimePicks { get; } = new();
         public IEnumerable<SoftwarePick> AllPicks =>
             BrowserPicks.Concat(AppPicks).Concat(RuntimePicks);
+
+        // ── Tweaks & cleanup (Tweaks page) ────────────────────────────────
+        // Native re-implementation of the privacy.sexy scripts: the catalog is
+        // generated from the .bat files by tools/generate_tweaks.py and every
+        // tweak runs through TweaksService (registry via Microsoft.Win32, files
+        // via System.IO, DISM/schtasks/wevtutil via the built-in tools). All
+        // categories default to ON so a default run matches what the scripts
+        // did; uncheck any bucket to keep that part untouched.
+
+        /// <summary>Master switch — when off no tweaks run at all.</summary>
+        [ObservableProperty] private bool _applyTweaks = true;
+
+        [ObservableProperty] private bool _tweakApps = true;
+        [ObservableProperty] private bool _tweakOneDrive = true;
+        [ObservableProperty] private bool _tweakEdge = true;
+        [ObservableProperty] private bool _tweakFeatures = true;
+        [ObservableProperty] private bool _tweakPrivacy = true;
+        [ObservableProperty] private bool _tweakServices = true;
+        [ObservableProperty] private bool _tweakHistory = true;
+        [ObservableProperty] private bool _tweakLogs = true;
+
+        /// <summary>How many tweaks the catalog has per group (for the page labels).</summary>
+        public static IReadOnlyDictionary<TweakGroup, int> TweakCounts { get; } =
+            TweaksService.All.GroupBy(t => t.Group).ToDictionary(g => g.Key, g => g.Count());
+
+        public string TweakAppsLabel => $"Remove preinstalled apps ({TweakCounts[TweakGroup.Apps]})";
+        public string TweakOneDriveLabel => $"Remove OneDrive ({TweakCounts[TweakGroup.OneDrive]})";
+        public string TweakEdgeLabel => $"Remove Microsoft Edge ({TweakCounts[TweakGroup.Edge]})";
+        public string TweakFeaturesLabel => $"Disable features & remove capabilities ({TweakCounts[TweakGroup.Features] + TweakCounts[TweakGroup.Capabilities]})";
+        public string TweakPrivacyLabel => $"Privacy & telemetry ({TweakCounts[TweakGroup.Privacy]})";
+        public string TweakServicesLabel => $"Disable services & scheduled tasks ({TweakCounts[TweakGroup.Services] + TweakCounts[TweakGroup.Tasks]})";
+        public string TweakHistoryLabel => $"Clear recent history & activity ({TweakCounts[TweakGroup.History]})";
+        public string TweakLogsLabel => $"Clear logs, temp & shadow copies ({TweakCounts[TweakGroup.Logs]})";
+
+        public string TweakTotalLabel =>
+            $"{TweakCounts.Values.Sum()} tweaks, every category on by default";
+
+        public string TweakSubtitle =>
+            $"{TweakTotalLabel} — run your privacy tweaks, app removals and cleanup natively after the install. Uncheck anything you want to keep.";
+
+        /// <summary>The groups the pipeline will run, in a sensible order.</summary>
+        public IReadOnlyList<TweakGroup> SelectedTweakGroups
+        {
+            get
+            {
+                if (!ApplyTweaks) return Array.Empty<TweakGroup>();
+                var groups = new List<TweakGroup>();
+                if (TweakApps) groups.Add(TweakGroup.Apps);
+                if (TweakOneDrive) groups.Add(TweakGroup.OneDrive);
+                if (TweakEdge) groups.Add(TweakGroup.Edge);
+                if (TweakFeatures)
+                {
+                    groups.Add(TweakGroup.Features);
+                    groups.Add(TweakGroup.Capabilities);
+                }
+                if (TweakPrivacy) groups.Add(TweakGroup.Privacy);
+                if (TweakServices)
+                {
+                    groups.Add(TweakGroup.Services);
+                    groups.Add(TweakGroup.Tasks);
+                }
+                if (TweakHistory) groups.Add(TweakGroup.History);
+                if (TweakLogs) groups.Add(TweakGroup.Logs);
+                return groups;
+            }
+        }
 
         // ── Customization (Customize page) ────────────────────────────────
 
@@ -233,9 +365,21 @@ namespace KalOS.Setup.ViewModels
 
                 if (SelectedGpu.IsNvidia)
                 {
-                    // NVIDIA: the user picks from the WHQL release list.
-                    var versions = await driver.GetVersionHistoryAsync(SelectedGpu);
-                    _driverVersions = versions.ToList();
+                    // NVIDIA: the user picks from the WHQL release list. The
+                    // lookup API can lag a brand-new release or go stale, so the
+                    // curated latest (the same fallback the in-app GPU Drivers
+                    // page uses) is always offered at the top when it is newer
+                    // than the newest listed version — the wizard must never
+                    // default to an outdated driver, and never download one.
+                    var versions = (await driver.GetVersionHistoryAsync(SelectedGpu)).ToList();
+                    var curated = NvidiaDriverProvider.GetCuratedLatest();
+                    if (curated.Version is not null
+                        && (versions.Count == 0
+                            || DriverVersionComparer.Compare("NVIDIA", versions[0].Version, curated.Version) < 0))
+                    {
+                        versions.Insert(0, curated);
+                    }
+                    _driverVersions = versions;
                 }
                 else if (SelectedGpu.IsAmd)
                 {
@@ -350,9 +494,9 @@ namespace KalOS.Setup.ViewModels
             }
         }
 
-        public void LogStep(string name, bool success, string? detail)
+        public void LogStep(string name, bool success, string? detail, bool skipped = false)
         {
-            StepLog.Add(new InstallStepLog(name, success, detail));
+            StepLog.Add(new InstallStepLog(name, success, detail, skipped));
             // Notify so the Progress page's ListView refreshes.
             OnPropertyChanged(nameof(StepLog));
         }

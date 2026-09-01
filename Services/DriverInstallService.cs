@@ -52,6 +52,29 @@ namespace KalOS.Services
     }
 
     /// <summary>
+    /// Optional AMD components to KEEP from an Adrenalin package during install,
+    /// mirroring the edit tool's Radeon Software Slimmer options. When null, the
+    /// package is stripped to the display driver only. The display driver itself
+    /// is always installed regardless of these flags.
+    /// </summary>
+    public sealed record AmdInstallComponents
+    {
+        /// <summary>Keep the AMD Software: Adrenalin Edition UI (CNext) package.</summary>
+        public bool KeepRadeonSoftware { get; init; }
+
+        /// <summary>Keep the HDMI/DisplayPort audio driver package.</summary>
+        public bool KeepAudio { get; init; }
+
+        /// <summary>Keep the AMD User Experience Program / crash-reporting packages.</summary>
+        public bool KeepTelemetry { get; init; }
+
+        /// <summary>Keep AMD scheduled tasks instead of removing them during debloat.</summary>
+        public bool KeepScheduledTasks { get; init; }
+
+        public static AmdInstallComponents DisplayOnly => new();
+    }
+
+    /// <summary>
     /// Optional post-install NVIDIA tweaks, ported from NovaOS's
     /// "Disable Nvidia Telemetry" script (registry telemetry opt-outs,
     /// NvCamera removal, task disabling, NvBackend startup removal, and
@@ -417,9 +440,11 @@ namespace KalOS.Services
         /// AMD Adrenalin packages contain CNext (Radeon Software UI), Branding,
         /// HALS, audio drivers, and more — only the display driver content is kept.
         /// </summary>
-        internal void StripAmdPackageContents(string extractDir)
+        internal void StripAmdPackageContents(string extractDir, AmdInstallComponents? components = null)
         {
             if (!Directory.Exists(extractDir)) return;
+
+            var chosen = components ?? AmdInstallComponents.DisplayOnly;
 
             var allowedDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
@@ -447,7 +472,11 @@ namespace KalOS.Services
                 }
             }
 
-            // Inside Packages, keep Drivers/Display and Drivers/Display2; strip everything else
+            // Inside Packages, keep Drivers/Display and Drivers/Display2 (plus
+            // Drivers/Audio when the audio driver was kept); everything else is
+            // deleted unless the user explicitly asked to keep it (Adrenalin UI,
+            // telemetry, audio) — the same categories the edit tool's Radeon
+            // Software Slimmer flow exposes.
             var packagesDir = Path.Combine(extractDir, "Packages");
             if (Directory.Exists(packagesDir))
             {
@@ -460,9 +489,10 @@ namespace KalOS.Services
                         {
                             foreach (var driverEntry in new DirectoryInfo(driversDir).EnumerateFileSystemInfos().ToArray())
                             {
-                                if (string.Equals(driverEntry.Name, "Display", StringComparison.OrdinalIgnoreCase) ||
-                                    string.Equals(driverEntry.Name, "Display2", StringComparison.OrdinalIgnoreCase))
-                                    continue;
+                                bool keep = string.Equals(driverEntry.Name, "Display", StringComparison.OrdinalIgnoreCase)
+                                    || string.Equals(driverEntry.Name, "Display2", StringComparison.OrdinalIgnoreCase)
+                                    || (chosen.KeepAudio && IsAmdAudioFolder(driverEntry.Name));
+                                if (keep) continue;
                                 try
                                 {
                                     DeleteRecursive(driverEntry.FullName);
@@ -477,6 +507,11 @@ namespace KalOS.Services
                         continue;
                     }
 
+                    bool keepOptional = (chosen.KeepRadeonSoftware && IsAmdUiFolder(entry.Name))
+                        || (chosen.KeepTelemetry && IsAmdTelemetryFolder(entry.Name))
+                        || (chosen.KeepAudio && IsAmdAudioFolder(entry.Name));
+                    if (keepOptional) continue;
+
                     try
                     {
                         DeleteRecursive(entry.FullName);
@@ -489,6 +524,27 @@ namespace KalOS.Services
                 }
             }
         }
+
+        // Folder-name heuristics match the edit tool's own detection (CNext /
+        // CCC2 / Settings / Radeon Software for the UI; UEP / Experience / Crash
+        // / Report for telemetry; Audio / HDMI for the audio driver).
+        private static bool IsAmdUiFolder(string name) =>
+            name.Contains("CNext", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("CCC2", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("Settings", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("RadeonSoftware", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("Adrenalin", StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsAmdTelemetryFolder(string name) =>
+            name.Contains("UEP", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("Experience", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("Crash", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("Report", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("Telemetry", StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsAmdAudioFolder(string name) =>
+            name.Contains("Audio", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("HDMI", StringComparison.OrdinalIgnoreCase);
 
 
         /// <summary>
@@ -548,20 +604,23 @@ namespace KalOS.Services
             string driverExePath,
             string extractDir,
             IProgress<string>? status = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            AmdInstallComponents? components = null)
         {
             bool extracted = await ExtractAmdInstallerAsync(driverExePath, extractDir, status, cancellationToken);
             if (!extracted) return false;
 
-
-            status?.Report("Stripping AMD package to display driver only…");
-            StripAmdPackageContents(extractDir);
+            var chosen = components ?? AmdInstallComponents.DisplayOnly;
+            status?.Report(chosen == AmdInstallComponents.DisplayOnly
+                ? "Stripping AMD package to display driver only…"
+                : "Stripping AMD package to the selected components…");
+            StripAmdPackageContents(extractDir, chosen);
 
             status?.Report("Installing AMD display driver (display-only)...");
             await InstallViaPnpUtilCandidatesAsync(FindAllAmdDisplayInfs(extractDir), "AMD");
 
             status?.Report("Removing AMD telemetry and Radeon Software services...");
-            await DebloatAmdAsync();
+            await DebloatAmdAsync(chosen);
 
             await MaybeLaunchRadeonSlimmerAsync(status, cancellationToken);
 
@@ -1411,8 +1470,9 @@ namespace KalOS.Services
         /// Removes AMD bloat: Radeon Software services (CNext/CN), RAS telemetry,
         /// scheduled tasks with AMD prefixes, and leftover component folders.
         /// </summary>
-        public async Task DebloatAmdAsync()
+        public async Task DebloatAmdAsync(AmdInstallComponents? components = null)
         {
+            var chosen = components ?? AmdInstallComponents.DisplayOnly;
             _log.Info("Debloating AMD: disabling Radeon Software/RAS services and tasks...");
 
             string[] servicesToDisable =
@@ -1440,18 +1500,25 @@ namespace KalOS.Services
                 }
             }
 
-            try
+            if (!chosen.KeepScheduledTasks)
             {
-                const string command =
-                    "-NoProfile -ExecutionPolicy Bypass -Command \"Get-ScheduledTask | " +
-                    "Where-Object { $_.TaskName -like 'AMD*' -or $_.TaskName -like 'Radeon*' } | " +
-                    "Unregister-ScheduledTask -Confirm:$false\"";
-                await _processManager.RunAsync("powershell", command, TimeSpan.FromMinutes(2));
-                _log.Success("Removed AMD scheduled tasks");
+                try
+                {
+                    const string command =
+                        "-NoProfile -ExecutionPolicy Bypass -Command \"Get-ScheduledTask | " +
+                        "Where-Object { $_.TaskName -like 'AMD*' -or $_.TaskName -like 'Radeon*' } | " +
+                        "Unregister-ScheduledTask -Confirm:$false\"";
+                    await _processManager.RunAsync("powershell", command, TimeSpan.FromMinutes(2));
+                    _log.Success("Removed AMD scheduled tasks");
+                }
+                catch (Exception ex)
+                {
+                    _log.Warn($"Could not remove AMD scheduled tasks: {ex.Message}");
+                }
             }
-            catch (Exception ex)
+            else
             {
-                _log.Warn($"Could not remove AMD scheduled tasks: {ex.Message}");
+                _log.Info("AMD scheduled tasks kept — user asked to preserve them.");
             }
 
             string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);

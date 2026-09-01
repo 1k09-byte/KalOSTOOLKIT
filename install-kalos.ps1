@@ -1,14 +1,25 @@
-<#
+﻿<#
 .SYNOPSIS
-    Installs, updates, or completely uninstalls the consumer build of KalOS.
+    Installs the KalOS Setup wizard, or (with -InstallTool) the KalOS app itself.
 
 .DESCRIPTION
-    Installs or updates KalOS automatically. The installer downloads the latest
-    GitHub release, extracts it, and creates shortcuts.
+    Default: downloads the newest KalOS Setup wizard (KalOS-Setup-v{version}-win-x64.zip)
+    from GitHub Releases, installs it to %LOCALAPPDATA%\Programs\KalOSSetup, and
+    launches it. The wizard then walks through deploying KalOS, GPU drivers,
+    software, and tweaks.
+
+    -InstallTool: legacy mode — downloads and installs the KalOS app directly
+    (same behavior this script had before the Setup wizard existed). The Setup
+    wizard's script fallback uses this mode.
+
+    Both modes run the full dependency checker first: administrator permission,
+    internet connection, and .NET 9 Desktop Runtime (auto-installed when
+    missing) — the KalOS app deployed by the wizard needs that runtime.
 
 .EXAMPLE
-    .\install-kalos.ps1
-    .\install-kalos.ps1 -InstallDir "$env:USERPROFILE\KalOS" -NoShortcut
+    .\install-kalos.ps1                # install + launch the Setup wizard
+    .\install-kalos.ps1 -InstallTool   # install the KalOS app directly
+    .\install-kalos.ps1 -InstallTool -InstallDir "$env:USERPROFILE\KalOS" -NoShortcut
     .\install-kalos.ps1 -Silent
 
     Double-clicking the script also runs it. If Windows blocks scripts, right-click
@@ -16,6 +27,7 @@
 #>
 param(
     [string]$InstallDir = (Join-Path $env:LOCALAPPDATA "Programs\KalOS"),
+    [switch]$InstallTool,
     [switch]$NoShortcut,
     [switch]$NoTaskbarPin,
     [switch]$Silent,
@@ -33,6 +45,7 @@ $AssetPrefix = "KalOS-v"
 $ReleasesLatestUrl = "https://github.com/$Owner/$Repo/releases/latest"
 $DotNetRuntimeUrl = "https://dotnet.microsoft.com/download/dotnet/thank-you/runtime-desktop-9.0.0-windows-x64-installer"
 $RequiredOsBuild = 22621
+$SetupDir = (Join-Path $env:LOCALAPPDATA "Programs\KalOSSetup")
 
 function Write-Step([string]$msg) {
     Write-Host ""
@@ -153,117 +166,200 @@ try {
     $res = $req.GetResponse()
     $redirectUrl = $res.Headers["Location"]
     $res.Close()
-    
+
     if (-not $redirectUrl) { throw "No redirect location returned from GitHub." }
-    
+
     $versionMatch = [regex]::Match($redirectUrl, '/tag/v(.*)$')
     if (-not $versionMatch.Success) { throw "Could not parse version from redirect URL: $redirectUrl" }
     $version = $versionMatch.Groups[1].Value
-    
+
     # Fetch the dynamically rendered expanded_assets DOM fragment directly
     $assetsUrl = "https://github.com/$Owner/$Repo/releases/expanded_assets/v$version"
     $html = (Invoke-WebRequest -Uri $assetsUrl -UseBasicParsing -TimeoutSec 15 -Headers @{ "Accept" = "text/html" }).Content
-    $zipAssetMatch = [regex]::Match($html, 'href="(/[^"]+/releases/download/[^"]+\.zip)"')
-    
-    if (-not $zipAssetMatch.Success) {
-        throw "Could not locate a .zip payload attached to release v$version. Please ensure a zip file is uploaded to GitHub."
+
+    # Pick the payload for this mode:
+    #   default      → the Setup wizard package (KalOS-Setup-v*-win-x64.zip)
+    #   -InstallTool → the consumer app package (KalOS-v*-win-x64.zip)
+    if ($InstallTool) {
+        $assetMatch = [regex]::Match($html, 'href="(/[^"]+/releases/download/[^"]+\.zip)"')
+        if (-not $assetMatch.Success) {
+            throw "Could not locate a .zip payload attached to release v$version. Please ensure a zip file is uploaded to GitHub."
+        }
     }
-    
-    $downloadUrl = "https://github.com" + $zipAssetMatch.Groups[1].Value
-    
+    else {
+        $assetMatch = [regex]::Match($html, 'href="(/[^"]+/releases/download/[^"]+KalOS-Setup-[^"]+win-x64\.zip)"')
+        if (-not $assetMatch.Success) {
+            $assetMatch = [regex]::Match($html, 'href="(/[^"]+/releases/download/[^"]+KalOS-Setup-[^"]+\.zip)"')
+        }
+        if (-not $assetMatch.Success) {
+            throw "Could not locate a KalOS-Setup zip attached to release v$version. Please ensure publish-setup.ps1 output is uploaded to GitHub."
+        }
+    }
+
+    $downloadUrl = "https://github.com" + $assetMatch.Groups[1].Value
+
     Write-Host "Latest version: $version" -ForegroundColor Green
 }
 catch {
     Write-ErrorAndExit "Failed to fetch latest release from GitHub: $_"
 }
 
-Write-Host "Dependency check passed. Continuing with KalOS installation..." -ForegroundColor Green
+if ($InstallTool) {
+    # ---------------------------------------------------------------------
+    # Legacy mode: download and install the KalOS app directly.
+    # ---------------------------------------------------------------------
+    Write-Host "Dependency check passed. Continuing with KalOS installation..." -ForegroundColor Green
 
-# --- Download and extract ---------------------------------------------------
-$tmpZip = Join-Path $env:TEMP "KalOS-$version.zip"
-Write-Step "Downloading KalOS v$version ..."
-try {
-    Invoke-WebRequest -Uri $downloadUrl -OutFile $tmpZip -UseBasicParsing
-}
-catch {
-    Write-ErrorAndExit "Download failed: $($_.Exception.Message)"
-}
-
-$staging = Join-Path $env:TEMP "KalOS-$version-staging"
-if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
-try {
-    Expand-Archive -Path $tmpZip -DestinationPath $staging -Force
-}
-catch {
-    Write-ErrorAndExit "Extract failed (corrupt download?): $($_.Exception.Message)"
-}
-
-$requiredFiles = @(
-    "KalOS.exe",
-    "hostfxr.dll",
-    "hostpolicy.dll",
-    "coreclr.dll",
-    "HardwareMonitorWorker.exe"
-)
-$missingFiles = $requiredFiles | Where-Object { -not (Test-Path (Join-Path $staging $_)) }
-if ($missingFiles) {
-    Write-ErrorAndExit "The release package is missing required files: $($missingFiles -join ', ')"
-}
-Write-Host "Dependency check passed: release package contains all required files." -ForegroundColor Green
-
-Write-Step "Installing to $InstallDir ..."
-New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
-Get-ChildItem -Path $InstallDir -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
-Copy-Item -Path "$staging\*" -Destination $InstallDir -Recurse -Force
-Remove-Item $tmpZip -Force -ErrorAction SilentlyContinue
-Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue
-
-# --- Shortcuts --------------------------------------------------------------
-$exePath = Join-Path $InstallDir "KalOS.exe"
-if (-not $NoShortcut) {
-    $shell = New-Object -ComObject WScript.Shell
-    $startMenu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
-    $lnkPath = Join-Path $startMenu "KalOS.lnk"
-    $lnk = $shell.CreateShortcut($lnkPath)
-    $lnk.TargetPath = $exePath
-    $lnk.WorkingDirectory = $InstallDir
-    $lnk.Description = "KalOS $version — Windows post-install utility"
-    $lnk.Save()
-    Write-Host "Shortcut created: $lnkPath"
-
-    $desktop = [Environment]::GetFolderPath("Desktop")
-    if (-not $desktop -or -not (Test-Path $desktop)) {
-        $desktop = Join-Path ([Environment]::GetFolderPath("CommonDesktopDirectory")) ""
+    # --- Download and extract ---------------------------------------------------
+    $tmpZip = Join-Path $env:TEMP "KalOS-$version.zip"
+    Write-Step "Downloading KalOS v$version ..."
+    try {
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $tmpZip -UseBasicParsing
     }
-    $desktopLnk = Join-Path $desktop "KalOS.lnk"
-    $lnk2 = $shell.CreateShortcut($desktopLnk)
-    $lnk2.TargetPath = $exePath
-    $lnk2.WorkingDirectory = $InstallDir
-    $lnk2.Description = "KalOS $version — Windows post-install utility"
-    $lnk2.Save()
-    Write-Host "Shortcut created: $desktopLnk"
-}
-
-# --- Pin to taskbar (best effort) -------------------------------------------
-if (-not $NoTaskbarPin) {
-    $openShell = Test-Path "HKCU:\Software\OpenShell\StartMenu" -ErrorAction SilentlyContinue
-    $pinned = $false
-    if (-not $openShell) {
-        if (Invoke-Verb $exePath "(?i)^Pin to taskbar") { $pinned = $true }
-        elseif (Test-Path $lnkPath) { $pinned = Invoke-Verb $lnkPath "(?i)^Pin to taskbar" }
+    catch {
+        Write-ErrorAndExit "Download failed: $($_.Exception.Message)"
     }
-    if ($pinned) { Write-Host "Pinned to taskbar." }
-    elseif ($openShell) { Write-Host "Skipped taskbar pin — Open-Shell is installed." }
-    else { Write-Host "Already pinned to taskbar, or pinning unsupported — skipping." }
+
+    $staging = Join-Path $env:TEMP "KalOS-$version-staging"
+    if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
+    try {
+        Expand-Archive -Path $tmpZip -DestinationPath $staging -Force
+    }
+    catch {
+        Write-ErrorAndExit "Extract failed (corrupt download?): $($_.Exception.Message)"
+    }
+
+    $requiredFiles = @(
+        "KalOS.exe",
+        "hostfxr.dll",
+        "hostpolicy.dll",
+        "coreclr.dll",
+        "HardwareMonitorWorker.exe"
+    )
+    $missingFiles = $requiredFiles | Where-Object { -not (Test-Path (Join-Path $staging $_)) }
+    if ($missingFiles) {
+        Write-ErrorAndExit "The release package is missing required files: $($missingFiles -join ', ')"
+    }
+    Write-Host "Dependency check passed: release package contains all required files." -ForegroundColor Green
+
+    Write-Step "Installing to $InstallDir ..."
+    New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+    Get-ChildItem -Path $InstallDir -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
+    Copy-Item -Path "$staging\*" -Destination $InstallDir -Recurse -Force
+    Remove-Item $tmpZip -Force -ErrorAction SilentlyContinue
+    Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue
+
+    # --- Shortcuts --------------------------------------------------------------
+    $exePath = Join-Path $InstallDir "KalOS.exe"
+    if (-not $NoShortcut) {
+        $shell = New-Object -ComObject WScript.Shell
+        $startMenu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
+        $lnkPath = Join-Path $startMenu "KalOS.lnk"
+        $lnk = $shell.CreateShortcut($lnkPath)
+        $lnk.TargetPath = $exePath
+        $lnk.WorkingDirectory = $InstallDir
+        $lnk.Description = "KalOS $version — Windows post-install utility"
+        $lnk.Save()
+        Write-Host "Shortcut created: $lnkPath"
+
+        $desktop = [Environment]::GetFolderPath("Desktop")
+        if (-not $desktop -or -not (Test-Path $desktop)) {
+            $desktop = Join-Path ([Environment]::GetFolderPath("CommonDesktopDirectory")) ""
+        }
+        $desktopLnk = Join-Path $desktop "KalOS.lnk"
+        $lnk2 = $shell.CreateShortcut($desktopLnk)
+        $lnk2.TargetPath = $exePath
+        $lnk2.WorkingDirectory = $InstallDir
+        $lnk2.Description = "KalOS $version — Windows post-install utility"
+        $lnk2.Save()
+        Write-Host "Shortcut created: $desktopLnk"
+    }
+
+    # --- Pin to taskbar (best effort) -------------------------------------------
+    if (-not $NoTaskbarPin) {
+        $openShell = Test-Path "HKCU:\Software\OpenShell\StartMenu" -ErrorAction SilentlyContinue
+        $pinned = $false
+        if (-not $openShell) {
+            if (Invoke-Verb $exePath "(?i)^Pin to taskbar") { $pinned = $true }
+            elseif (Test-Path $lnkPath) { $pinned = Invoke-Verb $lnkPath "(?i)^Pin to taskbar" }
+        }
+        if ($pinned) { Write-Host "Pinned to taskbar." }
+        elseif ($openShell) { Write-Host "Skipped taskbar pin — Open-Shell is installed." }
+        else { Write-Host "Already pinned to taskbar, or pinning unsupported — skipping." }
+    }
+
+    Write-Host ""
+    Write-Host "KalOS $version installed successfully!" -ForegroundColor Green
+    Write-Host "Launch it from the Start Menu (KalOS) or run:"
+    Write-Host "    $exePath"
+
+    if ($canPrompt) {
+        Start-Process $exePath
+    }
 }
+else {
+    # ---------------------------------------------------------------------
+    # Default mode: download and install the KalOS Setup wizard.
+    # ---------------------------------------------------------------------
+    Write-Host "Dependency check passed. Continuing with KalOS Setup installation..." -ForegroundColor Green
 
-Write-Host ""
-Write-Host "KalOS $version installed successfully!" -ForegroundColor Green
-Write-Host "Launch it from the Start Menu (KalOS) or run:"
-Write-Host "    $exePath"
+    # --- Download and extract ---------------------------------------------------
+    $tmpZip = Join-Path $env:TEMP "KalOS-Setup-$version.zip"
+    Write-Step "Downloading KalOS Setup v$version ..."
+    try {
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $tmpZip -UseBasicParsing
+    }
+    catch {
+        Write-ErrorAndExit "Download failed: $($_.Exception.Message)"
+    }
 
-if ($canPrompt) {
-    Start-Process $exePath
+    $staging = Join-Path $env:TEMP "KalOS-Setup-$version-staging"
+    if (Test-Path $staging) { Remove-Item $staging -Recurse -Force }
+    try {
+        Expand-Archive -Path $tmpZip -DestinationPath $staging -Force
+    }
+    catch {
+        Write-ErrorAndExit "Extract failed (corrupt download?): $($_.Exception.Message)"
+    }
+
+    # The Setup wizard is a self-contained single-file exe — that one file is
+    # the whole package. (KalOS-Installer.exe rides along when published.)
+    $setupExe = Join-Path $staging "KalOS.Setup.exe"
+    if (-not (Test-Path $setupExe)) {
+        Write-ErrorAndExit "The release package is missing KalOS.Setup.exe."
+    }
+    Write-Host "Dependency check passed: Setup package contains the wizard." -ForegroundColor Green
+
+    Write-Step "Installing KalOS Setup to $SetupDir ..."
+    New-Item -ItemType Directory -Path $SetupDir -Force | Out-Null
+    Get-ChildItem -Path $SetupDir -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
+    Copy-Item -Path "$staging\*" -Destination $SetupDir -Recurse -Force
+    Remove-Item $tmpZip -Force -ErrorAction SilentlyContinue
+    Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue
+
+    # --- Shortcut ---------------------------------------------------------------
+    $wizardPath = Join-Path $SetupDir "KalOS.Setup.exe"
+    if (-not $NoShortcut) {
+        $shell = New-Object -ComObject WScript.Shell
+        $startMenu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
+        $lnkPath = Join-Path $startMenu "KalOS Setup.lnk"
+        $lnk = $shell.CreateShortcut($lnkPath)
+        $lnk.TargetPath = $wizardPath
+        $lnk.WorkingDirectory = $SetupDir
+        $lnk.Description = "KalOS Setup $version — install KalOS, drivers, software and tweaks"
+        $lnk.Save()
+        Write-Host "Shortcut created: $lnkPath"
+    }
+
+    Write-Host ""
+    Write-Host "KalOS Setup $version installed successfully!" -ForegroundColor Green
+    Write-Host "The setup wizard opens next — it installs KalOS, GPU drivers, software and tweaks."
+    Write-Host "Relaunch it any time from the Start Menu (KalOS Setup) or run:"
+    Write-Host "    $wizardPath"
+
+    if ($canPrompt) {
+        Start-Process $wizardPath -Verb RunAs
+    }
 }
 
 if ($launchedByExplorer -and -not $Silent) {

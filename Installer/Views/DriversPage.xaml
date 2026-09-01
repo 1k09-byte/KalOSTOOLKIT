@@ -19,6 +19,17 @@
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,4,0">
             <StackPanel Spacing="16" MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Left">
 
+                <!-- Skip option: check to leave GPU drivers alone entirely -->
+                <Border Style="{StaticResource CardStyle}">
+                    <StackPanel Spacing="10">
+                        <CheckBox x:Name="SkipGpuCheck" Content="Skip GPU driver installation"
+                                  IsChecked="{x:Bind Wizard.SkipGpuDrivers, Mode=TwoWay}"
+                                  Checked="SkipGpuCheck_Changed" Unchecked="SkipGpuCheck_Changed"/>
+                        <TextBlock x:Name="SkipNote" Style="{StaticResource CardSubtitle}"
+                                   Text="No GPU driver will be installed or updated." Visibility="Collapsed"/>
+                    </StackPanel>
+                </Border>
+
                 <!-- Detection status -->
                 <InfoBar x:Name="DetectBar" IsOpen="True" Severity="Informational"
                          Title="Detecting graphics adapters…" IsClosable="False">
@@ -28,7 +39,7 @@
                 </InfoBar>
 
                 <!-- GPU picker card -->
-                <Border Style="{StaticResource CardStyle}">
+                <Border x:Name="GpuCard" Style="{StaticResource CardStyle}">
                     <StackPanel Spacing="10">
                         <TextBlock Text="Graphics adapter" Style="{StaticResource CardHeader}"/>
                         <TextBlock Text="Select the adapter you want to update." Style="{StaticResource CardSubtitle}"/>
@@ -54,6 +65,50 @@
                                   ItemsSource="{x:Bind Wizard.DriverVersions, Mode=OneWay}"
                                   DisplayMemberPath="Version"
                                   SelectionChanged="DriverCombo_SelectionChanged"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- NVIDIA strip/keep checklist (NVIDIA only) -->
+                <Border x:Name="NvidiaOptionsCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="What to keep from the NVIDIA package" Style="{StaticResource CardHeader}"/>
+                        <TextBlock Style="{StaticResource CardSubtitle}"
+                                   Text="Everything unchecked is stripped out — only the display driver is installed silently via pnputil, then NVIDIA telemetry services and tasks are disabled. Same options as the edit tool's install dialog."/>
+                        <StackPanel Spacing="2" Margin="0,6,0,0">
+                            <CheckBox Content="Display Driver (required)" IsChecked="True" IsEnabled="False" MinWidth="0"/>
+                            <CheckBox Content="HD Audio via HDMI" IsChecked="{x:Bind Wizard.KeepHdAudio, Mode=TwoWay}" MinWidth="0"/>
+                            <CheckBox Content="Microsoft Visual C 2017 Runtimes" IsChecked="{x:Bind Wizard.KeepMsvcRuntimes, Mode=TwoWay}" MinWidth="0"/>
+                            <CheckBox Content="PhysX" IsChecked="{x:Bind Wizard.KeepPhysX, Mode=TwoWay}" MinWidth="0"/>
+                            <CheckBox Content="USB-C Driver" IsChecked="{x:Bind Wizard.KeepUsbc, Mode=TwoWay}" MinWidth="0"/>
+                            <CheckBox Content="FrameView SDK" IsChecked="{x:Bind Wizard.KeepFrameViewSdk, Mode=TwoWay}" MinWidth="0"/>
+                            <CheckBox Content="Virtual Audio" IsChecked="{x:Bind Wizard.KeepVirtualAudio, Mode=TwoWay}" MinWidth="0"/>
+                            <CheckBox Content="Telemetry (not recommended)" IsChecked="{x:Bind Wizard.KeepTelemetry, Mode=TwoWay}" MinWidth="0"/>
+                            <CheckBox Content="NV Platform Controllers" IsChecked="{x:Bind Wizard.KeepNvPlatformControllers, Mode=TwoWay}" MinWidth="0"/>
+                            <CheckBox Content="NVIDIA DLSR" IsChecked="{x:Bind Wizard.KeepDlsr, Mode=TwoWay}" MinWidth="0"/>
+                            <TextBlock Text="NV App Components" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,8,0,0"/>
+                            <CheckBox Content="NVIDIA App" IsChecked="{x:Bind Wizard.KeepNvidiaApp, Mode=TwoWay}" MinWidth="0"/>
+                            <CheckBox Content="NV Container" IsChecked="{x:Bind Wizard.KeepNvContainer, Mode=TwoWay}" MinWidth="0"/>
+                            <CheckBox Content="ShadowPlay" IsChecked="{x:Bind Wizard.KeepShadowPlay, Mode=TwoWay}" MinWidth="0"/>
+                            <CheckBox Content="NV Backend" IsChecked="{x:Bind Wizard.KeepNvBackend, Mode=TwoWay}" MinWidth="0"/>
+                            <CheckBox Content="NVIDIA App MessageBus" IsChecked="{x:Bind Wizard.KeepNvidiaAppMessageBus, Mode=TwoWay}" MinWidth="0"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- AMD strip/keep checklist (AMD only) -->
+                <Border x:Name="AmdOptionsCard" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="What to keep from the AMD package" Style="{StaticResource CardHeader}"/>
+                        <TextBlock Style="{StaticResource CardSubtitle}"
+                                   Text="Everything unchecked is stripped out — only the display driver is installed silently via pnputil, then AMD bloat services and scheduled tasks are removed. Same options as the edit tool's Radeon Slimmer flow."/>
+                        <StackPanel Spacing="2" Margin="0,6,0,0">
+                            <CheckBox Content="Display Driver (required)" IsChecked="True" IsEnabled="False" MinWidth="0"/>
+                            <CheckBox Content="AMD Software: Adrenalin Edition (Radeon Software UI)" IsChecked="{x:Bind Wizard.KeepRadeonSoftware, Mode=TwoWay}" MinWidth="0"/>
+                            <CheckBox Content="AMD Audio Driver" IsChecked="{x:Bind Wizard.KeepAmdAudio, Mode=TwoWay}" MinWidth="0"/>
+                            <CheckBox Content="AMD User Experience Program (telemetry) — not recommended" IsChecked="{x:Bind Wizard.KeepAmdTelemetry, Mode=TwoWay}" MinWidth="0"/>
+                            <CheckBox Content="AMD scheduled tasks (update/telemetry)" IsChecked="{x:Bind Wizard.KeepAmdScheduledTasks, Mode=TwoWay}" MinWidth="0"/>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 

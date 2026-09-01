@@ -45,10 +45,29 @@ New-Item -ItemType Directory -Path $dist -Force | Out-Null
 Get-ChildItem -Path $dist -Filter "KalOS-Setup-v*-win-$Platform.zip" -ErrorAction SilentlyContinue | Remove-Item -Force
 $zip = Join-Path $dist "KalOS-Setup-v$version-win-$Platform.zip"
 
+# ── Bootstrapper: dependency-free net48 exe that downloads + launches the wizard.
+# It cannot require .NET 9 — checking for/installing .NET 9 is its job — so it
+# targets .NET Framework 4.8 (built into Windows 10/11) and ships as one exe.
+Write-Host "Building KalOS Installer bootstrapper (net48)..." -ForegroundColor Cyan
+$bootstrapProj = Join-Path $PSScriptRoot "tools\SetupBootstrap\KalOS.Installer.csproj"
+dotnet build $bootstrapProj -c Release
+if ($LASTEXITCODE -ne 0) { throw "Bootstrapper build failed with exit code $LASTEXITCODE" }
+$bootstrapDir = Join-Path $PSScriptRoot "tools\SetupBootstrap\bin\Release\net48"
+$bootstrapExe = Join-Path $bootstrapDir "KalOS.Installer.exe"
+if (-not (Test-Path $bootstrapExe)) { throw "Bootstrapper output not found: $bootstrapExe" }
+
+# Ride along inside the Setup zip so zip-downloaders get it too...
+Copy-Item $bootstrapExe (Join-Path $publishDir "KalOS-Installer.exe") -Force
+Copy-Item (Join-Path $bootstrapDir "KalOS.Installer.exe.config") (Join-Path $publishDir "KalOS-Installer.exe.config") -Force -ErrorAction SilentlyContinue
+# ...and ship standalone in dist for direct download.
+Copy-Item $bootstrapExe (Join-Path $dist "KalOS-Installer-win-$Platform.exe") -Force
+Copy-Item (Join-Path $bootstrapDir "KalOS.Installer.exe.config") (Join-Path $dist "KalOS-Installer-win-$Platform.exe.config") -Force -ErrorAction SilentlyContinue
+
 Write-Host "Packaging $zip ..." -ForegroundColor Cyan
 Compress-Archive -Path (Join-Path $publishDir "*") -DestinationPath $zip -CompressionLevel Optimal
 
 Write-Host ""
 Write-Host "Setup package ready: $zip" -ForegroundColor Green
-Write-Host "Next: attach this zip to the GitHub release tagged v$version on 1k09-byte/KalOSTOOLKIT"
+Write-Host "Standalone bootstrapper: $(Join-Path $dist "KalOS-Installer-win-$Platform.exe")"
+Write-Host "Next: attach the zip and the KalOS-Installer exe to the GitHub release tagged v$version on 1k09-byte/KalOSTOOLKIT"
 Write-Host "      (alongside the consumer KalOS.zip; the wizard downloads and deploys it.)"

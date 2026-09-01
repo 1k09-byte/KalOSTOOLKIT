@@ -22,10 +22,18 @@ namespace KalOS.Setup
     /// 2. <b>Customization</b> — writes the Customize page's tint + background
     ///    image into the installed app's data folder.
     /// 3. <b>GPU driver update</b> — reuses <see cref="DriverService.UpdateAsync"/>,
-    ///    the same silent pipeline the in-app GPU Drivers page uses.
+    ///    the same silent pipeline the in-app GPU Drivers page uses. The user's
+    ///    explicit driver pick is installed without a version gate (matching the
+    ///    in-app page), but never downloads a pick that isn't newer than the
+    ///    installed driver — those are reported as "already up to date" instead.
+    ///    The whole step is skipped when the user opted out.
     /// 4. <b>Software install</b> — reuses <see cref="PackageManagerService"/>,
     ///    chaining winget → Chocolatey → Scoop → direct download (mirroring
     ///    <c>BrowserViewModel</c>'s fallback ladder).
+    /// 5. <b>Tweaks &amp; cleanup</b> — runs the native <see cref="TweaksService"/>
+    ///    catalog (generated from the privacy.sexy scripts) for every category
+    ///    the user left checked on the Tweaks page. Runs last so the history /
+    ///    log cleanup also covers this install's own tracks.
     ///
     /// Every step reports progress through the shared wizard VM so the
     /// Progress page renders a live log + overall bar. Steps never throw out
@@ -51,7 +59,11 @@ namespace KalOS.Setup
             // ── Step 2: Customization (only makes sense once KalOS landed) ──
             // Writes the Customize page's tint + background image into the
             // installed app's data folder so it opens already personalized.
-            if (deployOk)
+            // Customization only applies when the user actually picked a tint or
+            // a background image on the Customize page — otherwise nothing was
+            // changed, so no step is recorded (the Finish page's "What was
+            // installed" must not claim customization that never happened).
+            if (deployOk && (vm.TintTouched || vm.BackgroundTouched))
             {
                 vm.CurrentStep = "Applying your customization";
                 var (ok, detail) = SetupCustomization.Apply(vm);
@@ -61,49 +73,79 @@ namespace KalOS.Setup
 
             // ── Step 3: GPU driver update ──────────────────────────────────
             // Updates every adapter in the plan (selected one first). The user's
-            // explicit driver pick applies to the selected adapter; the rest get
-            // the latest driver the vendor knows about, resolved at run time.
+            // explicit driver pick for the selected adapter is installed without
+            // a version gate — exactly like the in-app GPU Drivers page, which
+            // never refuses an explicit pick (if the adapter is already current,
+            // pnputil reports "nothing to install" and the step still succeeds).
+            // The other adapters get the latest driver the vendor knows about,
+            // resolved at run time, and are skipped when already up to date so a
+            // ~1.5 GB package is never downloaded needlessly. Intel/unknown
+            // adapters have no silent path — the pipeline opens the vendor page.
             // Progress budget: drivers own 45–70%.
             var gpusToUpdate = vm.GpusToUpdate;
             if (gpusToUpdate.Count == 0)
             {
-                vm.LogStep("GPU driver", true, "No graphics adapter detected — skipped.");
+                // Nothing was installed — record it as a skipped step (neutral
+                // info in the live log, excluded from the Finish page's "What
+                // was installed"), never as a success.
+                vm.LogStep("GPU driver", true,
+                    vm.SkipGpuDrivers
+                        ? "Skipped — you chose not to install GPU drivers."
+                        : "No graphics adapter detected — skipped.",
+                    skipped: true);
             }
 
             foreach (var gpu in gpusToUpdate)
             {
                 bool isPrimary = ReferenceEquals(gpu, vm.SelectedGpu);
 
-                // Resolve what to install: the user's explicit pick for the
-                // selected adapter, otherwise the newest driver the vendor
-                // knows about (resolved at run time).
                 DriverInfo? info;
                 DriverCheckResult? check;
-                if (isPrimary)
+                if (isPrimary && vm.SelectedDriver is not null)
                 {
                     info = vm.SelectedDriver;
-                    check = await CheckDriverAsync(gpu); // version gate only
+
+                    // The explicit pick is installed as-is (matching the in-app
+                    // GPU Drivers page), but never download a ~1 GB package just
+                    // to learn the machine already runs a newer or equal driver
+                    // — pnputil would refuse with exit 259 anyway. The comparer
+                    // returns null for unparseable versions; proceed in that
+                    // case and let pnputil be the ground truth.
+                    int? cmp = DriverVersionComparer.Compare(gpu.Vendor, gpu.DriverVersion, info.Version);
+                    if (cmp is >= 0)
+                    {
+                        vm.LogStep($"Driver: {gpu.Name}", true,
+                            $"Already up to date ({gpu.DriverVersion}) — nothing to install.",
+                            skipped: true);
+                        continue;
+                    }
                 }
                 else
                 {
+                    // Intel/unknown and the non-selected adapters: resolve the
+                    // vendor's latest (Intel's "latest" is its download page
+                    // URL, which the pipeline opens in the browser).
                     check = await CheckDriverAsync(gpu);
                     info = check?.LatestDriver;
+
+                    // Don't download a ~1.5 GB package just to learn the
+                    // adapter is already current — pnputil would refuse with
+                    // exit 259 anyway.
+                    if (info is not null && check?.Status == DriverStatus.UpToDate)
+                    {
+                        vm.LogStep($"Driver: {gpu.Name}", true,
+                            $"Already up to date ({gpu.DriverVersion}) — nothing to install.",
+                            skipped: true);
+                        continue;
+                    }
                 }
 
                 if (info is null)
                 {
                     vm.LogStep("GPU driver", true,
                         isPrimary && vm.SelectedGpu is { IsIntel: true }
-                            ? "Intel GPU — opened the vendor download page (manual install)."
+                            ? "Intel GPU — no silent-install path; install manually from the vendor site."
                             : "Skipped (no silent-install driver selected).");
-                    continue;
-                }
-
-                // Don't download a ~1.5 GB package just to learn the adapter is
-                // already current — pnputil would refuse with exit 259 anyway.
-                if (check?.Status == DriverStatus.UpToDate)
-                {
-                    vm.LogStep($"Driver: {gpu.Name}", true, $"Already up to date ({gpu.DriverVersion}).");
                     continue;
                 }
 
@@ -119,21 +161,21 @@ namespace KalOS.Setup
             for (int i = 0; i < software.Count; i++)
             {
                 var entry = software[i];
-                vm.OverallProgress = 70 + (double)i / Math.Max(software.Count, 1) * 25;
+                vm.OverallProgress = 70 + (double)i / Math.Max(software.Count, 1) * 18;
                 vm.CurrentStep = $"Installing {entry.Name}";
                 await RunStepAsync(vm, entry.Name, () => InstallSoftwareAsync(entry, ct, vm));
             }
-            if (software.Count > 0) vm.OverallProgress = 95;
+            if (software.Count > 0) vm.OverallProgress = 88;
 
             // ── Step 5: Forced privacy extensions on the selected browsers ──
-            // Progress budget: extensions own the last 95–99%.
+            // Progress budget: extensions own 88–90%.
             if (vm.InstallExtensions)
             {
                 var browsers = vm.SelectedSoftware.Where(e => e.IsBrowser).ToList();
                 for (int i = 0; i < browsers.Count; i++)
                 {
                     var entry = browsers[i];
-                    vm.OverallProgress = 95 + (double)(i + 1) / Math.Max(browsers.Count, 1) * 4;
+                    vm.OverallProgress = 88 + (double)(i + 1) / Math.Max(browsers.Count, 1) * 2;
                     vm.CurrentStep = $"Applying extensions to {entry.Name}";
                     vm.CurrentDetail = "Writing browser extension policies…";
                     var extensions = BrowserExtensionService.CreateDefaultExtensions();
@@ -153,6 +195,49 @@ namespace KalOS.Setup
                             ? $"{extensions.Count} privacy extensions force-installed via browser policy."
                             : "Failed to apply the extension policy.");
                 }
+            }
+
+            if (vm.InstallExtensions) vm.OverallProgress = 90;
+
+            // ── Step 6: Tweaks & cleanup (native, runs last) ──────────────
+            // Progress budget: tweaks own 90–100%, one tick per tweak so the
+            // bar moves even while a slow DISM operation runs. The step only
+            // appears when at least one category is selected; an opted-out run
+            // records a neutral skipped entry instead of a success.
+            var tweakGroups = vm.SelectedTweakGroups;
+            if (tweakGroups.Count == 0)
+            {
+                vm.LogStep("Tweaks & cleanup", true, "Skipped — you chose not to run any tweaks.", skipped: true);
+            }
+            else
+            {
+                var tweaks = _services.GetRequiredService<TweaksService>();
+                var defs = tweaks.Catalog.Where(t => tweakGroups.Contains(t.Group)).ToList();
+                vm.CurrentStep = "Applying tweaks & cleanup";
+                bool tweaksOk;
+                string tweakDetail;
+                try
+                {
+                    var (applied, failed) = await tweaks.ApplyAsync(
+                        defs,
+                        report: s => vm.CurrentDetail = s,
+                        progress: p => vm.OverallProgress = 90 + p * 10,
+                        ct);
+                    tweaksOk = failed == 0;
+                    tweakDetail = $"{applied} tweaks applied"
+                                  + (failed > 0 ? $", {failed} failed." : ".");
+                }
+                catch (OperationCanceledException)
+                {
+                    vm.LogStep("Tweaks & cleanup", false, "Canceled by user.");
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    tweaksOk = false;
+                    tweakDetail = ex.Message;
+                }
+                vm.LogStep("Tweaks & cleanup", tweaksOk, tweakDetail);
             }
 
             // ── Finish ──────────────────────────────────────────────────────
@@ -265,7 +350,9 @@ namespace KalOS.Setup
                 var psi = new ProcessStartInfo
                 {
                     FileName = "powershell.exe",
-                    Arguments = "-ExecutionPolicy Bypass -NoProfile -Command \"irm https://raw.githubusercontent.com/1k09-byte/KalOSTOOLKIT/main/install-kalos.ps1 | iex\"",
+                    // -InstallTool: the script's default now installs the Setup
+                    // wizard itself — this fallback must deploy the app directly.
+                    Arguments = "-ExecutionPolicy Bypass -NoProfile -Command \"& ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/1k09-byte/KalOSTOOLKIT/main/install-kalos.ps1'))) -InstallTool\"",
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     RedirectStandardOutput = true,
@@ -315,7 +402,12 @@ namespace KalOS.Setup
                 // KalOS deploy took 45%, the driver takes the next 25%.
                 vm.OverallProgress = 45 + p.Percent * 0.25;
             });
-            return await driver.UpdateAsync(gpu, info, progress, ct);
+            // NVIDIA/AMD: honor the strip/keep checklists from the Drivers page
+            // (everything unchecked is stripped before the display-only pnputil
+            // install; AMD scheduled tasks are kept when the user asked).
+            return await driver.UpdateAsync(gpu, info, progress, ct,
+                nvidiaComponents: gpu.IsNvidia ? vm.SelectedNvidiaComponents : null,
+                amdComponents: gpu.IsAmd ? vm.SelectedAmdComponents : null);
         }
 
         // ── Step 3: Software install (PM chain + direct fallback) ───────────

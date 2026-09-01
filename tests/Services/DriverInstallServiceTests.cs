@@ -118,6 +118,37 @@ public class DriverInstallServiceTests : IDisposable
         Assert.False(Directory.Exists(Path.Combine(extractDir, "EULA")));
     }
 
+    [Fact]
+    public void StripAmdPackageContents_KeepsSelectedComponentsAndStripsRest()
+    {
+        var extractDir = Path.Combine(_tempDir, "amd");
+        Directory.CreateDirectory(Path.Combine(extractDir, "Packages", "Drivers", "Display"));
+        Directory.CreateDirectory(Path.Combine(extractDir, "Packages", "Drivers", "Display2"));
+        Directory.CreateDirectory(Path.Combine(extractDir, "Packages", "Drivers", "Audio"));
+        Directory.CreateDirectory(Path.Combine(extractDir, "Packages", "CNext"));     // Adrenalin UI
+        Directory.CreateDirectory(Path.Combine(extractDir, "Packages", "UEP"));      // telemetry
+        Directory.CreateDirectory(Path.Combine(extractDir, "Packages", "Branding")); // bloat
+        File.WriteAllText(Path.Combine(extractDir, "Packages", "Drivers", "Display", "u0xxx.inf"), "x");
+        Directory.CreateDirectory(Path.Combine(extractDir, "Config"));
+        File.WriteAllText(Path.Combine(extractDir, "Config", "InstallManifest.json"), "{}");
+
+        _service.StripAmdPackageContents(extractDir, new AmdInstallComponents
+        {
+            KeepRadeonSoftware = true,
+            KeepAudio = true,
+        });
+
+        // The display driver is always kept
+        Assert.True(Directory.Exists(Path.Combine(extractDir, "Packages", "Drivers", "Display")));
+        Assert.True(Directory.Exists(Path.Combine(extractDir, "Packages", "Drivers", "Display2")));
+        // Selected components survive
+        Assert.True(Directory.Exists(Path.Combine(extractDir, "Packages", "Drivers", "Audio")));
+        Assert.True(Directory.Exists(Path.Combine(extractDir, "Packages", "CNext")));
+        // Unselected components are stripped
+        Assert.False(Directory.Exists(Path.Combine(extractDir, "Packages", "UEP")));
+        Assert.False(Directory.Exists(Path.Combine(extractDir, "Packages", "Branding")));
+    }
+
     // ── AMD strip ─────────────────────────────────────────────────────
 
     [Fact]

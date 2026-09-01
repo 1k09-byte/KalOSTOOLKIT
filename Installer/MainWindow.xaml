@@ -45,6 +45,11 @@
                             <FontIcon Glyph="&#xE790;"/>
                         </NavigationViewItem.Icon>
                     </NavigationViewItem>
+                    <NavigationViewItem Content="Tweaks &amp; Cleanup" Tag="4">
+                        <NavigationViewItem.Icon>
+                            <FontIcon Glyph="&#xE72D;"/>
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
                 </NavigationView.MenuItems>
 
                 <!-- Pinned install entry — styled like a nav page row, still a Button -->
@@ -75,26 +80,12 @@
                             BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                             BorderThickness="0,1,0,0" Padding="24,14">
                         <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
                             <Button x:Name="BackButton" Content="Back" Style="{StaticResource SecondaryButton}"
                                     Click="BackButton_Click" Visibility="Collapsed">
                                 <Button.KeyboardAccelerators>
                                     <KeyboardAccelerator Key="Back" Modifiers="Menu"/>
                                 </Button.KeyboardAccelerators>
                             </Button>
-                            <StackPanel Orientation="Horizontal" Spacing="8" Grid.Column="1" HorizontalAlignment="Right">
-                                <Button x:Name="CancelButton" Content="Cancel" Style="{StaticResource SecondaryButton}"
-                                        Click="CancelButton_Click"/>
-                                <Button x:Name="NextButton" Content="Next" Style="{StaticResource AccentButton}"
-                                        Click="NextButton_Click">
-                                    <Button.KeyboardAccelerators>
-                                        <KeyboardAccelerator Key="Enter"/>
-                                    </Button.KeyboardAccelerators>
-                                </Button>
-                            </StackPanel>
                         </Grid>
                     </Border>
                 </Grid>

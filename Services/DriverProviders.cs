@@ -209,7 +209,7 @@ namespace KalOS.Services
         /// a direct download URL. Keep this in sync with stable releases so the
         /// version comparison works and the silent pipeline can download.
         /// </summary>
-        internal static DriverInfo GetCuratedLatest()
+        public static DriverInfo GetCuratedLatest()
         {
             const string version = "616.56";
             return new DriverInfo

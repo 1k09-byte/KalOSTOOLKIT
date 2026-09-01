@@ -15,14 +15,23 @@ Publisher: **KalOS** ·
 
 ## Install
 
-Download the latest release from the [Releases](https://github.com/1k09-byte/KalOSTOOLKIT/releases) page, or install/update from the command line:
+The command line installs the **KalOS Setup wizard** — the wizard then installs KalOS, GPU drivers, software, and tweaks in one run:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/1k09-byte/KalOSTOOLKIT/main/install-kalos.ps1 | iex"
 ```
 
+Prefer a plain exe? Download **`KalOS-Installer-win-x64.exe`** from the [Releases](https://github.com/1k09-byte/KalOSTOOLKIT/releases) page and run it — it does exactly the same thing without a console command (it is dependency-free .NET Framework 4.8, so it runs on a fresh Windows install even before .NET 9 is present).
 
-The `install-kalos.ps1` script handles downloading and updating the application. It checks for the required **.NET 9 Desktop Runtime** and offers to download and install it automatically when missing, then fetches the newest `KalOS-v{version}-win-x64.zip` from GitHub Releases, extracts it to `%LOCALAPPDATA%\Programs\KalOS`, creates shortcuts, and can launch the app. The release is self-contained and includes the Windows App SDK runtime and hardware-monitor worker dependencies. 
+The `install-kalos.ps1` script (and the `KalOS-Installer` exe) run the full **dependency checker** first — administrator permission, internet connection, and the **.NET 9 Desktop Runtime**, which is downloaded and installed automatically when missing (the KalOS app deployed by the wizard needs it). They then fetch the newest `KalOS-Setup-v{version}-win-x64.zip` from GitHub Releases, install the wizard to `%LOCALAPPDATA%\Programs\KalOSSetup`, create a **KalOS Setup** Start Menu shortcut, and launch it.
+
+To install the KalOS app directly instead (no wizard — the original behavior, also used as the wizard's offline fallback), add `-InstallTool`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -c "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/1k09-byte/KalOSTOOLKIT/main/install-kalos.ps1))) -InstallTool"
+```
+
+In `-InstallTool` mode the script checks for the required **.NET 9 Desktop Runtime**, fetches the newest `KalOS-v{version}-win-x64.zip` from GitHub Releases, extracts it to `%LOCALAPPDATA%\Programs\KalOS`, creates shortcuts, and can launch the app. The release is self-contained and includes the Windows App SDK runtime and hardware-monitor worker dependencies.
 
 To completely remove the app, run the `uninstall-kalos.ps1` script. This dedicated uninstaller safely terminates any running instances, removes the installation folder, deletes all shortcuts, and wipes the deployment clean.
 
@@ -37,13 +46,14 @@ The **KalOS Setup** wizard (`Installer/`) is a separate unpackaged, self-contain
 5. **Progress** — live step log + overall bar.
 6. **Finish** — per-step result list.
 
-The wizard deploys KalOS **natively** (download → validate → wipe-and-copy → shortcuts → taskbar pin) with an automatic fallback to `install-kalos.ps1` when GitHub is unreachable or the package fails validation. It source-shares the WinUI-free backend (driver stack, package managers, the install services) rather than referencing the main project, so the single-file payload stays small.
+The wizard deploys KalOS **natively** (download → validate → wipe-and-copy → shortcuts → taskbar pin) with an automatic fallback to `install-kalos.ps1 -InstallTool` (which installs the app directly — the script's default installs the wizard itself) when GitHub is unreachable or the package fails validation. It source-shares the WinUI-free backend (driver stack, package managers, the install services) rather than referencing the main project, so the single-file payload stays small.
 
 Build and package it:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File publish-setup.ps1
-# → dist\KalOS-Setup-v{version}-win-x64.zip
+# → dist\KalOS-Setup-v{version}-win-x64.zip   (wizard + KalOS-Installer.exe inside)
+# → dist\KalOS-Installer-win-x64.exe          (standalone dependency-free bootstrapper)
 ```
 
 Attach that zip to the GitHub release alongside the consumer `KalOS.zip`; a release carrying both never makes the wizard download itself (the asset picker always prefers the app zip).

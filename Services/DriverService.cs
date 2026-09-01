@@ -153,7 +153,8 @@ namespace KalOS.Services
             CancellationToken cancellationToken = default,
             NvidiaInstallComponents? nvidiaComponents = null,
             string? sourceExePath = null,
-            NvInstallTweaks? nvidiaTweaks = null)
+            NvInstallTweaks? nvidiaTweaks = null,
+            AmdInstallComponents? amdComponents = null)
         {
             var display = driver.DisplayString ?? $"driver {driver.Version}";
             bool hasSilentPath = (gpu.IsNvidia || gpu.IsAmd)
@@ -241,7 +242,8 @@ namespace KalOS.Services
                             Percent = 100,
                             Message = message
                         })),
-                        cancellationToken);
+                        cancellationToken,
+                        amdComponents);
                 }
 
                 progress?.Report(new DriverUpdateProgress

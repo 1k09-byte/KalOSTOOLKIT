@@ -6,5 +6,5 @@ namespace KalOS.Setup.ViewModels
     /// it as an <c>x:DataType</c> (nested records use the <c>Outer+Inner</c>
     /// syntax which the XAML compiler cannot resolve).
     /// </summary>
-    public sealed record InstallStepLog(string Name, bool Success, string? Detail);
+    public sealed record InstallStepLog(string Name, bool Success, string? Detail, bool Skipped = false);
 }

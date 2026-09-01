@@ -5,33 +5,38 @@
     xmlns:local="using:KalOS.Setup.Views">
 
     <Grid Style="{StaticResource WizardPageRoot}">
-        <StackPanel VerticalAlignment="Center" Spacing="24" MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Left">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
+        <!-- Status hero -->
+        <StackPanel Grid.Row="0" Spacing="10" MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Left">
             <TextBlock Text="FINISH" Style="{StaticResource ShellCaption}"/>
-
-            <!-- Status hero -->
-            <StackPanel Spacing="10">
-                <Viewbox Width="56" Height="56" HorizontalAlignment="Left">
-                    <FontIcon x:Name="StatusIcon" Glyph="&#xE73E;" FontSize="48" Foreground="{ThemeResource SuccessBrush}"/>
-                </Viewbox>
-                <TextBlock x:Name="FinishTitle" Text="Installation complete" Style="{StaticResource PageTitle}" Margin="0,8,0,0"/>
-                <TextBlock x:Name="FinishText" Style="{StaticResource PageSubtitle}"/>
-            </StackPanel>
-
-            <!-- Results card -->
-            <Border Style="{StaticResource CardStyle}">
-                <StackPanel Spacing="8">
-                    <TextBlock Text="What was installed" Style="{StaticResource SectionHeader}"/>
-                    <ListView x:Name="ResultsList" SelectionMode="None" IsItemClickEnabled="False"
-                              ItemContainerStyle="{StaticResource StretchListViewItem}">
-                        <ListView.ItemTemplate>
-                            <DataTemplate x:DataType="x:String">
-                                <TextBlock Text="{x:Bind}" Style="{StaticResource BodyText}"/>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
-                </StackPanel>
-            </Border>
+            <Viewbox Width="56" Height="56" HorizontalAlignment="Left">
+                <FontIcon x:Name="StatusIcon" Glyph="&#xE73E;" FontSize="48" Foreground="{ThemeResource SuccessBrush}"/>
+            </Viewbox>
+            <TextBlock x:Name="FinishTitle" Text="Installation complete" Style="{StaticResource PageTitle}" Margin="0,8,0,0"/>
+            <TextBlock x:Name="FinishText" Style="{StaticResource PageSubtitle}"/>
         </StackPanel>
+
+        <!-- Results card — stretches to the end of the page. -->
+        <Border Grid.Row="1" Style="{StaticResource CardStyle}" Padding="24,20"
+                MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Left"
+                VerticalAlignment="Stretch">
+            <StackPanel Spacing="8">
+                <TextBlock Text="What was installed" Style="{StaticResource SectionHeader}"/>
+                <ListView x:Name="ResultsList" SelectionMode="None" IsItemClickEnabled="False"
+                          ItemContainerStyle="{StaticResource StretchListViewItem}">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                            <TextBlock Text="{x:Bind}" Style="{StaticResource BodyText}"/>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <Button x:Name="CloseButton" Content="Close" Style="{StaticResource AccentButton}"
+                        HorizontalAlignment="Left" Margin="0,12,0,0" Click="CloseButton_Click"/>
+            </StackPanel>
+        </Border>
     </Grid>
 </local:WizardPage>

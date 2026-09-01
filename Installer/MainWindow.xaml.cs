@@ -12,9 +12,11 @@ namespace KalOS.Setup
     /// The installer shell window. Standard WinUI 3 layout: an extended
     /// title bar over a Mica backdrop, a <see cref="NavigationView"/> pane
     /// listing the wizard steps (plus a pinned Install entry), and the
-    /// wizard frame + Back/Next/Cancel footer as the pane content.
-    /// The pages bind to <see cref="App.Wizard"/> for state and call
-    /// <see cref="GoNext"/> / <see cref="GoBack"/> / <see cref="GoTo"/>
+    /// wizard frame + a Back-only footer as the pane content. Navigation is
+    /// pane-driven (no Next/Cancel buttons): pick a step in the sidebar,
+    /// start the install with the pinned Install entry, and close from the
+    /// Finish page. The pages bind to <see cref="App.Wizard"/> for state
+    /// and call <see cref="GoNext"/> / <see cref="GoBack"/> / <see cref="GoTo"/>
     /// to move between steps.
     /// </summary>
     public sealed partial class MainWindow : Window
@@ -25,6 +27,7 @@ namespace KalOS.Setup
             typeof(DriversPage),
             typeof(SoftwarePage),
             typeof(CustomizePage),
+            typeof(TweaksPage),
             typeof(ProgressPage),
             typeof(FinishPage),
         };
@@ -127,17 +130,6 @@ namespace KalOS.Setup
 
             BackButton.Visibility = _index > 0 && _index < _pages.Length - 1
                 ? Visibility.Visible : Visibility.Collapsed;
-
-            bool last = _index == _pages.Length - 1;
-            NextButton.Visibility = last ? Visibility.Collapsed : Visibility.Visible;
-
-            NextButton.Content = _index switch
-            {
-                3 => "Install",       // Customize page → run the pipeline
-                _ => "Next",
-            };
-
-            NextButton.IsEnabled = WizardFrame.Content is WizardPage page && page.CanProceed;
         }
 
         // ── Footer button handlers ───────────────────────────────────────
@@ -146,21 +138,6 @@ namespace KalOS.Setup
         {
             if (WizardFrame.Content is WizardPage page && !page.AllowBack) return;
             GoBack();
-        }
-
-        private void NextButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (WizardFrame.Content is not WizardPage page) return;
-            if (!page.CanProceed) return;
-            if (!page.OnAdvance()) return;
-            GoNext();
-        }
-
-        private void CancelButton_Click(object sender, RoutedEventArgs e)
-        {
-            if (_index == _pages.Length - 1) { Close(); return; }
-            if (App.Wizard.IsRunning) return;
-            Close();
         }
 
         // ── Page transitions (always fresh Navigate — no frame stack) ───
