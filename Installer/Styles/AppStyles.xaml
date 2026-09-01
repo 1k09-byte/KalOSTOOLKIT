@@ -43,15 +43,15 @@
     <!-- ═══════════════════════════════════════════════════════════
          Design tokens — Windows 11 Settings spacing
          ═══════════════════════════════════════════════════════════ -->
-    <x:Double x:Key="PageContentMaxWidth">760</x:Double>
-    <Thickness x:Key="PagePadding">40,32,40,24</Thickness>
-    <Thickness x:Key="SectionMargin">0,0,0,24</Thickness>
+    <x:Double x:Key="WizardContentMaxWidth">760</x:Double>
+    <Thickness x:Key="WizardPagePadding">40,32,40,24</Thickness>
+    <Thickness x:Key="WizardSectionMargin">0,0,0,24</Thickness>
 
     <!-- ═══════════════════════════════════════════════════════════
          Typography — strict aliases over the WinUI type ramp
          ═══════════════════════════════════════════════════════════ -->
     <Style x:Key="WizardPageRoot" TargetType="Grid">
-        <Setter Property="Padding" Value="{StaticResource PagePadding}" />
+        <Setter Property="Padding" Value="{StaticResource WizardPagePadding}" />
         <!-- Transparent so the shell's Mica backdrop shows through. -->
         <Setter Property="Background" Value="Transparent" />
     </Style>

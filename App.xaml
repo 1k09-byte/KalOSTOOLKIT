@@ -20,6 +20,11 @@
                 <ResourceDictionary Source="Styles/Brushes.xaml" />
                 <ResourceDictionary Source="Styles/AppStyles.xaml" />
                 <ResourceDictionary Source="Styles/CommonStyles.xaml" />
+                <!-- The embedded setup wizard's styles (compiled from Installer/ into
+                     this app). Keys that would collide with the consumer shell's own
+                     (PageContentMaxWidth, PagePadding, BoolToVis ...) are renamed to
+                     Wizard* in that dictionary, so this merge is collision-free. -->
+                <ResourceDictionary Source="ms-appx:///Installer/Styles/AppStyles.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

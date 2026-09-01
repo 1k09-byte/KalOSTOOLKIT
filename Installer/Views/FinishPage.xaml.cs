@@ -49,13 +49,13 @@ namespace KalOS.Setup.Views
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
-            if (App.MainWindow is { } window) window.Close();
+            if (App.MainWindow is { } window) window.RequestClose();
         }
 
         public override bool CanProceed => true;
         public override bool OnAdvance()
         {
-            if (App.MainWindow is { } window) window.Close();
+            if (App.MainWindow is { } window) window.RequestClose();
             return false;
         }
     }

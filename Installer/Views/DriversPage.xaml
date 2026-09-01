@@ -17,7 +17,7 @@
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,4,0">
-            <StackPanel Spacing="16" MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Left">
+            <StackPanel Spacing="16" MaxWidth="{StaticResource WizardContentMaxWidth}" HorizontalAlignment="Left">
 
                 <!-- Skip option: check to leave GPU drivers alone entirely -->
                 <Border Style="{StaticResource CardStyle}">

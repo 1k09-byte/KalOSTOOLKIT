@@ -7,7 +7,7 @@
     <AssemblyName>KalOS</AssemblyName>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.0.0.6</Version>
+    <Version>1.1.0.0</Version>
     <Platform>x64</Platform>
     <Platforms>x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
@@ -47,6 +47,26 @@
     <EmbeddedResource Remove="Installer\**" />
     <None Remove="Installer\**" />
     <Page Remove="Installer\**" />
+
+    <!--
+      One big app: the Setup wizard (first-run install experience) is compiled
+      INTO the consumer app. The wizard's own project (Installer\KalOS.Installer.csproj)
+      source-shares these same files, so the two stay in lockstep automatically.
+      The files are included at their original paths so the relative
+      ResourceDictionary Source in MainWindow.xaml ("Styles/AppStyles.xaml")
+      resolves identically in both projects, and the PRI paths never collide
+      with the main app's own Styles folder.
+    -->
+    <Compile Include="Installer\InstallerPipeline.cs" />
+    <Compile Include="Installer\SetupCustomization.cs" />
+    <Compile Include="Installer\SetupState.cs" />
+    <Compile Include="Installer\ViewModels\**\*.cs" />
+    <Compile Include="Installer\Views\*.cs" />
+    <Compile Include="Installer\Converters\**\*.cs" />
+    <Compile Include="Installer\MainWindow.xaml.cs" />
+    <Page Include="Installer\MainWindow.xaml" />
+    <Page Include="Installer\Views\*.xaml" />
+    <Page Include="Installer\Styles\AppStyles.xaml" />
 
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.2.0" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4654" />

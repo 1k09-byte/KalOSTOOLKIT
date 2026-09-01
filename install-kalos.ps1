@@ -1,25 +1,27 @@
 <#
 .SYNOPSIS
-    Installs the KalOS Setup wizard, or (with -InstallTool) the KalOS app itself.
+    Installs the KalOS app - one app that IS also the installer.
 
 .DESCRIPTION
-    Default: downloads the newest KalOS Setup wizard (KalOS-Setup-v{version}-win-x64.zip)
-    from GitHub Releases, installs it to %LOCALAPPDATA%\Programs\KalOSSetup, and
-    launches it. The wizard then walks through deploying KalOS, GPU drivers,
-    software, and tweaks.
+    Default: downloads the newest KalOS release (KalOS-v{version}-win-x64.zip)
+    from GitHub Releases, installs it to %LOCALAPPDATA%\Programs\KalOS, and
+    launches it. The app now contains the full setup wizard: on FIRST launch
+    it opens as "KalOS Setup" (Install KalOS, GPU drivers, browsers/software,
+    customize, tweaks & cleanup) and once setup completes it turns into the
+    normal consumer app. Re-run the wizard any time with: KalOS.exe --setup
 
-    -InstallTool: legacy mode - downloads and installs the KalOS app directly
-    (same behavior this script had before the Setup wizard existed). The Setup
-    wizard's script fallback uses this mode.
+    -SetupWizard: instead install the old standalone KalOS Setup wizard exe
+    (KalOS.Setup.exe) to %LOCALAPPDATA%\Programs\KalOSSetup. Not needed for
+    normal installs - the app has the wizard built in.
 
     Both modes run the full dependency checker first: administrator permission,
     internet connection, and .NET 9 Desktop Runtime (auto-installed when
-    missing) - the KalOS app deployed by the wizard needs that runtime.
+    missing) - the KalOS app needs that runtime.
 
 .EXAMPLE
-    .\install-kalos.ps1                # install + launch the Setup wizard
-    .\install-kalos.ps1 -InstallTool   # install the KalOS app directly
-    .\install-kalos.ps1 -InstallTool -InstallDir "$env:USERPROFILE\KalOS" -NoShortcut
+    .\install-kalos.ps1                      # install + launch the KalOS app
+    .\install-kalos.ps1 -SetupWizard         # install the standalone wizard instead
+    .\install-kalos.ps1 -InstallDir "$env:USERPROFILE\KalOS" -NoShortcut
     .\install-kalos.ps1 -Silent
 
     Double-clicking the script also runs it. If Windows blocks scripts, right-click
@@ -27,7 +29,7 @@
 #>
 param(
     [string]$InstallDir = (Join-Path $env:LOCALAPPDATA "Programs\KalOS"),
-    [switch]$InstallTool,
+    [switch]$SetupWizard,
     [switch]$NoShortcut,
     [switch]$NoTaskbarPin,
     [switch]$Silent,
@@ -41,10 +43,8 @@ $ProgressPreference = "SilentlyContinue"
 
 $Owner = "1k09-byte"
 $Repo = "KalOSTOOLKIT"
-$AssetPrefix = "KalOS-v"
 $ReleasesLatestUrl = "https://github.com/$Owner/$Repo/releases/latest"
 $DotNetRuntimeUrl = "https://dotnet.microsoft.com/download/dotnet/thank-you/runtime-desktop-9.0.0-windows-x64-installer"
-$RequiredOsBuild = 22621
 $SetupDir = (Join-Path $env:LOCALAPPDATA "Programs\KalOSSetup")
 
 function Write-Step([string]$msg) {
@@ -178,21 +178,22 @@ try {
     $html = (Invoke-WebRequest -Uri $assetsUrl -UseBasicParsing -TimeoutSec 15 -Headers @{ "Accept" = "text/html" }).Content
 
     # Pick the payload for this mode:
-    #   default      -> the Setup wizard package (KalOS-Setup-v*-win-x64.zip)
-    #   -InstallTool -> the consumer app package (KalOS-v*-win-x64.zip)
-    if ($InstallTool) {
-        $assetMatch = [regex]::Match($html, 'href="(/[^"]+/releases/download/[^"]+\.zip)"')
-        if (-not $assetMatch.Success) {
-            throw "Could not locate a .zip payload attached to release v$version. Please ensure a zip file is uploaded to GitHub."
-        }
-    }
-    else {
+    #   default      -> the consumer app package (KalOS-v*-win-x64.zip), which
+    #                   has the setup wizard built in
+    #   -SetupWizard -> the standalone wizard package (KalOS-Setup-v*-win-x64.zip)
+    if ($SetupWizard) {
         $assetMatch = [regex]::Match($html, 'href="(/[^"]+/releases/download/[^"]+KalOS-Setup-[^"]+win-x64\.zip)"')
         if (-not $assetMatch.Success) {
             $assetMatch = [regex]::Match($html, 'href="(/[^"]+/releases/download/[^"]+KalOS-Setup-[^"]+\.zip)"')
         }
         if (-not $assetMatch.Success) {
-            throw "Could not locate a KalOS-Setup zip attached to release v$version. Please ensure publish-setup.ps1 output is uploaded to GitHub."
+            throw "Could not locate a KalOS-Setup zip attached to release v$version. Please build the standalone wizard (Installer/KalOS.Installer.csproj) and upload its zip to the release."
+        }
+    }
+    else {
+        $assetMatch = [regex]::Match($html, 'href="(/[^"]+/releases/download/[^"]+\.zip)"')
+        if (-not $assetMatch.Success) {
+            throw "Could not locate a .zip payload attached to release v$version. Please ensure a zip file is uploaded to GitHub."
         }
     }
 
@@ -204,9 +205,9 @@ catch {
     Write-ErrorAndExit "Failed to fetch latest release from GitHub: $_"
 }
 
-if ($InstallTool) {
+if (-not $SetupWizard) {
     # ---------------------------------------------------------------------
-    # Legacy mode: download and install the KalOS app directly.
+    # Default mode: download and install the KalOS app (wizard included).
     # ---------------------------------------------------------------------
     Write-Host "Dependency check passed. Continuing with KalOS installation..." -ForegroundColor Green
 
@@ -290,8 +291,11 @@ if ($InstallTool) {
 
     Write-Host ""
     Write-Host "KalOS $version installed successfully!" -ForegroundColor Green
+    Write-Host "On first launch the app opens as KalOS Setup (install KalOS, GPU drivers,"
+    Write-Host "software, tweaks) and turns into the full app when setup finishes."
     Write-Host "Launch it from the Start Menu (KalOS) or run:"
     Write-Host "    $exePath"
+    Write-Host "Re-run setup any time with: KalOS.exe --setup"
 
     if ($canPrompt) {
         Start-Process $exePath
@@ -299,7 +303,7 @@ if ($InstallTool) {
 }
 else {
     # ---------------------------------------------------------------------
-    # Default mode: download and install the KalOS Setup wizard.
+    # -SetupWizard: download and install the standalone KalOS Setup wizard.
     # ---------------------------------------------------------------------
     Write-Host "Dependency check passed. Continuing with KalOS Setup installation..." -ForegroundColor Green
 
@@ -323,7 +327,6 @@ else {
     }
 
     # The Setup wizard is a self-contained single-file exe - that one file is
-    # the whole package. (KalOS-Installer.exe rides along when published.)
     $setupExe = Join-Path $staging "KalOS.Setup.exe"
     if (-not (Test-Path $setupExe)) {
         Write-ErrorAndExit "The release package is missing KalOS.Setup.exe."

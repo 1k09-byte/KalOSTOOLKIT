@@ -11,7 +11,7 @@
         </Grid.RowDefinitions>
 
         <!-- Status hero -->
-        <StackPanel Grid.Row="0" Spacing="10" MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Left">
+        <StackPanel Grid.Row="0" Spacing="10" MaxWidth="{StaticResource WizardContentMaxWidth}" HorizontalAlignment="Left">
             <TextBlock Text="FINISH" Style="{StaticResource ShellCaption}"/>
             <Viewbox Width="56" Height="56" HorizontalAlignment="Left">
                 <FontIcon x:Name="StatusIcon" Glyph="&#xE73E;" FontSize="48" Foreground="{ThemeResource SuccessBrush}"/>
@@ -22,7 +22,7 @@
 
         <!-- Results card — stretches to the end of the page. -->
         <Border Grid.Row="1" Style="{StaticResource CardStyle}" Padding="24,20"
-                MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Left"
+                MaxWidth="{StaticResource WizardContentMaxWidth}" HorizontalAlignment="Left"
                 VerticalAlignment="Stretch">
             <StackPanel Spacing="8">
                 <TextBlock Text="What was installed" Style="{StaticResource SectionHeader}"/>

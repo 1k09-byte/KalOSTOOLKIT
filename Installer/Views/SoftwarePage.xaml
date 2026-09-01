@@ -18,7 +18,7 @@
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,4,0">
-            <StackPanel Spacing="20" MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Left">
+            <StackPanel Spacing="20" MaxWidth="{StaticResource WizardContentMaxWidth}" HorizontalAlignment="Left">
 
                 <!-- Browsers -->
                 <StackPanel Spacing="8">

@@ -250,6 +250,12 @@ namespace KalOS.Setup
                 : "Installation completed with some failures — see the log for details.";
 
             vm.CurrentStep = "Finished";
+
+            // One big app: once the wizard has run end to end, record it so the
+            // embedded first-run wizard (main app) swaps into the consumer UI
+            // when the Finish page closes. Harmless for the standalone installer.
+            SetupState.MarkComplete();
+
             onFinished?.Invoke();
         }
 
@@ -350,9 +356,10 @@ namespace KalOS.Setup
                 var psi = new ProcessStartInfo
                 {
                     FileName = "powershell.exe",
-                    // -InstallTool: the script's default now installs the Setup
-                    // wizard itself — this fallback must deploy the app directly.
-                    Arguments = "-ExecutionPolicy Bypass -NoProfile -Command \"& ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/1k09-byte/KalOSTOOLKIT/main/install-kalos.ps1'))) -InstallTool\"",
+                    // The script's default mode installs the app directly (the
+                    // wizard is embedded in the app now), so a plain invocation
+                    // is exactly the fallback deploy we want.
+                    Arguments = "-ExecutionPolicy Bypass -NoProfile -Command \"& ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/1k09-byte/KalOSTOOLKIT/main/install-kalos.ps1')))\"",
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     RedirectStandardOutput = true,

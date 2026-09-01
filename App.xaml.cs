@@ -124,6 +124,16 @@ namespace KalOS
             services.AddSingleton<DriverService>();
             services.AddSingleton<CoreSpreadingService>();
 
+            // ── Setup wizard (first-run install experience) ──────────────────
+            // The wizard UI is compiled into this app (see KalOS.csproj's
+            // Installer/** includes); these are the pieces its pipeline needs
+            // that the consumer pages don't already register.
+            services.AddSingleton<TweaksService>();
+            services.AddSingleton<GitHubReleaseClient>();
+            services.AddSingleton<HttpFileDownloader>();
+            services.AddSingleton<KalOS.Setup.InstallerPipeline>();
+            services.AddSingleton<KalOS.Setup.ViewModels.InstallerViewModel>();
+
 
             // ── ViewModels ─────────────────────────────────────────────
             services.AddTransient<MainViewModel>();
@@ -189,12 +199,104 @@ namespace KalOS
                 return;
             }
 
+#if CONSUMER_BUILD
+            // One big app (consumer build only): a fresh install opens straight
+            // into the embedded setup wizard (Install KalOS → drivers → software
+            // → tweaks); the moment the wizard's pipeline completes, the marker
+            // flips and the same process swaps into the full consumer app.
+            // --setup forces the wizard again on an already-set-up machine.
+            bool forceSetup = Array.IndexOf(cmdArgs, "--setup") >= 0 || Array.IndexOf(cmdArgs, "-setup") >= 0;
+            if (!forceSetup && KalOS.Setup.SetupState.IsSetupComplete)
+            {
+                _window = new MainWindow();
+                _window.Activate();
+
+                StartUpdateCheck();
+                ShowUpdateLogIfAny();
+                ShowRollbackIfRequired();
+            }
+            else
+            {
+                LaunchSetupWizard();
+            }
+#else
+            // Edit-toolkit (dev) build: the first-run setup wizard is a
+            // consumer-only feature — always open the consumer shell directly.
             _window = new MainWindow();
             _window.Activate();
 
             StartUpdateCheck();
             ShowUpdateLogIfAny();
             ShowRollbackIfRequired();
+#endif
+        }
+
+        /// <summary>
+        /// First-run mode: shows the setup wizard instead of the consumer
+        /// shell. When the wizard window closes and the install pipeline has
+        /// completed (setup marker written), the consumer shell is opened
+        /// first — so the app never drops to zero windows, which would exit
+        /// the process — and the wizard window is then closed behind it.
+        /// Closing the wizard WITHOUT a completed install exits the app
+        /// normally; the wizard shows again on the next launch.
+        /// </summary>
+        private void LaunchSetupWizard()
+        {
+            KalOS.Setup.SetupState.Embedded = true;
+            KalOS.Setup.App.InitializeWizard();
+
+            var wizard = new KalOS.Setup.MainWindow();
+            KalOS.Setup.App.MainWindow = wizard;
+            _window = wizard;
+
+            // Shared between both close paths so whichever fires first wins.
+            bool swapped = false;
+
+            void SwapToConsumer()
+            {
+                if (swapped || !KalOS.Setup.SetupState.IsSetupComplete) return;
+                swapped = true;
+
+                // Open the consumer shell FIRST so the app never drops to zero
+                // windows — that would exit the process before the swap.
+                _window = new MainWindow();
+                _window.Activate();
+
+                StartUpdateCheck();
+                ShowUpdateLogIfAny();
+                ShowRollbackIfRequired();
+
+                wizard.Close(); // re-enters the Closing hook; 'swapped' lets it through
+            }
+
+            // Path 1 — the Finish page's Close/exit (Window.Close() bypasses
+            // AppWindow.Closing, so the host must be handed it explicitly).
+            KalOS.Setup.SetupState.EmbeddedCloseHandler = SwapToConsumer;
+
+            // Path 2 — the title-bar ✕ / Alt+F4 after a completed setup.
+            try
+            {
+                var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(wizard);
+                var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
+                var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
+                appWindow.Closing += (s, e) =>
+                {
+                    if (swapped || !KalOS.Setup.SetupState.IsSetupComplete) return;
+                    // Cancel this close, then run the swap on the dispatcher —
+                    // calling wizard.Close() from inside a pending Closing event
+                    // would re-enter the handler mid-close.
+                    e.Cancel = true;
+                    wizard.DispatcherQueue.TryEnqueue(SwapToConsumer);
+                };
+            }
+            catch
+            {
+                // If the close interception is unavailable, closing the wizard
+                // simply exits; the marker survives and the next launch is
+                // the consumer app.
+            }
+
+            wizard.Activate();
         }
 
         /// <summary>

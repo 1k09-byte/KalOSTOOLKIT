@@ -1,7 +1,8 @@
 # Builds the consumer (distributable) build of KalOS and packages it as
 #   dist\KalOS-v{version}-win-x64.zip
 # Attach that zip to the matching GitHub release (e.g. tag v1.0.0.4) and
-# every installed copy of KalOS will auto-update to it.
+# every installed copy of KalOS will auto-update to it. The setup wizard is
+# compiled into the app, so this one zip is the whole release payload.
 #
 # Usage:  powershell -ExecutionPolicy Bypass -File publish-consumer.ps1
 param(
@@ -54,8 +55,8 @@ $dist = Join-Path $PSScriptRoot "dist"
 New-Item -ItemType Directory -Path $dist -Force | Out-Null
 # Keep only this version's package — stale zips from older builds can linger
 # and get swept onto a release by a broad upload glob.
-Get-ChildItem -Path $dist -Filter "KalOS.zip" -ErrorAction SilentlyContinue | Remove-Item -Force
-$zip = Join-Path $dist "KalOS.zip"
+Get-ChildItem -Path $dist -Filter "KalOS*.zip" -ErrorAction SilentlyContinue | Remove-Item -Force
+$zip = Join-Path $dist "KalOS-v$version-win-x64.zip"
 
 Write-Host "Packaging $zip ..."
 Compress-Archive -Path (Join-Path $out "*") -DestinationPath $zip -CompressionLevel Optimal

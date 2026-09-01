@@ -41,8 +41,9 @@ namespace KalOS.Setup
         public MainWindow()
         {
             InitializeComponent();
-            Title = $"KalOS Installer v{App.AppVersion}";
-            TitleBarText.Text = $"KalOS Installer v{App.AppVersion}";
+            string shellName = SetupState.Embedded ? "KalOS Setup" : "KalOS Installer";
+            Title = $"{shellName} v{App.AppVersion}";
+            TitleBarText.Text = $"{shellName} v{App.AppVersion}";
 
             // Mica over the whole window (falls back to a solid color on
             // systems that don't support it).
@@ -178,5 +179,22 @@ namespace KalOS.Setup
 
         /// <summary>Called by pages when their validity changes so the Next button refreshes.</summary>
         public void RefreshNav() => UpdateChrome();
+
+        /// <summary>
+        /// The Finish page's exit path. In embedded mode (wizard inside the
+        /// consumer app) the host intercepts this to swap into the consumer UI
+        /// before the window closes; standalone mode just closes the window.
+        /// This must NOT be a plain <c>Close()</c>: WinUI's Window.Close()
+        /// bypasses AppWindow.Closing, so the host could never intercept it.
+        /// </summary>
+        public void RequestClose()
+        {
+            if (SetupState.Embedded && SetupState.EmbeddedCloseHandler is { } handler)
+            {
+                handler();
+                return;
+            }
+            Close();
+        }
     }
 }
