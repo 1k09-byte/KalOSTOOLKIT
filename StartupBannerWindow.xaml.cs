@@ -99,6 +99,14 @@ public sealed partial class StartupBannerWindow : WindowEx
             }
             catch { /* not ready yet — retry timer covers it */ }
         };
+
+        // Drop the wallpaper decode on close so an in-flight BitmapImage
+        // completion can't touch the destroyed visual tree during teardown —
+        // one source of the native 0xc0000005 close-crash dialog.
+        Closed += (_, _) =>
+        {
+            try { BackgroundImage.Source = null; } catch { }
+        };
     }
 
     /// <summary>Shows the banner and starts its work (tasks + optional update check).</summary>

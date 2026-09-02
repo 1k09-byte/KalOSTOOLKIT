@@ -188,10 +188,12 @@ namespace KalOS.Setup
                     vm.OverallProgress = 88 + (double)(i + 1) / Math.Max(browsers.Count, 1) * 2;
                     vm.CurrentStep = $"Applying extensions to {entry.Name}";
                     vm.CurrentDetail = "Writing browser extension policies…";
-                    var extensions = BrowserExtensionService.CreateDefaultExtensions();
                     bool ok;
+                    int extensionCount = 0;
                     try
                     {
+                        var extensions = BrowserExtensionService.CreateDefaultExtensions();
+                        extensionCount = extensions.Count;
                         BrowserExtensionService.ApplyExtensions(entry.Name, entry.IsChromium, extensions);
                         ok = true;
                     }
@@ -199,10 +201,14 @@ namespace KalOS.Setup
                     {
                         ok = false;
                         vm.CurrentDetail = ex.Message;
+                        // Log the real reason — a silent ✗ in the summary is
+                        // undiagnosable otherwise.
+                        _services.GetRequiredService<LoggingService>()
+                            .Error($"{entry.Name} extensions: {ex}");
                     }
                     vm.LogStep($"Extensions: {entry.Name}", ok,
                         ok
-                            ? $"{extensions.Count} privacy extensions force-installed via browser policy."
+                            ? $"{extensionCount} privacy extensions force-installed via browser policy."
                             : "Failed to apply the extension policy.");
                 }
             }
@@ -236,14 +242,27 @@ namespace KalOS.Setup
                 string tweakDetail;
                 try
                 {
+                    var failures = new List<string>();
                     var (applied, failed) = await tweaks.ApplyAsync(
                         tweakDefs,
                         report: s => vm.CurrentDetail = s,
                         progress: p => vm.OverallProgress = 90 + p * 5, // Windhawk step owns 95–100%
-                        ct);
+                        ct,
+                        onFailure: failures.Add);
                     tweaksOk = failed == 0;
                     tweakDetail = $"{applied} tweaks applied"
                                   + (failed > 0 ? $", {failed} failed." : ".");
+                    if (failures.Count > 0)
+                    {
+                        // The finish screen shows this detail — say WHAT failed,
+                        // not just how many.
+                        tweakDetail += $" First failure: {failures[0]}";
+                        foreach (var failure in failures)
+                        {
+                            _services.GetRequiredService<LoggingService>()
+                                .Error($"Tweak failed: {failure}");
+                        }
+                    }
                 }
                 catch (OperationCanceledException)
                 {
@@ -575,7 +594,10 @@ namespace KalOS.Setup
         {
             var windhawk = _services.GetRequiredService<WindhawkManagerService>();
             var log = _services.GetRequiredService<LoggingService>();
-            var progress = new Progress<double>(p => vm.OverallProgress = 95 + p * 5);
+            // DeployModsAsync / InstallWindhawkAsync report 0–100; scale that
+            // into the step's 95–100% budget. (The old `* 5` mapping inflated
+            // the readout into the hundreds of percent during this step.)
+            var progress = new Progress<double>(p => vm.OverallProgress = 95 + p * 0.05);
             var status = new Progress<string>(s => vm.CurrentDetail = s);
 
             if (!windhawk.IsInstalled())

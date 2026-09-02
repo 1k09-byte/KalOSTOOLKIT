@@ -261,7 +261,8 @@ namespace KalOS.Services
             IEnumerable<TweakDef> tweaks,
             Action<string>? report = null,
             Action<double>? progress = null,
-            CancellationToken ct = default)
+            CancellationToken ct = default,
+            Action<string>? onFailure = null)
         {
             var list = tweaks.ToList();
             int applied = 0, failed = 0;
@@ -299,6 +300,7 @@ namespace KalOS.Services
                 catch (Exception ex)
                 {
                     failed += appx.Count;
+                    onFailure?.Invoke($"App removal failed — {ex.Message}");
                     report?.Invoke($"App removal failed — {ex.Message}");
                 }
                 progress?.Invoke((double)(list.Count - remaining.Count) / Math.Max(list.Count, 1));
@@ -331,7 +333,7 @@ namespace KalOS.Services
 
                 try
                 {
-                    await ExecuteAsync(tweak.Action, report, ct);
+                    await ExecuteAsync(tweak.Action, report, ct, onFailure);
                     applied++;
                 }
                 catch (OperationCanceledException)
@@ -341,6 +343,7 @@ namespace KalOS.Services
                 catch (Exception ex)
                 {
                     failed++;
+                    onFailure?.Invoke($"{tweak.Name} — {ex.Message}");
                     report?.Invoke($"{tweak.Name} — {ex.Message}");
                 }
                 progress?.Invoke((double)((list.Count - remaining.Count) + i + 1) / Math.Max(list.Count, 1));
@@ -350,7 +353,8 @@ namespace KalOS.Services
 
         // ── dispatch ──────────────────────────────────────────────────────
 
-        private Task ExecuteAsync(TweakAction action, Action<string>? report, CancellationToken ct)
+        private Task ExecuteAsync(TweakAction action, Action<string>? report, CancellationToken ct,
+            Action<string>? onFailure = null)
         {
             return action switch
             {
@@ -364,7 +368,7 @@ namespace KalOS.Services
                 DisableFeatureAction a => DisableFeatureAsync(a, ct),
                 RemoveCapabilityAction a => RemoveCapabilitiesAsync(a, ct),
                 DisableServiceAction a => DisableServiceAsync(a, ct),
-                DisableTaskAction a => DisableTasksAsync(a, ct),
+                DisableTaskAction a => DisableTasksAsync(a, ct, onFailure),
                 HostsBlockAction a => Task.Run(() => BlockHosts(a), ct),
                 ClearEventLogsAction _ => ClearEventLogsAsync(ct),
                 RunToolAction a => RunAsync(a.FileName, a.Arguments, ct),
@@ -792,7 +796,8 @@ namespace KalOS.Services
 
         // ── scheduled tasks (schtasks — the built-in tool) ────────────────
 
-        private async Task DisableTasksAsync(DisableTaskAction a, CancellationToken ct)
+        private async Task DisableTasksAsync(DisableTaskAction a, CancellationToken ct,
+            Action<string>? onFailure = null)
         {
             var rx = new Regex("^" + Regex.Escape(a.TaskNamePattern).Replace("\\*", ".*") + "$",
                 RegexOptions.IgnoreCase);
@@ -805,6 +810,17 @@ namespace KalOS.Services
             // catalog has dozens of these, each previously re-querying
             // everything).
             _taskLines ??= await RunCaptureAsync("schtasks.exe", "/Query /FO CSV /V", ct);
+            if (_taskLines.Count == 0)
+            {
+                // Task Scheduler is stopped/disabled (common on debloated
+                // builds) — the tasks can't run anyway, so the tweak's goal is
+                // already met. Report it so the summary is honest, but don't
+                // count it as a failure.
+                onFailure?.Invoke(
+                    "scheduled-task tweaks skipped: Task Scheduler is unavailable " +
+                    "(schtasks enumerated no tasks)");
+                return;
+            }
             foreach (var line in _taskLines.Skip(1)) // header
             {
                 var name = ReadCsvField(line, 0);

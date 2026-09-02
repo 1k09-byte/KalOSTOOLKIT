@@ -83,7 +83,7 @@ namespace KalOS.Models
                 ScoopName = "brave",
                 IsBrowser = true,
                 IsChromium = true,
-                FallbackDownloadUrl = "https://brave.com/latest/BraveBrowserWin64.msi",
+                FallbackDownloadUrl = "https://laptop-updates.brave.com/latest/BraveBrowserWin64.msi",
                 FallbackInstallerArgs = "/quiet /qn /norestart",
                 InstallerKind = CatalogInstallerKind.Msi,
             },

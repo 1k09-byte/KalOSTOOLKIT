@@ -5,12 +5,14 @@
 # success/failure in the apply log.
 #
 # ══════════════════════════════════════════════════════════════════════════
-#  HOW TO ADD A TWEAK — the easy way
+#  HOW TO ADD A TWEAK
 #  1. Write your tweak below using the helpers (or plain PowerShell).
-#  2. Bump "version" in os-changes.json to the new release tag
-#  3. Publish. Users get the "Apply changes" button once, and this runs.
+#  2. Add a "script" entry for this file to os-changes.json and bump that
+#     manifest's "version" to the new release tag. Users then get the
+#     "Apply changes" button once, and this runs.
 #
-#  That's it — you never edit the JSON, only this file plus one number.
+#  Releases with NO tweaks must keep os-changes.json's "changes" empty — only
+#  then does the app refrain from advertising OS changes that don't exist.
 # ══════════════════════════════════════════════════════════════════════════
 #
 # Everything here is idempotent: re-running after a partial failure is safe.

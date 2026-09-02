@@ -122,6 +122,16 @@ namespace KalOS
             // Apply background image from saved settings.
             ApplyBackgroundImage();
 
+            // Drop the wallpaper decode when the window closes so an in-flight
+            // BitmapImage completion can't touch the destroyed visual tree
+            // during XAML teardown — a known source of the native 0xc0000005
+            // close-crash dialog.
+            Closed += (_, _) =>
+            {
+                try { BackgroundImage.Source = null; } catch { }
+                _backgroundImageBitmap = null;
+            };
+
             // Refresh the background image when settings change.
             var settingsVm = App.Services.GetRequiredService<ViewModels.SettingsViewModel>();
             settingsVm.PropertyChanged += (_, e) =>
