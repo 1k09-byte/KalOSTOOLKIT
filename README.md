@@ -25,12 +25,6 @@ The `install-kalos.ps1` script runs the full **dependency checker** first — ad
 
 Prefer downloading manually? Grab `KalOS-v{version}-win-x64.zip` from the [Releases](https://github.com/1k09-byte/KalOSTOOLKIT/releases) page, extract it anywhere, and run `KalOS.exe` — it is self-contained and includes the Windows App SDK runtime and hardware-monitor worker dependencies.
 
-To install the old **standalone** KalOS Setup wizard exe instead (rarely needed — the app has the wizard built in), add `-SetupWizard`:
-
-```powershell
-powershell -ExecutionPolicy Bypass -c "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/1k09-byte/KalOSTOOLKIT/main/install-kalos.ps1))) -SetupWizard"
-```
-
 To completely remove the app, run the `uninstall-kalos.ps1` script. This dedicated uninstaller safely terminates any running instances, removes the installation folder, deletes all shortcuts, and wipes the deployment clean.
 
 ## KalOS Setup wizard
