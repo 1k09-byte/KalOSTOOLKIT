@@ -225,10 +225,6 @@
                         <FontIcon Glyph="&#xE950;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                     </controls:SettingsCard.HeaderIcon>
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <TextBlock Text="{x:Bind ViewModel.PrioritySeparationCurrentText, Mode=OneWay}"
-                                   VerticalAlignment="Center"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                   FontSize="12" />
                         <ComboBox ItemsSource="{x:Bind ViewModel.PrioritySeparationItems}"
                                   SelectedItem="{x:Bind ViewModel.SelectedPrioritySeparation, Mode=TwoWay}"
                                   DisplayMemberPath="Label"
@@ -260,10 +256,6 @@
                         <FontIcon Glyph="&#xE770;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                     </controls:SettingsCard.HeaderIcon>
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <TextBlock Text="{x:Bind ViewModel.SvcHostSplitCurrentText, Mode=OneWay}"
-                                   VerticalAlignment="Center"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                   FontSize="12" />
                         <ComboBox ItemsSource="{x:Bind ViewModel.SvcHostSplitItems}"
                                   SelectedItem="{x:Bind ViewModel.SelectedSvcHostSplit, Mode=TwoWay}"
                                   DisplayMemberPath="Label"
@@ -298,10 +290,6 @@
                         <FontIcon Glyph="&#xE7FC;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                     </controls:SettingsCard.HeaderIcon>
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <TextBlock Text="{x:Bind ViewModel.FullscreenCurrentText, Mode=OneWay}"
-                                   VerticalAlignment="Center"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                   FontSize="12" />
                         <ToggleSwitch IsOn="{x:Bind ViewModel.FullscreenOptimizationsEnabled, Mode=TwoWay}"
                                       OnContent="FSO"
                                       OffContent="FSE"
@@ -333,16 +321,10 @@
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE7C3;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                     </controls:SettingsCard.HeaderIcon>
-                    <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                        <TextBlock Text="{x:Bind ViewModel.UacCurrentText, Mode=OneWay}"
-                                   VerticalAlignment="Center"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                   FontSize="12" />
-                        <ToggleSwitch IsOn="{x:Bind ViewModel.UacEnabled, Mode=TwoWay}"
-                                      MinWidth="0"
-                                      OnContent="On"
-                                      OffContent="Off" />
-                    </StackPanel>
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.UacEnabled, Mode=TwoWay}"
+                                  MinWidth="0"
+                                  OnContent="On"
+                                  OffContent="Off" />
                 </controls:SettingsCard>
 
                 <InfoBar IsOpen="{x:Bind ViewModel.UacDetectedNeedsReboot, Mode=OneWay}"
@@ -356,10 +338,6 @@
                         <FontIcon Glyph="&#xE8A7;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                     </controls:SettingsCard.HeaderIcon>
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <TextBlock Text="{x:Bind ViewModel.VbsCurrentText, Mode=OneWay}"
-                                   VerticalAlignment="Center"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                   FontSize="12" />
                         <ToggleSwitch IsOn="{x:Bind ViewModel.VbsEnabled, Mode=TwoWay}"
                                       MinWidth="0"
                                       OnContent="On"
@@ -396,10 +374,6 @@
                         <FontIcon Glyph="&#xE90F;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                     </controls:SettingsCard.HeaderIcon>
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <TextBlock Text="{x:Bind ViewModel.HvciCurrentText, Mode=OneWay}"
-                                   VerticalAlignment="Center"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                   FontSize="12" />
                         <ToggleSwitch IsOn="{x:Bind ViewModel.HvciEnabled, Mode=TwoWay}"
                                       MinWidth="0"
                                       OnContent="On"

@@ -52,7 +52,7 @@
                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                         <StackPanel Grid.Column="1" Spacing="3">
                             <TextBlock Text="App theme" FontWeight="SemiBold" />
-                            <TextBlock Text="Choose between the light and dark appearance."
+                            <TextBlock Text="Choose Light, Dark, or System (follows Windows)."
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                         </StackPanel>
                         <ComboBox Grid.Column="2" ItemsSource="{x:Bind ViewModel.Themes}"

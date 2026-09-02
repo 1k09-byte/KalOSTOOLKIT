@@ -25,24 +25,16 @@
                 
                 <TextBlock Text="Tools" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
                 
-                <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                        BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
-                        BorderThickness="1" CornerRadius="8" Padding="18">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Spacing="3">
-                            <TextBlock Text="Snappy Driver Installer Origin" FontWeight="SemiBold" />
-                            <TextBlock Text="{Binding StatusText, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                            <ProgressRing IsActive="{Binding IsWorking, Mode=OneWay}" Visibility="{Binding IsWorking, Mode=OneWay}" Width="16" Height="16" />
-                            <Button Content="Open SDIO" Command="{Binding OpenSdioCommand}" Style="{StaticResource AccentButtonStyle}" />
-                        </StackPanel>
-                    </Grid>
-                </Border>
+                <controls:SettingsCard Header="Snappy Driver Installer Origin"
+                                        Description="{Binding StatusText, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xEDE0;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <ProgressRing IsActive="{Binding IsWorking, Mode=OneWay}" Visibility="{Binding IsWorking, Mode=OneWay, Converter={StaticResource BoolToVis}}" Width="16" Height="16" />
+                        <Button Content="Open SDIO" Command="{Binding OpenSdioCommand}" Style="{StaticResource AccentButtonStyle}" />
+                    </StackPanel>
+                </controls:SettingsCard>
 
             </StackPanel>
         </Grid>

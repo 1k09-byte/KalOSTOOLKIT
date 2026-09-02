@@ -6,7 +6,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:winuiex="using:WinUIEx"
     mc:Ignorable="d"
-    Title="KalOS (update test)"
+    Title="KalOS"
     Width="1200"
     Height="820"
     MinWidth="900"
@@ -32,52 +32,81 @@
               Background="#80000000"
               Visibility="Collapsed" />
 
-        <!-- Title bar with integrated search -->
+        <!-- Title bar -->
         <TitleBar x:Name="AppTitleBar"
-                  Grid.Row="0"
-                  Title="KalOS (update test)"
-                  IsPaneToggleButtonVisible="True"
-                  PaneToggleRequested="AppTitleBar_PaneToggleRequested">
-            <TitleBar.Content>
-                <AutoSuggestBox x:Name="ToolSearchBox"
-                                Width="420"
-                                PlaceholderText="Search tools…"
-                                QueryIcon="Find"
-                                QuerySubmitted="ToolSearchBox_QuerySubmitted"
-                                HorizontalAlignment="Center" />
-            </TitleBar.Content>
-        </TitleBar>
+                   Grid.Row="0"
+                   Title="KalOS"
+                   IsPaneToggleButtonVisible="True"
+                   PaneToggleRequested="AppTitleBar_PaneToggleRequested" />
 
         <!-- Navigation shell — flattened to 2 levels max -->
         <NavigationView x:Name="NavView"
-                        Grid.Row="1"
-                        PaneDisplayMode="Auto"
-                        CompactModeThresholdWidth="641"
-                        ExpandedModeThresholdWidth="1008"
-                        IsPaneOpen="True"
-                        IsPaneToggleButtonVisible="False"
-                        IsBackButtonVisible="Auto"
-                        IsSettingsVisible="False"
-                        OpenPaneLength="260"
-                        CompactPaneLength="48"
-                        ItemInvoked="NavView_ItemInvoked"
-                        BackRequested="NavView_BackRequested">
+                         Grid.Row="1"
+                         PaneDisplayMode="Auto"
+                         CompactModeThresholdWidth="641"
+                         ExpandedModeThresholdWidth="1008"
+                         IsPaneOpen="True"
+                         IsPaneToggleButtonVisible="False"
+                         IsBackButtonVisible="Collapsed"
+                         IsSettingsVisible="False"
+                         OpenPaneLength="260"
+                         CompactPaneLength="48"
+                         ItemInvoked="NavView_ItemInvoked">
             <NavigationView.MenuItems>
                 <!-- ─── Overview ─── -->
-                <NavigationViewItem Content="Home" Tag="Home" />
-                <NavigationViewItem Content="System Overview" Tag="SystemOverview" />
-
-                <NavigationViewItem Content="Browsers &amp; Software" Tag="Browsers" />
-                <NavigationViewItem Content="GPU Drivers" Tag="GpuDrivers" />
-                <NavigationViewItem Content="Other Drivers" Tag="Sdio" />
-                <NavigationViewItem Content="BIOS Manager" Tag="Bios" />
-                <NavigationViewItem Content="Per-CPU Scheduling" Tag="AffinityManager" />
-                <NavigationViewItem Content="Personalization" Tag="Personalization" />
-                <NavigationViewItem Content="Additional Tweaks" Tag="AdditionalTweaks" />
+                <NavigationViewItem Content="Home" Tag="Home">
+                    <NavigationViewItem.Icon>
+                        <FontIcon FontFamily="Segoe UI Emoji" Glyph="🏠" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="System Overview" Tag="SystemOverview">
+                    <NavigationViewItem.Icon>
+                        <FontIcon FontFamily="Segoe UI Emoji" Glyph="💻" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Browsers &amp; Software" Tag="Browsers">
+                    <NavigationViewItem.Icon>
+                        <FontIcon FontFamily="Segoe UI Emoji" Glyph="🌐" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="GPU Drivers" Tag="GpuDrivers">
+                    <NavigationViewItem.Icon>
+                        <FontIcon FontFamily="Segoe UI Emoji" Glyph="🎮" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Other Drivers" Tag="Sdio">
+                    <NavigationViewItem.Icon>
+                        <FontIcon FontFamily="Segoe UI Emoji" Glyph="🔧" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="BIOS Manager" Tag="Bios">
+                    <NavigationViewItem.Icon>
+                        <FontIcon FontFamily="Segoe UI Emoji" Glyph="⚙️" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Per-CPU Scheduling" Tag="AffinityManager">
+                    <NavigationViewItem.Icon>
+                        <BitmapIcon UriSource="ms-appx:///Assets/Cpu.png" ShowAsMonochrome="False" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Personalization" Tag="Personalization">
+                    <NavigationViewItem.Icon>
+                        <FontIcon FontFamily="Segoe UI Emoji" Glyph="🎨" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Additional Tweaks" Tag="AdditionalTweaks">
+                    <NavigationViewItem.Icon>
+                        <FontIcon FontFamily="Segoe UI Emoji" Glyph="🛠️" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
             </NavigationView.MenuItems>
 
             <NavigationView.FooterMenuItems>
-                <NavigationViewItem Content="Settings" Tag="Settings" />
+                <NavigationViewItem Content="Settings" Tag="Settings">
+                    <NavigationViewItem.Icon>
+                        <FontIcon FontFamily="Segoe UI Emoji" Glyph="⚙️" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
             </NavigationView.FooterMenuItems>
 
             <Frame x:Name="ContentFrame" Background="Transparent" PointerWheelChanged="ContentFrame_PointerWheelChanged"

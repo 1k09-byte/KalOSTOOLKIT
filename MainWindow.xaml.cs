@@ -59,9 +59,8 @@ namespace KalOS
             ExtendsContentIntoTitleBar = true;
             SetTitleBar(AppTitleBar);
 
-            // Show the app version in the title bar and window title (e.g. "KalOS 1.1.4.0" or "KalOS Edit Toolkit").
-            AppTitleBar.Title = $"KalOS {App.AppVersion}";
-            Title = $"KalOS {App.AppVersion}";
+            AppTitleBar.Title = "KalOS";
+            Title = "KalOS";
 
             _themeService = App.Services.GetRequiredService<ThemeService>();
             _backdropService = App.Services.GetRequiredService<BackdropService>();
@@ -102,6 +101,21 @@ namespace KalOS
                 args.WindowActivationState != WindowActivationState.Deactivated);
 
             _themeService.ThemeChanged += OnThemeChanged;
+            // When in System (Default) mode, the OS theme can change underneath us.
+            // ActualThemeChanged is the only signal that fires then — update
+            // title-bar colors and backdrop (which are set manually) to stay in sync.
+            RootGrid.ActualThemeChanged += (_, _) =>
+            {
+                if (_themeService.CurrentTheme == ElementTheme.Default)
+                {
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        var effective = ResolveEffectiveTheme(ElementTheme.Default);
+                        UpdateCaptionButtonColors(effective);
+                        _backdropService.UpdateSystemBackdropState(effective);
+                    });
+                }
+            };
             _backdropService.BackdropChanging += OnBackdropChanging;
             _backdropService.BackdropChanged += OnBackdropChanged;
 
@@ -151,7 +165,6 @@ namespace KalOS
             // natural opening screen for a freshly installed copy of the app.
             ContentFrame.Navigate(typeof(HomePage));
             ContentFrame.Navigated += ContentFrame_Navigated;
-            NavView.IsBackEnabled = ContentFrame.CanGoBack;
 
             // Sync the nav-pane highlight so the selected menu item matches the frame.
             // ItemInvoked is the only path that normally sets SelectedItem for us, so
@@ -166,33 +179,8 @@ namespace KalOS
             NavView.IsPaneOpen = !NavView.IsPaneOpen;
         }
 
-        private void NavView_BackRequested(NavigationView sender, NavigationViewBackRequestedEventArgs args)
-        {
-            if (ContentFrame.CanGoBack)
-            {
-                ContentFrame.GoBack();
-
-                // Sync the nav highlight with the page we landed on
-                var pageType = ContentFrame.CurrentSourcePageType;
-                if (pageType != null)
-                {
-                    NavigationViewItem? item = null;
-                    foreach (var menuItem in NavView.MenuItems.OfType<NavigationViewItem>())
-                    {
-                        item ??= FindNavItemForPage(menuItem, pageType);
-                    }
-                    foreach (var footerItem in NavView.FooterMenuItems.OfType<NavigationViewItem>())
-                    {
-                        item ??= FindNavItemForPage(footerItem, pageType);
-                    }
-                    NavView.SelectedItem = item;
-                }
-            }
-        }
-
         private void ContentFrame_Navigated(object sender, Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
         {
-            NavView.IsBackEnabled = ContentFrame.CanGoBack;
             // Ensure the pane highlight stays in sync when navigation was triggered
             // programmatically (e.g., Visual Effects → Back).
             var pageType = ContentFrame.CurrentSourcePageType;
@@ -211,34 +199,6 @@ namespace KalOS
                 // VisualEffects deliberately leave the parent (Personalization) highlighted
                 // and rely on the in-page Back button + NavigationView back arrow.
                 if (item != null) NavView.SelectedItem = item;
-            }
-        }
-
-        private void ToolSearchBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
-        {
-            string query = sender.Text?.Trim().ToLowerInvariant() ?? string.Empty;
-            Type? pageType = query switch
-            {
-                var value when value.Contains("system") || value.Contains("hardware") || value.Contains("overview") => typeof(SystemOverviewPage),
-                var value when value.Contains("home") => typeof(HomePage),
-                var value when value.Contains("browser") || value.Contains("software") => typeof(BrowserPage),
-                var value when value.Contains("gpu") || value.Contains("driver") => typeof(GpuDriversPage),
-                var value when value.Contains("sdio") || value.Contains("other driver") => typeof(SdioPage),
-                var value when value.Contains("bios") || value.Contains("uefi") || value.Contains("firmware") => typeof(BiosPage),
-                var value when value.Contains("affinity") || value.Contains("cpu") => typeof(AffinityManagerPage),
-
-                var value when value.Contains("personal") => typeof(PersonalizationPage),
-                var value when value.Contains("tweak") => typeof(AdditionalTweaksPage),
-                var value when value.Contains("visual") || value.Contains("effect") => typeof(VisualEffectsPage),
-                var value when value.Contains("windhawk") || value.Contains("mod") => typeof(WindhawkPage),
-                var value when value.Contains("setting") => typeof(SettingsPage),
-                _ => null
-            };
-
-            if (pageType != null)
-            {
-                NavigateToPage(pageType);
-                sender.Text = string.Empty;
             }
         }
 
