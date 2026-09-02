@@ -30,7 +30,7 @@ namespace KalOS.Services
         {
             // Restore the persisted theme before the first window is shown.
             var config = JsonConfigHelper.LoadSync<ThemeConfig>(ConfigFile);
-            if (config is not null && Enum.TryParse<ElementTheme>(config.Theme, out var saved) && saved != ElementTheme.Default)
+            if (config is not null && Enum.TryParse<ElementTheme>(config.Theme, out var saved))
             {
                 _currentTheme = saved;
             }

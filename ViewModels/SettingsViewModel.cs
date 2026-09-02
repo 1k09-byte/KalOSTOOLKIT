@@ -73,7 +73,7 @@ namespace KalOS.ViewModels
         public bool IsUpdateFeatureVisible => false;
 #endif
 
-        public List<string> Themes { get; } = new() { "Light", "Dark" };
+        public List<string> Themes { get; } = new() { "Light", "Dark", "System" };
 
         public List<string> Backdrops { get; } = new() { "Mica", "Mica Alt", "Acrylic" };
 
@@ -106,10 +106,13 @@ namespace KalOS.ViewModels
             _backdropService = backdropService;
             _updateService = updateService;
 
-            // The app is dark-first: only an explicit Light preference (or a
-            // persisted one) selects Light — everything else reports Dark so the
-            // dropdown always matches what is actually rendered.
-            _selectedTheme = _themeService.CurrentTheme == ElementTheme.Light ? "Light" : "Dark";
+            // Map persisted theme to dropdown (System == Default).
+            _selectedTheme = _themeService.CurrentTheme switch
+            {
+                ElementTheme.Light => "Light",
+                ElementTheme.Default => "System",
+                _ => "Dark"
+            };
             _selectedBackdrop = _backdropService.CurrentBackdrop switch
             {
                 BackdropType.Mica => "Mica",
@@ -138,7 +141,12 @@ namespace KalOS.ViewModels
 
         partial void OnSelectedThemeChanged(string value)
         {
-            var theme = value == "Dark" ? ElementTheme.Dark : ElementTheme.Light;
+            var theme = value switch
+            {
+                "Light" => ElementTheme.Light,
+                "System" => ElementTheme.Default,
+                _ => ElementTheme.Dark
+            };
             _themeService.SetTheme(theme);
         }
 

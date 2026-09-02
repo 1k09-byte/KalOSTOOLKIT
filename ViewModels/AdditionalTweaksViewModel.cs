@@ -700,13 +700,11 @@ namespace KalOS.ViewModels
                     var match = items.FirstOrDefault(o => o.Value == c);
                     if (match != null)
                     {
-                        var idx = items.IndexOf(match);
-                        items[idx] = match with { Description = match.Description + " (current)" };
-                        selected = items[idx];
+                        selected = match;
                     }
                     else
                     {
-                        var custom = new PrioritySeparationOption(c, "Custom (current)");
+                        var custom = new PrioritySeparationOption(c, "Custom");
                         items.Insert(0, custom);
                         selected = custom;
                     }
@@ -790,13 +788,11 @@ namespace KalOS.ViewModels
                     var match = items.FirstOrDefault(o => o.Value == c);
                     if (match != null)
                     {
-                        var idx = items.IndexOf(match);
-                        items[idx] = match with { RamLabel = match.RamLabel + " (current)" };
-                        selected = items[idx];
+                        selected = match;
                     }
                     else
                     {
-                        var custom = new SvcHostSplitOption(c, $"Custom ({c:x}) (current)");
+                        var custom = new SvcHostSplitOption(c, $"Custom ({c:x})");
                         items.Insert(0, custom);
                         selected = custom;
                     }
