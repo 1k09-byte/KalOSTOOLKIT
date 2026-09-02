@@ -71,7 +71,17 @@ namespace KalOS
             
             var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
             var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
-            
+
+            // Dismiss any open dialogs BEFORE teardown begins — closing a
+            // window while a ContentDialog is open crashes native XAML
+            // teardown (the 0xc0000005 "Exception Processing Message" box
+            // seen on WER-disabled machines when the app is closed).
+            try
+            {
+                appWindow.Closing += (_, _) => App.HideOpenDialogs();
+            }
+            catch { }
+
             if (appWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter)
             {
                 presenter.Maximize();

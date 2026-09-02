@@ -12,6 +12,18 @@ using Microsoft.Win32;
 namespace KalOS.Services
 {
     /// <summary>
+    /// An action the operating system itself refuses to perform (a protected
+    /// Appx package, a locked-down policy ACL). Reported as a skip with a
+    /// reason instead of a failure — KalOS cannot unblock the OS, and the
+    /// machine is usually already in the intended state (a protected package
+    /// is pinned deprovisioned so it can never be reinstalled).
+    /// </summary>
+    internal sealed class TweakBlockedException : Exception
+    {
+        public TweakBlockedException(string message) : base(message) { }
+    }
+
+    /// <summary>
     /// Runs the <see cref="TweakCatalog"/> natively — no batch scripts.
     ///
     /// Registry keys/values go through <see cref="Microsoft.Win32.Registry"/>,
@@ -253,19 +265,24 @@ namespace KalOS.Services
                 || state.StartsWith("Disable", StringComparison.OrdinalIgnoreCase);
         }
 
-        /// <summary>
-        /// Runs the given tweaks. Returns (applied, failed). <paramref name="progress"/>
-        /// receives the fraction (0..1) of tweaks completed after each one.
-        /// </summary>
-        public async Task<(int Applied, int Failed)> ApplyAsync(
-            IEnumerable<TweakDef> tweaks,
-            Action<string>? report = null,
-            Action<double>? progress = null,
-            CancellationToken ct = default,
-            Action<string>? onFailure = null)
-        {
-            var list = tweaks.ToList();
-            int applied = 0, failed = 0;
+    /// <summary>
+    /// Runs the given tweaks. Returns (applied, failed). <paramref name="progress"/>
+    /// receives the fraction (0..1) of tweaks completed after each one.
+    /// Actions the OPERATING SYSTEM refuses (protected packages, locked-down
+    /// policy ACLs) are counted as skipped — not failed — and reported through
+    /// <paramref name="onSkipped"/> so the summary stays honest without a
+    /// scary ✗ for a machine that simply will not allow the change.
+    /// </summary>
+    public async Task<(int Applied, int Failed)> ApplyAsync(
+        IEnumerable<TweakDef> tweaks,
+        Action<string>? report = null,
+        Action<double>? progress = null,
+        CancellationToken ct = default,
+        Action<string>? onFailure = null,
+        Action<string>? onSkipped = null)
+    {
+        var list = tweaks.ToList();
+        int applied = 0, failed = 0, skipped = 0;
 
             // Reset the per-run caches so a fresh ApplyAsync re-probes the OS
             // (task/capability/feature state can change between installs).
@@ -296,6 +313,12 @@ namespace KalOS.Services
                 catch (OperationCanceledException)
                 {
                     throw;
+                }
+                catch (TweakBlockedException ex)
+                {
+                    skipped += appx.Count;
+                    onSkipped?.Invoke($"App removal skipped — {ex.Message}");
+                    report?.Invoke($"App removal skipped — {ex.Message}");
                 }
                 catch (Exception ex)
                 {
@@ -339,6 +362,25 @@ namespace KalOS.Services
                 catch (OperationCanceledException)
                 {
                     throw;
+                }
+                catch (TweakBlockedException ex)
+                {
+                    skipped++;
+                    onSkipped?.Invoke($"{tweak.Name} — {ex.Message}");
+                    report?.Invoke($"{tweak.Name} — {ex.Message}");
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    // The OS/ACL refuses the write (locked-down policy keys).
+                    skipped++;
+                    onSkipped?.Invoke($"{tweak.Name} — blocked by Windows (access denied); skipped");
+                    report?.Invoke($"{tweak.Name} — blocked by Windows (access denied); skipped");
+                }
+                catch (System.Security.SecurityException)
+                {
+                    skipped++;
+                    onSkipped?.Invoke($"{tweak.Name} — blocked by Windows (permission denied); skipped");
+                    report?.Invoke($"{tweak.Name} — blocked by Windows (permission denied); skipped");
                 }
                 catch (Exception ex)
                 {
@@ -584,9 +626,10 @@ namespace KalOS.Services
 
             if (p.ExitCode != 0)
             {
-                throw new InvalidOperationException(
-                    $"Package '{a.PackageName}' could not be removed" +
-                    (errors.Length == 0 ? "." : $": {errors.Split('\n')[0].Trim()}"));
+                throw new TweakBlockedException(
+                    $"package '{a.PackageName}' could not be removed" +
+                    (errors.Length == 0 ? " (protected or in use)" : $": {errors.Split('\n')[0].Trim()}") +
+                    " — deprovision markers were written, so it cannot be reinstalled");
             }
         }
 
@@ -668,8 +711,10 @@ namespace KalOS.Services
             }
             if (failed.Count > 0)
             {
-                throw new InvalidOperationException(
-                    $"Package '{failed.First()}' could not be removed (" + failed.Count + " package(s) left over).");
+                throw new TweakBlockedException(
+                    $"package '{failed.First()}' could not be removed (" + failed.Count +
+                    " package(s) left over — protected or in use; deprovision markers were written, " +
+                    "so they cannot be reinstalled)");
             }
         }
 

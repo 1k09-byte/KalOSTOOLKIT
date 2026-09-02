@@ -56,6 +56,103 @@ namespace KalOS
         [System.Runtime.InteropServices.DllImport("kernel32.dll")]
         private static extern uint SetErrorMode(uint uMode);
 
+        // ── Native crash dumps ──────────────────────────────────────────────
+        // The 0xc0000005 "Exception Processing Message" dialog is a native
+        // access violation inside XAML/CoreMessaging teardown that no managed
+        // handler can catch. Two dump mechanisms are enabled so a recurring
+        // crash always leaves an exact stack: WER LocalDumps (written by
+        // Windows itself — zero in-process risk) and a vectored exception
+        // handler that writes a minidump on any access violation.
+
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr AddVectoredExceptionHandler(uint first, IntPtr handler);
+
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr GetCurrentProcess();
+
+        [DllImport("kernel32.dll")]
+        private static extern uint GetCurrentProcessId();
+
+        [DllImport("dbghelp.dll", SetLastError = true)]
+        private static extern bool MiniDumpWriteDump(IntPtr process, uint processId, IntPtr file,
+            uint dumpType, IntPtr exceptionParam, IntPtr userStreamParam, IntPtr callbackParam);
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate int VectoredExceptionHandler(IntPtr exceptionPointers);
+
+        private static VectoredExceptionHandler? _vectoredHandler;
+
+        // Pre-opened dump file: the handler must make only native calls (the
+        // faulting thread may be mid-teardown, so no allocation or CLR work).
+        private static System.IO.FileStream? _nativeDumpFile;
+        private static string? _nativeDumpPath;
+
+        private static int NativeExceptionDumpHandler(IntPtr exceptionPointers)
+        {
+            try
+            {
+                // EXCEPTION_POINTERS → ExceptionRecord → ExceptionCode (first DWORD).
+                IntPtr record = Marshal.ReadIntPtr(exceptionPointers);
+                if (record == IntPtr.Zero || Marshal.ReadInt32(record) != unchecked((int)0xC0000005))
+                {
+                    return 0; // EXCEPTION_CONTINUE_SEARCH
+                }
+
+                if (_nativeDumpFile?.SafeFileHandle is { IsInvalid: false } handle)
+                {
+                    MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(),
+                        handle.DangerousGetHandle(),
+                        0x2 /* MiniDumpWithDataSegs */, exceptionPointers, IntPtr.Zero, IntPtr.Zero);
+                }
+            }
+            catch { }
+            return 0; // never swallow the exception — WER / the OS still sees it
+        }
+
+        /// <summary>Enables both dump mechanisms. Safe to call once at startup; never throws.</summary>
+        private static void EnableNativeCrashDumps()
+        {
+            try
+            {
+                string dir = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "KalOS", "CrashLogs");
+                Directory.CreateDirectory(dir);
+
+                // WER LocalDumps — Windows writes a dump on any crash of this exe.
+                try
+                {
+                    using var baseKey = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(
+                        @"SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\KalOS.exe");
+                    if (baseKey is not null)
+                    {
+                        baseKey.SetValue("DumpFolder", dir);
+                        baseKey.SetValue("DumpType", 2, Microsoft.Win32.RegistryValueKind.DWord); // full dump
+                    }
+                }
+                catch { }
+
+                // In-process backup for machines where WER is disabled entirely
+                // (exactly the machines that show the raw System Error box).
+                // Clean stale 0-byte files first (a previous run was hard-killed).
+                try
+                {
+                    foreach (string stale in Directory.GetFiles(dir, "native_*.dmp"))
+                    {
+                        if (new System.IO.FileInfo(stale).Length == 0) System.IO.File.Delete(stale);
+                    }
+                }
+                catch { }
+
+                _nativeDumpPath = System.IO.Path.Combine(dir, $"native_{DateTime.Now:yyyyMMdd_HHmmss}.dmp");
+                _nativeDumpFile = System.IO.File.Create(_nativeDumpPath);
+                _vectoredHandler = NativeExceptionDumpHandler;
+                AddVectoredExceptionHandler(1 /* first: observe, never swallow */,
+                    Marshal.GetFunctionPointerForDelegate(_vectoredHandler));
+            }
+            catch { /* dump plumbing must never break startup */ }
+        }
+
         /// <summary>
         /// Other top-level windows the app can create beyond the main window
         /// (e.g. the Settings page's startup-banner preview). Tracked so
@@ -63,6 +160,57 @@ namespace KalOS
         /// last one for the DispatcherQueue event loop to exit on its own.
         /// </summary>
         private static readonly List<Window> AuxiliaryWindows = new();
+
+        /// <summary>
+        /// ContentDialogs currently on screen. Tracked so shutdown can dismiss
+        /// them BEFORE any window closes: closing a window while a dialog is
+        /// open crashes native XAML teardown (the 0xc0000005 "Exception
+        /// Processing Message" System Error box seen on machines with WER
+        /// disabled). Every ShowAsync registers its dialog here.
+        /// </summary>
+        private static readonly List<ContentDialog> OpenDialogs = new();
+
+        /// <summary>Registers a dialog so it is dismissed before window teardown.</summary>
+        internal static void TrackDialog(ContentDialog dialog)
+        {
+            lock (OpenDialogs)
+            {
+                if (OpenDialogs.Contains(dialog)) return;
+                OpenDialogs.Add(dialog);
+                dialog.Closed += (_, _) =>
+                {
+                    lock (OpenDialogs) OpenDialogs.Remove(dialog);
+                };
+            }
+        }
+
+        /// <summary>
+        /// Dismisses every open dialog (tracked dialogs plus any open popups
+        /// still attached to the main window's XamlRoot). Called from window
+        /// Closing handlers and from <see cref="ShutdownProcess"/> so native
+        /// teardown never races a live popup.
+        /// </summary>
+        internal static void HideOpenDialogs()
+        {
+            List<ContentDialog> tracked;
+            lock (OpenDialogs) tracked = OpenDialogs.ToList();
+            foreach (var dialog in tracked)
+            {
+                try { dialog.Hide(); } catch { }
+            }
+
+            try
+            {
+                if ((Current as App)?._window?.Content is FrameworkElement root && root.XamlRoot is { } xamlRoot)
+                {
+                    foreach (var popup in Microsoft.UI.Xaml.Media.VisualTreeHelper.GetOpenPopupsForXamlRoot(xamlRoot))
+                    {
+                        try { popup.IsOpen = false; } catch { }
+                    }
+                }
+            }
+            catch { }
+        }
 
         internal static void TrackWindow(Window window)
         {
@@ -109,6 +257,23 @@ namespace KalOS
         /// <summary>Runs on the UI thread: closes every app window, then ends the event loop.</summary>
         private void ShutdownProcess()
         {
+            // Dismiss dialogs first — closing a window with a ContentDialog up
+            // crashes native XAML teardown (0xc0000005 on close).
+            HideOpenDialogs();
+
+            // Normal exit: remove the (still empty) pre-opened dump file.
+            try
+            {
+                _nativeDumpFile?.Dispose();
+                _nativeDumpFile = null;
+                if (_nativeDumpPath is { } path && System.IO.File.Exists(path)
+                    && new System.IO.FileInfo(path).Length == 0)
+                {
+                    System.IO.File.Delete(path);
+                }
+            }
+            catch { }
+
             lock (AuxiliaryWindows)
             {
                 foreach (var window in AuxiliaryWindows.ToArray())
@@ -160,6 +325,8 @@ namespace KalOS
             SetProcessDpiAwarenessContext(new IntPtr(-4));
 
             this.InitializeComponent();
+
+            EnableNativeCrashDumps();
 
             var serviceCollection = new ServiceCollection();
             ConfigureServices(serviceCollection);
@@ -354,6 +521,9 @@ namespace KalOS
                 ShowUpdateLogIfAny();
                 ShowRollbackIfRequired();
 
+                // wizard.Close() bypasses AppWindow.Closing, so dismiss dialogs
+                // explicitly before tearing the wizard window down.
+                HideOpenDialogs();
                 wizard.Close(); // re-enters the Closing hook; 'swapped' lets it through
             }
 
@@ -369,6 +539,9 @@ namespace KalOS
                 var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
                 appWindow.Closing += (s, e) =>
                 {
+                    // Dismiss dialogs before teardown — a ContentDialog open at
+                    // window close crashes native XAML teardown (0xc0000005).
+                    App.HideOpenDialogs();
                     if (swapped || !KalOS.Setup.SetupState.IsSetupComplete) return;
                     // Cancel this close, then run the swap on the dispatcher —
                     // calling wizard.Close() from inside a pending Closing event
@@ -508,6 +681,7 @@ namespace KalOS
                 finally { deferral.Complete(); }
             };
 
+            TrackDialog(dialog);
             _ = dialog.ShowAsync();
         }
 
@@ -667,6 +841,7 @@ namespace KalOS
                         CloseButtonText = "OK",
                         XamlRoot = content.XamlRoot,
                     };
+                    TrackDialog(resultDialog);
                     _ = resultDialog.ShowAsync();
                 });
             });
@@ -689,6 +864,7 @@ namespace KalOS
         {
             try
             {
+                TrackDialog(dialog);
                 var result = await dialog.ShowAsync();
                 if (result != ContentDialogResult.Primary) return;
 
@@ -715,6 +891,7 @@ namespace KalOS
                     CloseButtonText = "OK",
                     XamlRoot = content.XamlRoot,
                 };
+                TrackDialog(logDialog);
                 await logDialog.ShowAsync();
             }
             catch
@@ -754,6 +931,7 @@ namespace KalOS
         {
             try
             {
+                TrackDialog(dialog);
                 var result = await dialog.ShowAsync();
                 if (result != ContentDialogResult.Primary) return;
 
@@ -801,6 +979,7 @@ namespace KalOS
                 {
                     // Fire-and-forget the dialog so it stays up while the
                     // download runs; the VM's progress callbacks update it.
+                    TrackDialog(dialog);
                     _ = dialog.ShowAsync();
                     await settingsVm.DownloadAndInstallAsync();
                 }
@@ -883,6 +1062,7 @@ namespace KalOS
                     XamlRoot = root.XamlRoot,
                 };
 
+                TrackDialog(dialog);
                 if (await dialog.ShowAsync() == ContentDialogResult.Primary)
                 {
                     RestartApp();

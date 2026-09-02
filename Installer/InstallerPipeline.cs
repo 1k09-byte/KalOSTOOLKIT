@@ -243,15 +243,20 @@ namespace KalOS.Setup
                 try
                 {
                     var failures = new List<string>();
+                    var skips = new List<string>();
                     var (applied, failed) = await tweaks.ApplyAsync(
                         tweakDefs,
                         report: s => vm.CurrentDetail = s,
                         progress: p => vm.OverallProgress = 90 + p * 5, // Windhawk step owns 95–100%
                         ct,
-                        onFailure: failures.Add);
+                        onFailure: failures.Add,
+                        onSkipped: skips.Add);
                     tweaksOk = failed == 0;
                     tweakDetail = $"{applied} tweaks applied"
-                                  + (failed > 0 ? $", {failed} failed." : ".");
+                                  + (failed > 0 ? $", {failed} failed." : ".")
+                                  + (skips.Count > 0
+                                      ? $", {skips.Count} skipped (blocked by Windows)."
+                                      : string.Empty);
                     if (failures.Count > 0)
                     {
                         // The finish screen shows this detail — say WHAT failed,
@@ -261,6 +266,15 @@ namespace KalOS.Setup
                         {
                             _services.GetRequiredService<LoggingService>()
                                 .Error($"Tweak failed: {failure}");
+                        }
+                    }
+                    if (skips.Count > 0)
+                    {
+                        tweakDetail += $" Skipped: {skips[0]}";
+                        foreach (var skip in skips)
+                        {
+                            _services.GetRequiredService<LoggingService>()
+                                .Warn($"Tweak skipped: {skip}");
                         }
                     }
                 }
@@ -394,6 +408,21 @@ namespace KalOS.Setup
             });
             await downloader.DownloadAsync(release.ZipUrl, zipPath, progress, ct, minBytes: 5_000_000);
             log.Info($"Downloaded KalOS {release.Version} to {zipPath}");
+
+            // Idempotency: when the installed copy already matches the release,
+            // there is nothing to copy. (The embedded wizard RUNS from the
+            // install dir — re-copying over a live install can only produce
+            // locked-file errors, and ZipPackageInstaller stops other KalOS
+            // instances but cannot stop the very process it runs inside.)
+            string? installedVersion =
+                ZipPackageInstaller.GetInstalledVersion(ZipPackageInstaller.DefaultInstallDir);
+            if (!string.IsNullOrEmpty(installedVersion) &&
+                string.Equals(installedVersion, release.Version, StringComparison.OrdinalIgnoreCase))
+            {
+                log.Info($"KalOS {release.Version} is already installed — nothing to update.");
+                vm.CurrentDetail = "KalOS is already up to date.";
+                return true;
+            }
 
             vm.CurrentDetail = "Installing KalOS…";
             var result = ZipPackageInstaller.Install(zipPath, ZipPackageInstaller.DefaultInstallDir,
