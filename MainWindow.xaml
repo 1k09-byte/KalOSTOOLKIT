@@ -64,69 +64,20 @@
                         BackRequested="NavView_BackRequested">
             <NavigationView.MenuItems>
                 <!-- ─── Overview ─── -->
-                <NavigationViewItem Content="Home" Tag="Home">
-                    <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/icon-home.png" ShowAsMonochrome="False" Width="20" Height="20" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="System Overview" Tag="SystemOverview">
-                    <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/icon-overview.png" ShowAsMonochrome="False" Width="20" Height="20" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
+                <NavigationViewItem Content="Home" Tag="Home" />
+                <NavigationViewItem Content="System Overview" Tag="SystemOverview" />
 
-                <!-- ─── Tools ─── -->
-                <NavigationViewItemHeader Content="Tools" />
-                <NavigationViewItem Content="Browsers &amp; Software" Tag="Browsers">
-                    <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/icon-browser.png" ShowAsMonochrome="False" Width="20" Height="20" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-
-                <!-- ─── Hardware ─── -->
-                <NavigationViewItemHeader Content="Hardware" />
-                <NavigationViewItem Content="GPU Drivers" Tag="GpuDrivers">
-                    <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/icon-gpu.png" ShowAsMonochrome="False" Width="20" Height="20" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Other Drivers" Tag="Sdio">
-                    <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/icon-drivers.png" ShowAsMonochrome="False" Width="20" Height="20" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="BIOS Manager" Tag="Bios">
-                    <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/icon-bios.png" ShowAsMonochrome="False" Width="20" Height="20" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Per-CPU Scheduling" Tag="AffinityManager">
-                    <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/icon-cpu.png" ShowAsMonochrome="False" Width="20" Height="20" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-
-
-                <!-- ─── Windows ─── -->
-                <NavigationViewItemHeader Content="Windows" />
-                <NavigationViewItem Content="Personalization" Tag="Personalization">
-                    <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/icon-personalization.png" ShowAsMonochrome="False" Width="20" Height="20" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Additional Tweaks" Tag="AdditionalTweaks">
-                    <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/icon-tweaks.png" ShowAsMonochrome="False" Width="20" Height="20" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
+                <NavigationViewItem Content="Browsers &amp; Software" Tag="Browsers" />
+                <NavigationViewItem Content="GPU Drivers" Tag="GpuDrivers" />
+                <NavigationViewItem Content="Other Drivers" Tag="Sdio" />
+                <NavigationViewItem Content="BIOS Manager" Tag="Bios" />
+                <NavigationViewItem Content="Per-CPU Scheduling" Tag="AffinityManager" />
+                <NavigationViewItem Content="Personalization" Tag="Personalization" />
+                <NavigationViewItem Content="Additional Tweaks" Tag="AdditionalTweaks" />
             </NavigationView.MenuItems>
 
             <NavigationView.FooterMenuItems>
-                <NavigationViewItem Content="Settings" Tag="Settings">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE713;" FontSize="16" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
+                <NavigationViewItem Content="Settings" Tag="Settings" />
             </NavigationView.FooterMenuItems>
 
             <Frame x:Name="ContentFrame" Background="Transparent" PointerWheelChanged="ContentFrame_PointerWheelChanged"
