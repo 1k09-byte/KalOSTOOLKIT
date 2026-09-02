@@ -422,6 +422,19 @@ public sealed class WindhawkManagerService
             {
                 await KickModsReloadAsync(kickedIds, cancellationToken);
             }
+
+            // The disable→enable kick is not always enough for mods that live
+            // inside Explorer: the old shell keeps running the mod — often with
+            // stale or empty theme settings — until the mod is fully reloaded
+            // in it. Restarting Explorer makes the freshly written registry
+            // (theme settings included) take effect deterministically: the
+            // running engine hooks the NEW shell as it starts and loads the
+            // mods from current state. The taskbar flickers briefly while the
+            // shell comes back.
+            if (kickedIds.Count > 0 && TargetsExplorer(mods, kickedIds))
+            {
+                await RestartExplorerAsync(cancellationToken);
+            }
         }
 
         return results;
@@ -493,6 +506,14 @@ public sealed class WindhawkManagerService
                 // Same cold-start injection gap as a batch deploy: kick a
                 // disable→enable cycle so the updated mod actually re-injects.
                 await KickModsReloadAsync(new[] { entry.Id }, cancellationToken);
+
+                // Explorer-targeted mods additionally need a fresh shell: the
+                // disable→enable cycle alone can leave the old Explorer running
+                // the updated library half-applied.
+                if (TargetsExplorer(new[] { entry }, new[] { entry.Id }))
+                {
+                    await RestartExplorerAsync(cancellationToken);
+                }
             }
             result.Verified = verified;
             result.Success = verified;
@@ -1313,6 +1334,201 @@ public sealed class WindhawkManagerService
         }
 
         _log.Info($"Reload kick applied to {ids.Count} mod(s) — engine reloaded and re-injected them.");
+    }
+
+    // ═══════════════════════════ Part 4: shell (Explorer) restart ═══════════════════════════
+
+    /// <summary>
+    /// Restarts Windows Explorer in the current session so freshly deployed mods
+    /// that target explorer.exe are loaded by the engine into a clean shell.
+    ///
+    /// This is the deterministic programmatic equivalent of the manual
+    /// disable → enable toggle in the Windhawk UI. Mods registered while the
+    /// engine was stopped can leave an OLD Explorer session running them
+    /// half-applied (or with stale/empty theme settings) until the shell
+    /// reloads them; a restarted Explorer is injected by the engine at startup
+    /// and reads the current registry — theme settings included — so the
+    /// customization shows up without any manual step. The taskbar flickers
+    /// briefly while the shell comes back.
+    ///
+    /// Returns true when Explorer is confirmed running in this session
+    /// afterwards (or no Explorer was running to begin with, e.g. in a
+    /// non-interactive session, which is a legitimate no-op).
+    /// </summary>
+    public async Task<bool> RestartExplorerAsync(CancellationToken cancellationToken = default)
+    {
+        int sessionId = GetCurrentSessionId();
+        string explorerExe = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
+
+        var explorers = GetSessionExplorers(sessionId);
+        if (explorers.Count == 0)
+        {
+            _log.Info("Explorer restart skipped — no Explorer is running in this session.");
+            return true;
+        }
+
+        _log.Info("Restarting Explorer so deployed Windhawk mods re-inject into a clean shell...");
+
+        // ── Phase 1: end the old shell. Explorer does not auto-relaunch after
+        // being killed, so we start the replacement ourselves in phase 2.
+        foreach (var process in explorers)
+        {
+            try
+            {
+                process.Kill(entireProcessTree: true);
+                _log.Info($"Ended Explorer (pid {process.Id}).");
+            }
+            catch (Exception ex)
+            {
+                _log.Warn($"Could not end Explorer (pid {process.Id}): {ex.Message}");
+            }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+
+        // Let the old shell actually exit before starting the new one.
+        var exitDeadline = DateTime.UtcNow.AddSeconds(10);
+        while (DateTime.UtcNow < exitDeadline)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (GetSessionExplorers(sessionId).Count == 0) break;
+            await Task.Delay(300, cancellationToken);
+        }
+
+        // ── Phase 2: relaunch the shell UNELEVATED. KalOS runs elevated, and an
+        // Explorer started straight from this process would inherit the admin
+        // token (degraded shell: broken drag & drop, elevated file windows). A
+        // one-shot scheduled task with /RL LIMITED + /IT runs explorer.exe in
+        // the interactive session under a filtered token — the mechanism other
+        // debloat tools use to hand the shell back to the user.
+        bool relaunched = await LaunchExplorerTaskAsync(explorerExe, sessionId, cancellationToken);
+        if (!relaunched)
+        {
+            _log.Warn("Scheduled-task Explorer relaunch did not confirm; falling back to a direct start.");
+            try
+            {
+                Process.Start(new ProcessStartInfo(explorerExe) { UseShellExecute = true });
+                relaunched = true;
+            }
+            catch (Exception ex)
+            {
+                _log.Error($"Could not start Explorer: {ex.Message}");
+            }
+        }
+
+        // ── Phase 3: wait for the new shell to appear.
+        var appearDeadline = DateTime.UtcNow.AddSeconds(20);
+        while (DateTime.UtcNow < appearDeadline)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (GetSessionExplorers(sessionId).Count > 0)
+            {
+                _log.Info("Explorer restarted — deployed mods load in the new shell.");
+                return true;
+            }
+            await Task.Delay(500, cancellationToken);
+        }
+
+        _log.Warn("Explorer restart did not confirm a new shell within 20 seconds.");
+        return relaunched;
+    }
+
+    /// <summary>True when any of <paramref name="modIds"/> targets Windows Explorer.</summary>
+    private static bool TargetsExplorer(IReadOnlyList<WindhawkModEntry> entries, IEnumerable<string> modIds)
+    {
+        var ids = new HashSet<string>(modIds, StringComparer.OrdinalIgnoreCase);
+        return entries.Any(entry =>
+            ids.Contains(entry.Id) &&
+            !string.IsNullOrWhiteSpace(entry.TargetProcess) &&
+            entry.TargetProcess
+                .Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Any(target => target.Contains("explorer.exe", StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private static int GetCurrentSessionId()
+    {
+        try { return Process.GetCurrentProcess().SessionId; }
+        catch { return 0; }
+    }
+
+    /// <summary>Explorer processes in <paramref name="sessionId"/> (each must be disposed by the caller).</summary>
+    private static List<Process> GetSessionExplorers(int sessionId)
+    {
+        var explorers = new List<Process>();
+        try
+        {
+            foreach (var process in Process.GetProcessesByName("explorer"))
+            {
+                try
+                {
+                    if (process.SessionId == sessionId) explorers.Add(process);
+                    else process.Dispose();
+                }
+                catch
+                {
+                    try { process.Dispose(); } catch { }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Static helper without logging access — an enumeration failure is
+            // simply reported as "no Explorer" by callers.
+            _ = ex;
+        }
+        return explorers;
+    }
+
+    /// <summary>
+    /// Launches explorer.exe in the interactive session through a one-shot,
+    /// least-privilege scheduled task (deleted afterwards) and reports whether
+    /// an Explorer process showed up in the session.
+    /// </summary>
+    private async Task<bool> LaunchExplorerTaskAsync(
+        string explorerExe, int sessionId, CancellationToken cancellationToken)
+    {
+        string taskName = $"KalOS-ExplorerRestart-{Process.GetCurrentProcess().Id}";
+        string userName = $@"{Environment.UserDomainName}\{Environment.UserName}";
+        string startTime = DateTime.Now.AddMinutes(1).ToString("HH:mm");
+
+        string[] commands =
+        {
+            $"schtasks /Create /F /TN \"{taskName}\" /SC ONCE /ST {startTime} /RU \"{userName}\" /IT /RL LIMITED /TR \"{explorerExe}\"",
+            $"schtasks /Run /TN \"{taskName}\"",
+            $"schtasks /Delete /F /TN \"{taskName}\"",
+        };
+
+        try
+        {
+            foreach (string command in commands)
+            {
+                // schtasks runs under the current (elevated) token and its exit
+                // code is checked rather than its stderr; failure is fine — the
+                // caller falls back to launching Explorer directly.
+                int exitCode = await RunProcessAsync("schtasks.exe", command, TimeSpan.FromSeconds(30), cancellationToken);
+                if (exitCode != 0)
+                {
+                    _log.Warn($"schtasks exited {exitCode}: {command}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _log.Warn($"Scheduled-task Explorer relaunch failed: {ex.Message}");
+            return false;
+        }
+
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        while (DateTime.UtcNow < deadline)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (GetSessionExplorers(sessionId).Count > 0) return true;
+            await Task.Delay(300, cancellationToken);
+        }
+        return false;
     }
 
     private static bool IsProcessRunning(string name) =>

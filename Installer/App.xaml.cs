@@ -94,6 +94,11 @@ namespace KalOS.Setup
             services.AddSingleton<GitHubReleaseClient>();
             services.AddSingleton<HttpFileDownloader>();
 
+            // Windhawk install + curated mod deploy — powers the Customize
+            // page's "Windows look" step (dark translucent dock), the same
+            // service the main app's Personalization → Windhawk page uses.
+            services.AddSingleton<WindhawkManagerService>();
+
             // Native tweaks engine (privacy/cleanup catalog generated from the
             // privacy.sexy scripts — no batch files at runtime).
             services.AddSingleton<TweaksService>();

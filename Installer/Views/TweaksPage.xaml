@@ -48,14 +48,15 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Category checklist -->
-                <Border Style="{StaticResource CardStyle}">
+                <!-- Category checklist: only lists groups that have tweaks -->
+                <Border Style="{StaticResource CardStyle}"
+                        Visibility="{x:Bind Wizard.AnyTweakCategoryVisible, Mode=OneWay, Converter={StaticResource BoolToVis}}">
                     <StackPanel Spacing="10">
                         <TextBlock Text="What to apply" Style="{StaticResource CardHeader}"/>
                         <TextBlock Style="{StaticResource CardSubtitle}"
                                    Text="Everything is checked by default — the same set your scripts ran. Uncheck a category to leave that part of Windows alone."/>
                         <StackPanel x:Name="CategoryList" Spacing="6" Margin="0,6,0,0">
-                            <Grid>
+                            <Grid Visibility="{x:Bind Wizard.TweakAppsVisible, Mode=OneWay, Converter={StaticResource BoolToVis}}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
@@ -64,7 +65,7 @@
                                           Content="{x:Bind Wizard.TweakAppsLabel, Mode=OneWay}"
                                           IsChecked="{x:Bind Wizard.TweakApps, Mode=TwoWay}"/>
                             </Grid>
-                            <Grid>
+                            <Grid Visibility="{x:Bind Wizard.TweakFeaturesVisible, Mode=OneWay, Converter={StaticResource BoolToVis}}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
@@ -73,7 +74,7 @@
                                           Content="{x:Bind Wizard.TweakFeaturesLabel, Mode=OneWay}"
                                           IsChecked="{x:Bind Wizard.TweakFeatures, Mode=TwoWay}"/>
                             </Grid>
-                            <Grid>
+                            <Grid Visibility="{x:Bind Wizard.TweakPrivacyVisible, Mode=OneWay, Converter={StaticResource BoolToVis}}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
@@ -82,7 +83,7 @@
                                           Content="{x:Bind Wizard.TweakPrivacyLabel, Mode=OneWay}"
                                           IsChecked="{x:Bind Wizard.TweakPrivacy, Mode=TwoWay}"/>
                             </Grid>
-                            <Grid>
+                            <Grid Visibility="{x:Bind Wizard.TweakServicesVisible, Mode=OneWay, Converter={StaticResource BoolToVis}}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
@@ -91,7 +92,7 @@
                                           Content="{x:Bind Wizard.TweakServicesLabel, Mode=OneWay}"
                                           IsChecked="{x:Bind Wizard.TweakServices, Mode=TwoWay}"/>
                             </Grid>
-                            <Grid>
+                            <Grid Visibility="{x:Bind Wizard.TweakHistoryVisible, Mode=OneWay, Converter={StaticResource BoolToVis}}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
@@ -100,7 +101,7 @@
                                           Content="{x:Bind Wizard.TweakHistoryLabel, Mode=OneWay}"
                                           IsChecked="{x:Bind Wizard.TweakHistory, Mode=TwoWay}"/>
                             </Grid>
-                            <Grid>
+                            <Grid Visibility="{x:Bind Wizard.TweakLogsVisible, Mode=OneWay, Converter={StaticResource BoolToVis}}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
@@ -113,9 +114,19 @@
                     </StackPanel>
                 </Border>
 
+                <!-- Empty state: catalog has no tweaks yet -->
+                <Border Style="{StaticResource CardStyle}"
+                        Visibility="{x:Bind Wizard.NoTweakCategoriesVisible, Mode=OneWay, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="No tweaks configured yet" Style="{StaticResource CardHeader}"/>
+                        <TextBlock Style="{StaticResource CardSubtitle}"
+                                   Text="This build ships with an empty tweak set. Add the tweaks you want and they'll appear here as categories you can toggle."/>
+                    </StackPanel>
+                </Border>
+
                 <InfoBar IsOpen="True" Severity="Informational" IsClosable="False"
                          Title="Runs at the very end of the install"
-                         Message="Tweaks are applied last — after KalOS, drivers, software and extensions — so history and log cleanup also covers this install's own tracks."/>
+                         Message="Tweaks &amp; cleanup run after KalOS, drivers, software and extensions — so the history and log cleanup also covers this install's own tracks. The Windows look choices (dark mode, Windhawk dock) from the Customize page are applied after this step."/>
             </StackPanel>
         </ScrollViewer>
     </Grid>

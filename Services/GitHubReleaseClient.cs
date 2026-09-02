@@ -55,8 +55,10 @@ namespace KalOS.Services
             string? zipUrl = await ResolveZipAssetUrlAsync(tag, cancellationToken).ConfigureAwait(false);
 
             // Last resort, mirrors UpdateService: construct the canonical asset
-            // name. The download step will surface a 404 if it truly is absent.
-            zipUrl ??= $"https://github.com/{Owner}/{Repo}/releases/download/{tag}/KalOS.zip";
+            // name. Releases ship KalOS-v{version}-win-x64.zip, not the legacy
+            // KalOS.zip (which 404s). The download step will surface a 404 if it
+            // truly is absent.
+            zipUrl ??= $"https://github.com/{Owner}/{Repo}/releases/download/{tag}/KalOS-v{version}-win-x64.zip";
 
             return new GitHubReleaseInfo(tag, version, zipUrl, Notes: null);
         }

@@ -162,7 +162,12 @@ public sealed class UpdateService
         if (preferred != null) return preferred.BrowserDownloadUrl;
         var any = list.FirstOrDefault(a =>
             a.Name.StartsWith("KalOS", StringComparison.OrdinalIgnoreCase) &&
-            a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase));
+            a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) &&
+            // Never pick the Setup wizard payload — a release carrying both
+            // would otherwise make the app download the installer instead of
+            // the app zip.
+            !a.Name.Contains("setup", StringComparison.OrdinalIgnoreCase) &&
+            !a.Name.Contains("installer", StringComparison.OrdinalIgnoreCase));
         return any?.BrowserDownloadUrl;
     }
 
@@ -302,7 +307,13 @@ public sealed class UpdateService
                         var tag = "v" + match.Groups[1].Value.Trim();
                         if (TryParseReleaseVersion(tag, out var latest) && latest != CurrentVersion)
                         {
-                            var zipUrl = $"https://github.com/{DefaultOwner}/{DefaultRepo}/releases/download/{tag}/KalOS.zip";
+                            // Resolve the release's real zip asset — releases carry
+                            // KalOS-v{version}-win-x64.zip, not the legacy KalOS.zip
+                            // this method used to hardcode (which 404'd and made every
+                            // update download fail). Falls back to the versioned name
+                            // when the assets fragment can't be fetched.
+                            var zipUrl = await ResolveZipAssetUrlAsync(tag, cancellationToken)
+                                ?? $"https://github.com/{DefaultOwner}/{DefaultRepo}/releases/download/{tag}/KalOS-v{latest}-win-x64.zip";
                             var pageUrl = $"https://github.com/{DefaultOwner}/{DefaultRepo}/releases/tag/{tag}";
                             var notes = $"New version {tag} is available.\n\n{pageUrl}";
                             // Try to fetch the real release body so the update log shows actual notes, not just a link
@@ -356,6 +367,30 @@ public sealed class UpdateService
         catch (Exception ex)
         {
             _log.Warn($"Update check failed: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Scrapes the release's expanded-assets fragment for the actual app zip
+    /// URL so the asset name never has to be guessed. Delegates selection to
+    /// <see cref="GitHubReleaseClient.SelectZipAssetUrl"/> (shared with the
+    /// installer, unit-tested) and returns null when GitHub is unreachable —
+    /// callers fall back to the versioned naming convention.
+    /// </summary>
+    private static async Task<string?> ResolveZipAssetUrlAsync(string tag, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var client = new HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(15);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("KalOS-Updater/1.0");
+            string html = await client.GetStringAsync(
+                $"https://github.com/{DefaultOwner}/{DefaultRepo}/releases/expanded_assets/{tag}", cancellationToken);
+            return GitHubReleaseClient.SelectZipAssetUrl(html, tag);
+        }
+        catch
+        {
             return null;
         }
     }

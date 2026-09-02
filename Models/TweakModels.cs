@@ -29,6 +29,9 @@ namespace KalOS.Models
         History,
         /// <summary>Clear logs, temp files, shadow copies, event logs, SRUM.</summary>
         Logs,
+
+        /// <summary>Appearance: dark mode + transparency effects for the current user (HKCU Personalize key).</summary>
+        Personalization,
     }
 
     /// <summary>One tweak: a human-readable name + a typed action to execute.</summary>

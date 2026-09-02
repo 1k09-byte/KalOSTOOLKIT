@@ -5,9 +5,11 @@ using Microsoft.UI.Xaml.Controls;
 namespace KalOS.Setup.Views
 {
     /// <summary>
-    /// Step 4 — customize the installed KalOS before it ever runs: a
-    /// background image (copied into the app's data folder post-install)
-    /// and a window tint color from the shared palette or a custom picker.
+    /// Step 4 — customize what the install leaves behind. The KalOS look:
+    /// a background image (copied into the app's data folder post-install)
+    /// and a window tint from the shared palette or a custom picker. Plus the
+    /// Windows look, applied at the very end of the install: dark mode /
+    /// transparency effects and the Windhawk dark translucent dock.
     /// </summary>
     public sealed partial class CustomizePage : WizardPage
     {

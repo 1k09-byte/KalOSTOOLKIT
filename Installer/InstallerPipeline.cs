@@ -31,9 +31,19 @@ namespace KalOS.Setup
     ///    chaining winget → Chocolatey → Scoop → direct download (mirroring
     ///    <c>BrowserViewModel</c>'s fallback ladder).
     /// 5. <b>Tweaks &amp; cleanup</b> — runs the native <see cref="TweaksService"/>
-    ///    catalog (generated from the privacy.sexy scripts) for every category
-    ///    the user left checked on the Tweaks page. Runs last so the history /
-    ///    log cleanup also covers this install's own tracks.
+    ///    catalog (generated from the privacy.sexy scripts) for every privacy /
+    ///    cleanup category the user left checked on the Tweaks page. Also
+    ///    applies the dark mode / transparency defaults chosen on the Customize
+    ///    page — they are a Personalization catalog group and ride through the
+    ///    same engine, even when the tweak categories are switched off. Runs
+    ///    before the Windows-look step so the history/log cleanup also covers
+    ///    this install's own tracks.
+    /// 6. <b>Windows look</b> — the Customize page's remaining appearance
+    ///    choice: Windhawk is installed (when missing) and deploys the curated
+    ///    dark translucent dock mods from Assets/windhawk_mods.json.
+    ///    Deliberately last: its Explorer restart makes both the Windhawk look
+    ///    and the dark mode / transparency tweaks take effect without a manual
+    ///    restart.
     ///
     /// Every step reports progress through the shared wizard VM so the
     /// Progress page renders a live log + overall bar. Steps never throw out
@@ -199,29 +209,37 @@ namespace KalOS.Setup
 
             if (vm.InstallExtensions) vm.OverallProgress = 90;
 
-            // ── Step 6: Tweaks & cleanup (native, runs last) ──────────────
-            // Progress budget: tweaks own 90–100%, one tick per tweak so the
+            // ── Step 6: Tweaks & cleanup (native) ─────────────────────────
+            // Progress budget: tweaks own 90–95%, one tick per tweak so the
             // bar moves even while a slow DISM operation runs. The step only
-            // appears when at least one category is selected; an opted-out run
-            // records a neutral skipped entry instead of a success.
+            // appears when at least one group is selected; an opted-out run
+            // records a neutral skipped entry instead of a success. The Customize
+            // page's dark mode / transparency choice (Personalization group)
+            // rides along here even when the master tweaks switch is off, so it
+            // lands just before the Windhawk step.
             var tweakGroups = vm.SelectedTweakGroups;
-            if (tweakGroups.Count == 0)
+            var tweakDefs = _services.GetRequiredService<TweaksService>().Catalog
+                .Where(t => tweakGroups.Contains(t.Group)).ToList();
+            if (tweakGroups.Count == 0 || tweakDefs.Count == 0)
             {
-                vm.LogStep("Tweaks & cleanup", true, "Skipped — you chose not to run any tweaks.", skipped: true);
+                vm.LogStep("Tweaks & cleanup", true,
+                    tweakGroups.Count == 0
+                        ? "Skipped — you chose not to run any tweaks."
+                        : "Skipped — the selected categories contain no tweaks yet.",
+                    skipped: true);
             }
             else
             {
                 var tweaks = _services.GetRequiredService<TweaksService>();
-                var defs = tweaks.Catalog.Where(t => tweakGroups.Contains(t.Group)).ToList();
                 vm.CurrentStep = "Applying tweaks & cleanup (this can take several minutes)";
                 bool tweaksOk;
                 string tweakDetail;
                 try
                 {
                     var (applied, failed) = await tweaks.ApplyAsync(
-                        defs,
+                        tweakDefs,
                         report: s => vm.CurrentDetail = s,
-                        progress: p => vm.OverallProgress = 90 + p * 10,
+                        progress: p => vm.OverallProgress = 90 + p * 5, // Windhawk step owns 95–100%
                         ct);
                     tweaksOk = failed == 0;
                     tweakDetail = $"{applied} tweaks applied"
@@ -238,6 +256,42 @@ namespace KalOS.Setup
                     tweakDetail = ex.Message;
                 }
                 vm.LogStep("Tweaks & cleanup", tweaksOk, tweakDetail);
+            }
+
+            // ── Step 7: Windhawk customization (dark translucent dock) ─────
+            // Progress budget: Windhawk owns the final 95–100% of the bar.
+            // Chosen on the Customize page's Windows look section: it installs
+            // Windhawk and deploys the curated mod set from
+            // Assets/windhawk_mods.json — the same dark translucent dock-style
+            // taskbar customization the main app offers under Personalization.
+            // Running last is deliberate: the deploy ends by restarting
+            // Explorer, which also makes the dark mode / transparency tweaks
+            // applied just before it take effect without a manual restart.
+            if (vm.InstallWindhawkCustomization)
+            {
+                vm.CurrentStep = "Applying the Windhawk customization";
+                bool windhawkOk;
+                string windhawkDetail;
+                try
+                {
+                    (windhawkOk, windhawkDetail) = await ApplyWindhawkCustomizationAsync(vm, ct);
+                }
+                catch (OperationCanceledException)
+                {
+                    vm.LogStep("Windhawk customization", false, "Canceled by user.");
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    windhawkOk = false;
+                    windhawkDetail = ex.Message;
+                }
+                vm.LogStep("Windhawk customization", windhawkOk, windhawkDetail);
+            }
+            else
+            {
+                vm.LogStep("Windhawk customization", true,
+                    "Skipped — you chose not to install the Windhawk customization.", skipped: true);
             }
 
             // ── Finish ──────────────────────────────────────────────────────
@@ -504,6 +558,51 @@ namespace KalOS.Setup
                 log.Error($"{entry.Name}: {ex.Message}");
                 return false;
             }
+        }
+
+        // ── Step 7: Windhawk customization ─────────────────────────────────
+
+        /// <summary>
+        /// Installs Windhawk (when missing) and deploys the curated mod set
+        /// (taskbar styler with the Luminosity dock theme + dock animation)
+        /// from Assets/windhawk_mods.json. Reuses the exact service behind the
+        /// main app's Windhawk page — including the end-of-deploy Explorer
+        /// restart that makes the mods take effect without a manual toggle.
+        /// Never throws; the outcome is returned for the live step log.
+        /// </summary>
+        private async Task<(bool Ok, string Detail)> ApplyWindhawkCustomizationAsync(
+            InstallerViewModel vm, CancellationToken ct)
+        {
+            var windhawk = _services.GetRequiredService<WindhawkManagerService>();
+            var log = _services.GetRequiredService<LoggingService>();
+            var progress = new Progress<double>(p => vm.OverallProgress = 95 + p * 5);
+            var status = new Progress<string>(s => vm.CurrentDetail = s);
+
+            if (!windhawk.IsInstalled())
+            {
+                vm.CurrentDetail = "Downloading and installing Windhawk…";
+                await windhawk.InstallWindhawkAsync(progress, status, ct);
+            }
+
+            var manifest = await windhawk.LoadManifestAsync(ct);
+            if (manifest.Mods.Count == 0)
+            {
+                return (false, "The Windhawk mod manifest in this build is empty.");
+            }
+
+            vm.CurrentDetail = "Deploying the Windhawk customization (dark translucent dock)…";
+            var results = await windhawk.DeployModsAsync(manifest.Mods, manifest, progress, ct);
+
+            foreach (var result in results)
+            {
+                log.Info(result.Summary);
+            }
+
+            int ok = results.Count(r => r.Success);
+            var failed = results.Where(r => !r.Success).Select(r => r.ModId).ToList();
+            return ok == results.Count
+                ? (true, $"Windhawk ready — {ok}/{results.Count} customization mods deployed.")
+                : (false, $"{ok}/{results.Count} Windhawk mods deployed — failed: {string.Join(", ", failed)}.");
         }
     }
 }

@@ -29,19 +29,42 @@ namespace KalOS.Services
     public sealed class TweaksService
     {
         /// <summary>
-        /// Every tweak: the generated catalog plus hand-added composites.
+        /// Every tweak: the regenerated catalog plus hand-added tweaks.
         /// Hand-added tweaks live here (not in TweakCatalog.g.cs) so re-running
         /// the generator never removes them.
         /// </summary>
-        public static IReadOnlyList<TweakDef> All { get; } =
-            TweakCatalog.All
+        public static IReadOnlyList<TweakDef> All { get; } = TweakCatalog.All
             .Concat(new[]
             {
+                // Not emitted by the generator (the privacy.sexy exports have no
+                // section for it), but kept shipped from the pre-rework catalog:
+                // a Windows 11 convenience toggle users expect on this page.
                 new TweakDef("Enable \"End Task\" in the taskbar right-click menu (Windows 11)",
                     TweakGroup.Privacy,
                     new RegistrySetAction(
                         @"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarDeveloperSettings",
                         @"TaskbarEndTask", TweakValueKind.Dword, @"1")),
+
+                // The wizard's appearance defaults: dark mode everywhere plus
+                // transparency effects. Written to the current user's
+                // HKCU\...\Themes\Personalize (the same values Windows' Colors
+                // settings page sets) so the OS — not just KalOS — comes up in
+                // dark mode once the shell/Explorer restarts.
+                new TweakDef("Enable dark mode for apps (default app mode: Dark)",
+                    TweakGroup.Personalization,
+                    new RegistrySetAction(
+                        @"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+                        @"AppsUseLightTheme", TweakValueKind.Dword, @"0")),
+                new TweakDef("Enable dark mode for Windows (default Windows mode: Dark)",
+                    TweakGroup.Personalization,
+                    new RegistrySetAction(
+                        @"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+                        @"SystemUsesLightTheme", TweakValueKind.Dword, @"0")),
+                new TweakDef("Enable transparency effects",
+                    TweakGroup.Personalization,
+                    new RegistrySetAction(
+                        @"HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+                        @"EnableTransparency", TweakValueKind.Dword, @"1")),
             })
             .ToList();
 
@@ -49,6 +72,186 @@ namespace KalOS.Services
 
         public static IReadOnlyList<TweakDef> ByGroup(TweakGroup group) =>
             All.Where(t => t.Group == group).ToList();
+
+        // ── Per-run caches ───────────────────────────────────────────────
+        // The slow Win32 probes below (enumerate every scheduled task, every
+        // capability, every feature) would otherwise be re-run for each
+        // matching tweak in the run, but the result is identical for the whole
+        // run. Caching them once per ApplyAsync turns dozens of full schtasks
+        // queries (one per task tweak) into a single probe, and the same for
+        // the DISM-backed capability/feature enumerations when those tweak
+        // kinds are present in the catalog.
+        private List<string>? _taskLines;
+        private List<string>? _capabilityLines;
+        private List<string>? _featureLines;
+
+        private void ResetRunCaches() => (_taskLines, _capabilityLines, _featureLines) = (null, null, null);
+
+        /// <summary>
+        /// Returns true when the system is already in the state this action would
+        /// produce, so we can skip it instead of re-running an (often expensive,
+        /// re-entrant) operation. This is what makes re-runs and partially-
+        /// configured machines fast: an already-disabled service, an already-set
+        /// registry value, an already-absent app package, etc. is never touched
+        /// again. Fail-safe: when we can't tell, return false so the action runs
+        /// (idempotent — the operation either no-ops or reports a failure).
+        /// </summary>
+        private bool IsAlreadyApplied(TweakAction action)
+        {
+            try
+            {
+                switch (action)
+                {
+                    case RegistrySetAction a:
+                        return RegistryValueIsSet(a);
+                    case RegistryValueDeleteAction a:
+                        return !RegistryValueExists(a.Key, a.ValueName);
+                    case RegistryKeyCreateAction a:
+                        return RegistryKeyExists(a.Key);
+                    case RegistryKeyDeleteAction a:
+                        return !RegistryKeyExists(a.Key);
+                    case RegistryValuesClearAction a:
+                        return !RegistryKeyHasValues(a.Key);
+                    case DeletePathAction a:
+                        return !FileSystemPathExists(a.Path);
+                    case DisableServiceAction a:
+                        return !ServiceEnabled(a.ServiceName);
+                    case HostsBlockAction a:
+                        return HostsAlreadyBlocked(a);
+                    case DisableFeatureAction a:
+                        return FeatureIsAlreadyDisabled(a);
+                    default:
+                        return false; // not detectable / always runs
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        // ── already-applied probes (fail-safe: false on any doubt) ────────
+
+        private static (RegistryKey Root, string SubPath) SplitKeyOrThrow(string key)
+        {
+            key = key.Replace("$CURRENT_USER_SID", CurrentUserSid);
+            var parts = key.Split(new[] { '\\' }, 2, StringSplitOptions.None);
+            var root = parts[0].ToUpperInvariant() switch
+            {
+                "HKLM" => Registry.LocalMachine,
+                "HKCU" => Registry.CurrentUser,
+                "HKEY_USERS" or "HKU" => Registry.Users,
+                _ => throw new InvalidOperationException($"Unknown registry hive: {parts[0]}"),
+            };
+            return (root, parts.Length > 1 ? parts[1] : string.Empty);
+        }
+
+        private static bool RegistryKeyExists(string key)
+        {
+            var (root, sub) = SplitKeyOrThrow(key);
+            using var k = root.OpenSubKey(sub, writable: false);
+            return k is not null;
+        }
+
+        private static bool RegistryValueExists(string key, string valueName)
+        {
+            if (string.IsNullOrEmpty(valueName)) return false; // unnamed default value
+            var (root, sub) = SplitKeyOrThrow(key);
+            using var k = root.OpenSubKey(sub, writable: false);
+            return k?.GetValue(valueName) is not null;
+        }
+
+        private static bool RegistryValueIsSet(RegistrySetAction a)
+        {
+            var (root, sub) = SplitKeyOrThrow(a.Key);
+            using var k = root.OpenSubKey(sub, writable: false);
+            if (k is null) return false;
+            var current = k.GetValue(a.ValueName);
+            if (current is null) return false;
+
+            // Compare by kind so "1" (string) vs 1 (dword) aren't treated equal.
+            object expected = a.Kind switch
+            {
+                TweakValueKind.Dword => int.TryParse(a.Data, out var n) ? n : 0,
+                TweakValueKind.String => a.Data,
+                TweakValueKind.MultiString => a.Data == "\\0"
+                    ? new[] { string.Empty }
+                    : a.Data.Split(';'),
+                _ => a.Data,
+            };
+            if (current is string[] curMs && expected is string[] expMs)
+                return curMs.SequenceEqual(expMs, StringComparer.Ordinal);
+            if (current is int curInt && expected is int expInt)
+                return curInt == expInt;
+            // Fall back to string comparison for string-ish values.
+            return Convert.ToString(current) == Convert.ToString(expected);
+        }
+
+        private static bool RegistryKeyHasValues(string key)
+        {
+            var (root, sub) = SplitKeyOrThrow(key);
+            using var k = root.OpenSubKey(sub, writable: false);
+            if (k is null) return false;
+            return k.GetValueNames().Length > 0;
+        }
+
+        private static bool FileSystemPathExists(string path)
+        {
+            string full = Environment.ExpandEnvironmentVariables(path);
+            if (a_ContainsWildcard(full))
+            {
+                string dir = Path.GetDirectoryName(full) ?? ".";
+                if (!Directory.Exists(dir)) return false;
+                string pattern = Path.GetFileName(full);
+                return Directory.EnumerateFileSystemEntries(dir, pattern).Any();
+            }
+            return Directory.Exists(full) || File.Exists(full);
+        }
+
+        private static bool a_ContainsWildcard(string path) => path.IndexOfAny(new[] { '*', '?' }) >= 0;
+
+        /// <summary>True when a service (or every match of a pattern) is still enabled — i.e. needs disabling.</summary>
+        private static bool ServiceEnabled(string serviceName)
+        {
+            if (serviceName.Contains('*'))
+            {
+                // Pattern: enabled when ANY matching service is still enabled.
+                foreach (var name in ExpandServicePattern(serviceName))
+                {
+                    if (ServiceEnabled(name)) return true;
+                }
+                return false;
+            }
+            using var k = Registry.LocalMachine.OpenSubKey(
+                $@"SYSTEM\CurrentControlSet\Services\{serviceName}", writable: false);
+            var start = k?.GetValue("Start");
+            // Start=4 is the Disabled state. Treat a missing/unknown Start as
+            // still-enabled (fail-safe: run the action rather than skip it).
+            return start is not int s || s != 4;
+        }
+
+        private bool HostsAlreadyBlocked(HostsBlockAction a)
+        {
+            string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),
+                "drivers", "etc", "hosts");
+            if (!File.Exists(path)) return false;
+            var blocked = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var line in File.ReadAllLines(path))
+            {
+                var parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length >= 2 && !parts[0].StartsWith("#")) blocked.Add(parts[1]);
+            }
+            return a.Domains.All(blocked.Contains);
+        }
+
+        /// <summary>True when a DISM feature is confirmed disabled or absent (via the cached feature listing).</summary>
+        private bool FeatureIsAlreadyDisabled(DisableFeatureAction a)
+        {
+            if (_featureLines is null) return false;
+            var states = ParseFeatureStates(_featureLines);
+            return !states.TryGetValue(a.FeatureName, out var state)
+                || state.StartsWith("Disable", StringComparison.OrdinalIgnoreCase);
+        }
 
         /// <summary>
         /// Runs the given tweaks. Returns (applied, failed). <paramref name="progress"/>
@@ -62,13 +265,73 @@ namespace KalOS.Services
         {
             var list = tweaks.ToList();
             int applied = 0, failed = 0;
-            for (int i = 0; i < list.Count; i++)
+
+            // Reset the per-run caches so a fresh ApplyAsync re-probes the OS
+            // (task/capability/feature state can change between installs).
+            ResetRunCaches();
+
+            // Appx removals are extremely slow one-at-a-time (each spawns a
+            // PowerShell and re-runs the DISM-backed package enumeration), so
+            // pull them out and run them as a single batched PowerShell call.
+            var appx = new List<AppxRemoveAction>();
+            var remaining = new List<TweakDef>();
+            foreach (var t in list)
             {
-                ct.ThrowIfCancellationRequested();
-                report?.Invoke(list[i].Name);
+                if (t.Action is AppxRemoveAction a) appx.Add(a);
+                else remaining.Add(t);
+            }
+
+            // Run the batched Appx removal first (it is the dominant cost); if
+            // it fails wholesale, attribute the failure to the first appx tweak
+            // so the user still sees a concrete reason, and count the rest.
+            if (appx.Count > 0)
+            {
+                report?.Invoke($"Removing {appx.Count} preinstalled apps…");
                 try
                 {
-                    await ExecuteAsync(list[i].Action, report, ct);
+                    await RemoveAppxBatchAsync(appx, ct);
+                    applied += appx.Count;
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    failed += appx.Count;
+                    report?.Invoke($"App removal failed — {ex.Message}");
+                }
+                progress?.Invoke((double)(list.Count - remaining.Count) / Math.Max(list.Count, 1));
+            }
+
+            for (int i = 0; i < remaining.Count; i++)
+            {
+                ct.ThrowIfCancellationRequested();
+                var tweak = remaining[i];
+                report?.Invoke(tweak.Name);
+
+                // Skip tweaks already in their target state — this is what makes
+                // re-runs and partially-configured machines fast. Counted as
+                // applied (the state is correct) but reported transparently so
+                // the log makes clear it was a short-circuit, not a real change.
+                try
+                {
+                    if (IsAlreadyApplied(tweak.Action))
+                    {
+                        applied++;
+                        report?.Invoke($"{tweak.Name} — already applied, skipped");
+                        progress?.Invoke((double)((list.Count - remaining.Count) + i + 1) / Math.Max(list.Count, 1));
+                        continue;
+                    }
+                }
+                catch
+                {
+                    // Any probe failure falls through to the real action.
+                }
+
+                try
+                {
+                    await ExecuteAsync(tweak.Action, report, ct);
                     applied++;
                 }
                 catch (OperationCanceledException)
@@ -78,9 +341,9 @@ namespace KalOS.Services
                 catch (Exception ex)
                 {
                     failed++;
-                    report?.Invoke($"{list[i].Name} — {ex.Message}");
+                    report?.Invoke($"{tweak.Name} — {ex.Message}");
                 }
-                progress?.Invoke((double)(i + 1) / Math.Max(list.Count, 1));
+                progress?.Invoke((double)((list.Count - remaining.Count) + i + 1) / Math.Max(list.Count, 1));
             }
             return (applied, failed);
         }
@@ -98,8 +361,7 @@ namespace KalOS.Services
                 RegistryKeyDeleteAction a => Task.Run(() => DeleteRegistryKey(a), ct),
                 DeletePathAction a => Task.Run(() => DeletePath(a), ct),
                 AppxRemoveAction a => RemoveAppxAsync(a, ct),
-                DisableFeatureAction a => RunAsync("dism.exe",
-                    $"/online /disable-feature /featurename:{a.FeatureName} /norestart", ct),
+                DisableFeatureAction a => DisableFeatureAsync(a, ct),
                 RemoveCapabilityAction a => RemoveCapabilitiesAsync(a, ct),
                 DisableServiceAction a => DisableServiceAsync(a, ct),
                 DisableTaskAction a => DisableTasksAsync(a, ct),
@@ -324,9 +586,148 @@ namespace KalOS.Services
             }
         }
 
+        /// <summary>
+        /// Removes many Appx packages in a <b>single</b> PowerShell session.
+        /// The per-package path (<see cref="RemoveAppxAsync"/>) is correct but
+        /// terribly slow in bulk: each call spawns a fresh PowerShell and re-runs
+        /// <c>Get-AppxPackage -AllUsers</c> and the DISM-backed
+        /// <c>Get-AppxProvisionedPackage -Online</c> (each ~1 s). With 100+ store
+        /// apps in the catalog that is ~100 process spawns plus hundreds of slow
+        /// DISM-backed enumerations. This batches them into one process that
+        /// enumerates the package + provisioned lists ONCE and removes every
+        /// requested package, while still reporting each package's outcome so the
+        /// Finish page can attribute failures to a specific app.
+        /// </summary>
+        private static async Task RemoveAppxBatchAsync(IReadOnlyList<AppxRemoveAction> actions, CancellationToken ct)
+        {
+            if (actions.Count == 0) return;
+
+            string names = string.Join(", ", actions.Select(a => "'" + PsQuote(a.PackageName) + "'"));
+            string script =
+                "$targets = @(" + names + "); " +
+                // Enumerate both lists ONCE (the expensive, DISM-backed part).
+                "$all = @(Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue); " +
+                "$prov = @(Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue); " +
+                "foreach ($t in $targets) { " +
+                "  $pkgs = @($all | Where-Object { $_.Name -eq $t }); " +
+                "  if ($pkgs.Count -gt 0) { " +
+                "    $pkgs | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue; " +
+                "    $pkgs | ForEach-Object { New-Item -Path ('HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Appx\\AppxAllUserStore\\Deprovisioned\\' + $_.PackageFullName) -Force -ErrorAction SilentlyContinue | Out-Null }; " +
+                "  }; " +
+                "  $provT = @($prov | Where-Object { $_.DisplayName -eq $t }); " +
+                "  if ($provT.Count -gt 0) { " +
+                "    $provT | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Out-Null; " +
+                "  }; " +
+                "}; " +
+                "foreach ($t in $targets) { " +
+                "  if (Get-AppxPackage -AllUsers -Name $t -ErrorAction SilentlyContinue) { Write-Output ('FAIL:' + $t) } else { Write-Output ('OK:' + $t) } " +
+                "}";
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"{script}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+            using var p = Process.Start(psi);
+            if (p is null) throw new InvalidOperationException("Could not launch PowerShell to remove Appx packages.");
+
+            var stdoutTask = p.StandardOutput.ReadToEndAsync();
+            var stderrTask = p.StandardError.ReadToEndAsync();
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromMinutes(20));
+            try
+            {
+                await p.WaitForExitAsync(timeoutCts.Token);
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                try { p.Kill(entireProcessTree: true); } catch { }
+                throw new TimeoutException("Appx removal batch did not finish within 20 minutes and was terminated.");
+            }
+
+            string stdout = await stdoutTask;
+            _ = await stderrTask;
+
+            // Re-raise per-package failures so each tweak is attributed. The
+            // script prints FAIL:<name> per package that still exists; we map
+            // each back to its action and throw, exactly like the single path.
+            var failed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var line in stdout.Replace("\r\n", "\n").Split('\n'))
+            {
+                var t = line.Trim();
+                if (t.StartsWith("FAIL:", StringComparison.OrdinalIgnoreCase))
+                    failed.Add(t[5..].Trim());
+            }
+            if (failed.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Package '{failed.First()}' could not be removed (" + failed.Count + " package(s) left over).");
+            }
+        }
+
         // ── capabilities / features (DISM) ────────────────────────────────
 
-        private static async Task RemoveCapabilitiesAsync(RemoveCapabilityAction a, CancellationToken ct)
+        /// <summary>
+        /// Disables a Windows optional feature via DISM, but skips it entirely
+        /// when the feature is already disabled (or not present). Every
+        /// <c>dism /online</c> invocation spins up the servicing stack and is
+        /// the single slowest primitive here, so we enumerate the feature state
+        /// once per ApplyAsync and only act where a change is actually needed.
+        /// </summary>
+        private async Task DisableFeatureAsync(DisableFeatureAction a, CancellationToken ct)
+        {
+            _featureLines ??= await RunCaptureAsync("dism.exe", "/online /get-features", ct);
+
+            // Fail-safe: only skip the DISM call when we can CONFIRM the feature
+            // is already disabled or absent from this edition. Never skip on a
+            // parsing miss — if we can't tell, attempt the disable (which either
+            // no-ops or reports a failure, same as before, never silently leaves
+            // an enabled feature untouched).
+            var states = ParseFeatureStates(_featureLines);
+            if (states.TryGetValue(a.FeatureName, out var state) &&
+                state.StartsWith("Disable", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            await RunAsync("dism.exe",
+                $"/online /disable-feature /featurename:{a.FeatureName} /norestart", ct);
+        }
+
+        /// <summary>
+        /// Parses <c>dism /online /get-features</c> output into a
+        /// feature-name → state map. Handles the feature block format
+        /// ("Feature Name : X" then "State : Y").
+        /// </summary>
+        private static Dictionary<string, string> ParseFeatureStates(List<string> lines)
+        {
+            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            string? current = null;
+            foreach (var line in lines)
+            {
+                const string nameMarker = "Feature Name : ";
+                int i = line.IndexOf(nameMarker, StringComparison.OrdinalIgnoreCase);
+                if (i >= 0)
+                {
+                    current = line[(i + nameMarker.Length)..].Trim();
+                    continue;
+                }
+
+                if (current is null) continue;
+                const string stateMarker = "State : ";
+                int j = line.IndexOf(stateMarker, StringComparison.OrdinalIgnoreCase);
+                if (j < 0) continue;
+                map[current] = line[(j + stateMarker.Length)..].Trim();
+                current = null;
+            }
+            return map;
+        }
+
+        private async Task RemoveCapabilitiesAsync(RemoveCapabilityAction a, CancellationToken ct)
         {
             string prefix = a.CapabilityName.TrimEnd('*');
             bool isPattern = a.CapabilityName.EndsWith("*");
@@ -337,9 +738,12 @@ namespace KalOS.Services
             }
             else
             {
-                // Enumerate via DISM and match the pattern (DISM has no wildcards).
-                var output = await RunCaptureAsync("dism.exe", "/online /get-capabilities", ct);
-                foreach (var line in output)
+                // Enumerate via DISM and match the pattern (DISM has no
+                // wildcards). The /online /get-capabilities enumeration is slow
+                // (DISM spins up the servicing stack), so run it once per
+                // ApplyAsync and share it across all capability tweaks.
+                _capabilityLines ??= await RunCaptureAsync("dism.exe", "/online /get-capabilities", ct);
+                foreach (var line in _capabilityLines)
                 {
                     const string marker = "Capability Name : ";
                     int i = line.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
@@ -388,16 +792,20 @@ namespace KalOS.Services
 
         // ── scheduled tasks (schtasks — the built-in tool) ────────────────
 
-        private static async Task DisableTasksAsync(DisableTaskAction a, CancellationToken ct)
+        private async Task DisableTasksAsync(DisableTaskAction a, CancellationToken ct)
         {
             var rx = new Regex("^" + Regex.Escape(a.TaskNamePattern).Replace("\\*", ".*") + "$",
                 RegexOptions.IgnoreCase);
             string folder = (a.TaskPath ?? "\\").Replace("\\\\", "\\");
             if (!folder.EndsWith("\\")) folder += "\\";
 
-            // /FO CSV /V lists every task with a fully-qualified TaskName.
-            var lines = await RunCaptureAsync("schtasks.exe", "/Query /FO CSV /V", ct);
-            foreach (var line in lines.Skip(1)) // header
+            // /FO CSV /V lists every task with a fully-qualified TaskName. This
+            // is an expensive enumerate of ALL scheduled tasks, so run it once
+            // per ApplyAsync and share it across every DisableTaskAction (the
+            // catalog has dozens of these, each previously re-querying
+            // everything).
+            _taskLines ??= await RunCaptureAsync("schtasks.exe", "/Query /FO CSV /V", ct);
+            foreach (var line in _taskLines.Skip(1)) // header
             {
                 var name = ReadCsvField(line, 0);
                 if (string.IsNullOrEmpty(name) || !name.StartsWith(folder, StringComparison.OrdinalIgnoreCase))
@@ -480,7 +888,7 @@ namespace KalOS.Services
 
         // ── OneDrive (hand-written composite mirroring the source script) ─
 
-        private static async Task RemoveOneDriveAsync(CancellationToken ct)
+        private async Task RemoveOneDriveAsync(CancellationToken ct)
         {
             // 1. Kill the process.
             await RunAsync("taskkill.exe", "/IM OneDrive.exe /F", ct, ignoreErrors: true);

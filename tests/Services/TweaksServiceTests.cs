@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using KalOS.Models;
@@ -141,5 +142,58 @@ public class TweaksServiceTests
             Registry.CurrentUser.DeleteSubKeyTree(@"Software\KalOS.Tests.Missing", throwOnMissingSubKey: false);
         }
         catch { }
+    }
+
+    [Fact]
+    public async Task Apply_SkipsAlreadyAppliedAndRepeatsIdempotently()
+    {
+        const string keyPath = @"Software\KalOS.Tests.Skip";
+        using (Registry.CurrentUser.CreateSubKey(keyPath)) { } // ensure key exists
+        var service = new TweaksService();
+        var tweak = new TweakDef("skip-value", TweakGroup.Privacy,
+            new RegistrySetAction(@"HKCU\" + keyPath, "SkipValue", TweakValueKind.Dword, "7"));
+
+        var lines = new List<string>();
+        void Report(string s) => lines.Add(s);
+
+        try
+        {
+            // First run sets the value.
+            var (a1, f1) = await service.ApplyAsync(new[] { tweak }, report: Report);
+            Assert.Equal(1, a1);
+            Assert.Equal(0, f1);
+            using (var k = Registry.CurrentUser.OpenSubKey(keyPath))
+                Assert.Equal(7, Convert.ToInt32(k?.GetValue("SkipValue")));
+            Assert.DoesNotContain(lines, l => l.Contains("already applied"));
+
+            // Second run detects it's already set and short-circuits.
+            lines.Clear();
+            var (a2, f2) = await service.ApplyAsync(new[] { tweak }, report: Report);
+            Assert.Equal(1, a2); // still counted as applied (state is correct)
+            Assert.Equal(0, f2);
+            Assert.Contains(lines, l => l.Contains("already applied, skipped"));
+            using (var k = Registry.CurrentUser.OpenSubKey(keyPath))
+                Assert.Equal(7, Convert.ToInt32(k?.GetValue("SkipValue")));
+        }
+        finally
+        {
+            try { Registry.CurrentUser.DeleteSubKeyTree(keyPath, throwOnMissingSubKey: false); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task Apply_AlreadyAbsentDeleteIsSkipped()
+    {
+        const string keyPath = @"Software\KalOS.Tests.Absent";
+        // Ensure the key is gone, then a "delete value" tweak should skip.
+        try { Registry.CurrentUser.DeleteSubKeyTree(keyPath, throwOnMissingSubKey: false); } catch { }
+        var service = new TweaksService();
+        var tweak = new TweakDef("absent-del", TweakGroup.Privacy,
+            new RegistryKeyDeleteAction(@"HKCU\" + keyPath));
+        var lines = new List<string>();
+        var (applied, failed) = await service.ApplyAsync(new[] { tweak }, report: l => lines.Add(l));
+        Assert.Equal(1, applied);
+        Assert.Equal(0, failed);
+        Assert.Contains(lines, l => l.Contains("already applied, skipped"));
     }
 }

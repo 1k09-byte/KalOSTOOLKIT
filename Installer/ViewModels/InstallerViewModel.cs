@@ -142,7 +142,9 @@ namespace KalOS.Setup.ViewModels
         // categories default to ON so a default run matches what the scripts
         // did; uncheck any bucket to keep that part untouched.
 
-        /// <summary>Master switch — when off no tweaks run at all.</summary>
+        /// <summary>Master switch on the Tweaks page — when off the privacy /
+        /// cleanup categories below don't run (the Customize page's Windows look
+        /// choices are independent of it).</summary>
         [ObservableProperty] private bool _applyTweaks = true;
 
         [ObservableProperty] private bool _tweakApps = true;
@@ -159,33 +161,87 @@ namespace KalOS.Setup.ViewModels
         public string TweakHistoryLabel => "Clear recent history & activity";
         public string TweakLogsLabel => "Clear logs, temp & shadow copies";
 
+        // A category only shows on the tweaks page once it actually has tweaks,
+        // so the page never lists an empty checkbox group. The whole "What to
+        // apply" card collapses when nothing is configured yet.
+        private bool GroupVisible(params TweakGroup[] groups) =>
+            groups.Any(g => TweaksService.All.Any(t => t.Group == g));
+
+        public bool TweakAppsVisible => GroupVisible(TweakGroup.Apps);
+        public bool TweakFeaturesVisible => GroupVisible(TweakGroup.Features, TweakGroup.Capabilities);
+        public bool TweakPrivacyVisible => GroupVisible(TweakGroup.Privacy);
+        public bool TweakServicesVisible => GroupVisible(TweakGroup.Services, TweakGroup.Tasks);
+        public bool TweakHistoryVisible => GroupVisible(TweakGroup.History);
+        public bool TweakLogsVisible => GroupVisible(TweakGroup.Logs);
+
+        public bool AnyTweakCategoryVisible =>
+            TweakAppsVisible || TweakFeaturesVisible || TweakPrivacyVisible
+            || TweakServicesVisible || TweakHistoryVisible || TweakLogsVisible;
+
+        public bool NoTweakCategoriesVisible => !AnyTweakCategoryVisible;
+
         public string TweakSubtitle =>
             "Run your privacy tweaks, app removals and cleanup natively after the install. Every category is on by default — uncheck anything you want to keep.";
 
-        /// <summary>The groups the pipeline will run, in a sensible order.</summary>
+        /// <summary>
+        /// The tweak groups the pipeline will run, in a sensible order. The
+        /// six privacy / cleanup categories are gated by the Tweaks page's
+        /// master switch; the dark mode &amp; transparency defaults (a
+        /// Personalization group) are chosen on the Customize page and are
+        /// independent of that switch.
+        /// </summary>
         public IReadOnlyList<TweakGroup> SelectedTweakGroups
         {
             get
             {
-                if (!ApplyTweaks) return Array.Empty<TweakGroup>();
                 var groups = new List<TweakGroup>();
-                if (TweakApps) groups.Add(TweakGroup.Apps);
-                if (TweakFeatures)
+                if (ApplyTweaks)
                 {
-                    groups.Add(TweakGroup.Features);
-                    groups.Add(TweakGroup.Capabilities);
+                    if (TweakApps) groups.Add(TweakGroup.Apps);
+                    if (TweakFeatures)
+                    {
+                        groups.Add(TweakGroup.Features);
+                        groups.Add(TweakGroup.Capabilities);
+                    }
+                    if (TweakPrivacy) groups.Add(TweakGroup.Privacy);
+                    if (TweakServices)
+                    {
+                        groups.Add(TweakGroup.Services);
+                        groups.Add(TweakGroup.Tasks);
+                    }
+                    if (TweakHistory) groups.Add(TweakGroup.History);
+                    if (TweakLogs) groups.Add(TweakGroup.Logs);
                 }
-                if (TweakPrivacy) groups.Add(TweakGroup.Privacy);
-                if (TweakServices)
-                {
-                    groups.Add(TweakGroup.Services);
-                    groups.Add(TweakGroup.Tasks);
-                }
-                if (TweakHistory) groups.Add(TweakGroup.History);
-                if (TweakLogs) groups.Add(TweakGroup.Logs);
+                if (TweakPersonalization) groups.Add(TweakGroup.Personalization);
                 return groups;
             }
         }
+
+        // ── Windows look (Customize page) ─────────────────────────────────
+        // The Customize step's appearance choices for Windows itself. Both are
+        // applied at the very end of the install — deliberately after the
+        // tweaks/cleanup step, because the Windhawk deploy's Explorer restart
+        // makes the whole look (dark mode included) take effect without a
+        // manual reboot.
+
+        /// <summary>
+        /// Dark mode &amp; transparency effects for Windows. Runs through the
+        /// same native tweak engine as the catalog (it is a
+        /// TweakGroup.Personalization group — see TweaksService), but it is
+        /// chosen on the Customize page, and is independent of the Tweaks
+        /// page's master switch since it is a look choice, not a tweak.
+        /// </summary>
+        [ObservableProperty] private bool _tweakPersonalization = true;
+
+        public string TweakPersonalizationLabel => "Dark mode & transparency effects";
+
+        /// <summary>
+        /// When on, the pipeline installs Windhawk and deploys the curated
+        /// mod set from Assets/windhawk_mods.json (the dark translucent
+        /// dock-style taskbar customization the main app also offers under
+        /// Personalization).
+        /// </summary>
+        [ObservableProperty] private bool _installWindhawkCustomization = true;
 
         // ── Customization (Customize page) ────────────────────────────────
 

@@ -7,32 +7,12 @@
   },
   "mods": [
     {
-      "id": "windows-11-start-menu-styler",
-      "displayName": "Windows 11 Start Menu Styler",
-      "description": "Customize the Start menu with community themes.",
-      "sourceType": "windhawk",
-      "version": "1.7",
-      "theme": "Fluid",
-      "targetProcess": "explorer.exe",
-      "enabled": true
-    },
-    {
       "id": "windows-11-taskbar-styler",
       "displayName": "Windows 11 Taskbar Styler",
       "description": "Customize the taskbar with community themes.",
       "sourceType": "windhawk",
       "version": "1.8",
-      "theme": "DockLike",
-      "targetProcess": "explorer.exe",
-      "enabled": true
-    },
-    {
-      "id": "windows-11-notification-center-styler",
-      "displayName": "Notification Center Styler",
-      "description": "Customize the notification center and action center with themes.",
-      "sourceType": "windhawk",
-      "version": "1.6",
-      "theme": "Fluid",
+      "theme": "Luminosity_variant_Dock",
       "targetProcess": "explorer.exe",
       "enabled": true
     },

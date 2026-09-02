@@ -17,7 +17,7 @@
   // "Apply changes" button once (per manifest version) and runs that script —
   // put the release's post-update tweaks inside post-update-tweaks.ps1. Keep
   // the script idempotent; bump "version" with each release so it re-offers.
-  "version": "1.1.0.0",
+  "version": "1.1.1.0",
   "changes": [
     {
       "description": "Post-update tweaks",

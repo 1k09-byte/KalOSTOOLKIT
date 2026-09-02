@@ -26,7 +26,8 @@
         <StackPanel Grid.Row="0" Spacing="4">
             <TextBlock Text="CUSTOMIZE" Style="{StaticResource ShellCaption}"/>
             <TextBlock Text="Customize" Style="{StaticResource PageTitle}"/>
-            <TextBlock Style="{StaticResource PageSubtitle}" Text="Pick the background image and window tint KalOS starts with."/>
+            <TextBlock Style="{StaticResource PageSubtitle}"
+                       Text="Pick how your machine looks when the install finishes: KalOS's background image and window tint, plus the Windows appearance (dark mode and a dock-style translucent taskbar) this setup applies for you."/>
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,4,0">
@@ -128,6 +129,30 @@
                             </DataTemplate>
                         </GridView.ItemTemplate>
                     </GridView>
+                </StackPanel>
+
+                <!-- Windows look: OS-level appearance, applied at the very end of the install -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Windows Look" Style="{StaticResource SectionHeader}"/>
+                    <Border Style="{StaticResource CardStyle}">
+                        <StackPanel Spacing="10">
+                            <CheckBox Content="{x:Bind Wizard.TweakPersonalizationLabel, Mode=OneWay}"
+                                      IsChecked="{x:Bind Wizard.TweakPersonalization, Mode=TwoWay}"/>
+                            <TextBlock Style="{StaticResource CardSubtitle}"
+                                       Text="Switches Windows (apps and system) to dark mode and enables transparency effects so the tint and the translucent dock look right. Applied near the very end of the install — after tweaks &amp; cleanup."/>
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource CardStyle}">
+                        <StackPanel Spacing="10">
+                            <CheckBox Content="Apply the Windhawk taskbar customization (dark translucent dock)"
+                                      IsChecked="{x:Bind Wizard.InstallWindhawkCustomization, Mode=TwoWay}"/>
+                            <TextBlock Style="{StaticResource CardSubtitle}"
+                                       Text="Installs Windhawk and applies the curated mods (Windows 11 Taskbar Styler with the Luminosity dock theme + dock animation). This downloads Windhawk, and briefly restarts Explorer so the new look takes effect — the same customization the KalOS app offers under Personalization."/>
+                        </StackPanel>
+                    </Border>
+                    <InfoBar IsOpen="True" Severity="Informational" IsClosable="False"
+                             Title="Applied at the very end of the install"
+                             Message="Your Windows look choices run last: dark mode &amp; transparency, then the Windhawk dock — whose final Explorer restart makes the whole look take effect without a manual restart."/>
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>
