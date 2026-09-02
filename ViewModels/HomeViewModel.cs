@@ -51,6 +51,10 @@ namespace KalOS.ViewModels
 
         public async Task LoadRestorePointsAsync()
         {
+            // LoadRestorePointsAsync is always invoked from the UI thread (page
+            // load / constructor), so this is the UI dispatcher — used below to
+            // publish the failure status back onto the UI thread.
+            var dispatcher = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
             IsLoading = true;
             RestorePoints.Clear();
 
@@ -88,7 +92,17 @@ namespace KalOS.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    _logging.Error($"Failed to load restore points: {ex.Message}");
+                    // The root\default:SystemRestore WMI class is unavailable
+                    // whenever System Restore is off (per-volume protection
+                    // disabled, or the service isn't running) — a routine
+                    // condition on many machines, not an app failure. Log a
+                    // low-key Warn with a readable reason instead of a red
+                    // Error that ends in an empty message, and surface a
+                    // friendly status line in the UI.
+                    string reason = string.IsNullOrWhiteSpace(ex.Message) ? ex.GetType().Name : ex.Message;
+                    _logging.Warn($"Restore points unavailable — System Restore appears to be disabled ({reason}).");
+                    dispatcher?.TryEnqueue(() =>
+                        RestorePointStatus = "Restore points unavailable — System Restore appears to be disabled on this PC.");
                 }
             });
 

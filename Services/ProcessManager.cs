@@ -72,6 +72,16 @@ namespace KalOS.Services
             }
             catch (Exception ex)
             {
+                // A missing executable is the expected outcome when probing for
+                // optional tools (choco, scoop, …) that aren't installed; callers
+                // already treat an exit code of -1 as "unavailable". Record it
+                // quietly instead of logging a red Error on every app launch on
+                // machines without those tools.
+                if (ex is System.ComponentModel.Win32Exception { NativeErrorCode: 2 or 3 }) // ERROR_FILE_NOT_FOUND / ERROR_PATH_NOT_FOUND
+                {
+                    _log.Info($"'{fileName}' not found — assumed not installed.");
+                    return (string.Empty, string.Empty, -1);
+                }
                 _log.Error($"Failed to run '{fileName} {arguments}': {ex.Message}");
                 return (string.Empty, string.Empty, -1);
             }

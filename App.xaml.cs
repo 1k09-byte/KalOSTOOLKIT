@@ -57,13 +57,41 @@ namespace KalOS
         private static extern uint SetErrorMode(uint uMode);
 
         /// <summary>
-        /// Exits the process one dispatcher pass later. Calling
-        /// Environment.Exit from inside a window's Closed event kills threads
-        /// while WinUI teardown is still unwinding — on machines where Windows
-        /// Error Reporting is disabled (privacy-tweaked installs), that surfaces
-        /// as the native "Exception Processing Message 0xc0000005 - Unexpected
-        /// parameters" System Error dialog instead of a silent exit. Deferring
-        /// to the dispatcher lets the window teardown finish first.
+        /// Other top-level windows the app can create beyond the main window
+        /// (e.g. the Settings page's startup-banner preview). Tracked so
+        /// shutdown can close them first — the main window's close must be the
+        /// last one for the DispatcherQueue event loop to exit on its own.
+        /// </summary>
+        private static readonly List<Window> AuxiliaryWindows = new();
+
+        internal static void TrackWindow(Window window)
+        {
+            lock (AuxiliaryWindows)
+            {
+                AuxiliaryWindows.Add(window);
+                window.Closed += (_, _) =>
+                {
+                    lock (AuxiliaryWindows) AuxiliaryWindows.Remove(window);
+                };
+            }
+        }
+
+        /// <summary>
+        /// Ends the process through the XAML runtime instead of Environment.Exit.
+        ///
+        /// WinUI Desktop apps start with DispatcherShutdownMode.OnLastWindowClose:
+        /// closing the last window already makes the DispatcherQueue event loop
+        /// exit and Main return, and the XAML runtime finishes all window/COM
+        /// teardown before the process ends. Calling Environment.Exit on top of
+        /// that kills threads while teardown is still unwinding — the resulting
+        /// native access violation surfaces as the "Exception Processing Message
+        /// 0xc0000005 - Unexpected parameters" System Error dialog on machines
+        /// with Windows Error Reporting disabled (privacy-tweaked installs).
+        /// So the process is never terminated directly while XAML is alive:
+        /// windows are closed first, then the event loop is asked to exit via
+        /// Application.Exit (PostQuitMessage) — the same clean path the runtime
+        /// uses for OnLastWindowClose. Work is deferred to the dispatcher so
+        /// the caller's frame unwinds first.
         /// </summary>
         internal static void ExitSoon()
         {
@@ -71,11 +99,49 @@ namespace KalOS
             {
                 var app = Current as App;
                 var queue = app?._window?.DispatcherQueue ?? app?._startupBanner?.DispatcherQueue;
-                if (queue is not null && queue.TryEnqueue(() => Environment.Exit(0)))
+                if (app is not null && queue is not null && queue.TryEnqueue(app.ShutdownProcess))
                     return;
             }
             catch { /* no dispatcher on this thread — exit directly below */ }
-            Environment.Exit(0);
+            ExitWithoutUi();
+        }
+
+        /// <summary>Runs on the UI thread: closes every app window, then ends the event loop.</summary>
+        private void ShutdownProcess()
+        {
+            lock (AuxiliaryWindows)
+            {
+                foreach (var window in AuxiliaryWindows.ToArray())
+                {
+                    try { window.Close(); } catch { }
+                }
+            }
+            try { _startupBanner?.Close(); } catch { }
+            try { _window?.Close(); } catch { }
+
+            // PostQuitMessage-based exit: the loop drains the current callback
+            // and remaining teardown first, then Application.Start returns and
+            // the process ends normally.
+            try { Exit(); } catch { }
+        }
+
+        /// <summary>
+        /// Exit path for when no window's dispatcher is reachable (startup
+        /// edge before any window exists, or shutdown already underway). With
+        /// no live window there is no XAML teardown to race, so ending the
+        /// process directly is safe.
+        /// </summary>
+        private static void ExitWithoutUi()
+        {
+            try
+            {
+                if (Current is { } app) app.Exit();
+                else Environment.Exit(0);
+            }
+            catch
+            {
+                Environment.Exit(0);
+            }
         }
 
         /// <summary>
@@ -343,9 +409,11 @@ namespace KalOS
                 {
                     // When the banner closes (auto-hide, close button, or update
                     // notice dismissed), exit the process so the login launch ends.
-                    // Deferred (ExitSoon): a synchronous Environment.Exit here fires
-                    // while the window teardown is mid-flight and raises the
-                    // native 0xc0000005 hard-error dialog on some machines.
+                    // The banner is the last window here, so the runtime would end
+                    // the app on its own (DispatcherShutdownMode.OnLastWindowClose);
+                    // ExitSoon only makes sure of it — without the Environment.Exit
+                    // that used to kill threads mid-teardown and raise the native
+                    // 0xc0000005 hard-error dialog on machines with WER disabled.
                     ExitSoon();
                 };
                 banner.Run();
@@ -359,7 +427,7 @@ namespace KalOS
                         .WriteAsync("App", "StartupBanner", $"Failed: {ex}", isError: true);
                 }
                 catch { }
-                Environment.Exit(0);
+                ExitSoon();
             }
         }
 
@@ -739,7 +807,8 @@ namespace KalOS
                 finally
                 {
                     settingsVm.PropertyChanged -= OnVmChanged;
-                    // On success the app has already exited (Environment.Exit).
+                    // On success the app has already requested a graceful exit
+                    // (see App.ExitSoon).
                     // On failure, close the progress dialog so the Settings
                     // page status (with the real error) is visible again.
                     dialog.Hide();

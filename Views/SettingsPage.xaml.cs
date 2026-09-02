@@ -79,6 +79,10 @@ namespace KalOS.Views
 
             _previewBanner = new StartupBannerWindow(startup, update, settings);
             _previewBanner.Closed += (_, _) => _previewBanner = null;
+            // Tracked so a graceful app exit closes the preview banner before
+            // the main window — its close must be the last one for the
+            // DispatcherQueue event loop to exit cleanly.
+            App.TrackWindow(_previewBanner);
             _previewBanner.Preview();
         }
 

@@ -30,16 +30,22 @@ namespace KalOS.Services
             {
             }
             // Deferred (one dispatcher pass later) so the UI thread unwinds
-            // before the process dies — a synchronous exit here races the
-            // window teardown and raises the native 0xc0000005 hard-error box
-            // on machines with Windows Error Reporting disabled.
+            // before this instance exits. The exit goes through the XAML
+            // runtime (Application.Exit → PostQuitMessage) instead of
+            // Environment.Exit: killing the process directly while window
+            // teardown is still unwinding raises the native 0xc0000005
+            // hard-error box on machines with Windows Error Reporting disabled.
             try
             {
                 var queue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
-                if (queue is not null && queue.TryEnqueue(() => Environment.Exit(0)))
+                if (queue is not null && queue.TryEnqueue(() =>
+                    {
+                        try { Microsoft.UI.Xaml.Application.Current?.Exit(); } catch { }
+                    }))
                     return;
             }
             catch { /* no dispatcher on this thread — exit directly below */ }
+            // No XAML dispatcher on this thread — nothing is being torn down.
             Environment.Exit(0);
         }
     }
