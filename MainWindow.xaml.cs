@@ -17,6 +17,8 @@ namespace KalOS
     /// </summary>
     public sealed partial class MainWindow : WinUIEx.WindowEx
     {
+        private bool _isClosing;
+
         private static readonly Dictionary<string, Type> PageRegistry = new()
         {
             ["Home"] = typeof(HomePage),
@@ -72,13 +74,19 @@ namespace KalOS
             var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
             var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
 
-            // Dismiss any open dialogs BEFORE teardown begins — closing a
-            // window while a ContentDialog is open crashes native XAML
-            // teardown (the 0xc0000005 "Exception Processing Message" box
-            // seen on WER-disabled machines when the app is closed).
+            // Set once teardown starts (AppWindow.Closing, before the window
+            // is destroyed). Everything that touches the visual tree or the
+            // composition backdrop becomes a no-op from here on — updating
+            // either during XAML teardown corrupts the CoreMessaging heap and
+            // crashes the process at exit (the 0xC0000005 on close).
             try
             {
-                appWindow.Closing += (_, _) => App.HideOpenDialogs();
+                appWindow.Closing += (_, _) =>
+                {
+                    _isClosing = true;
+                    App.HideOpenDialogs();
+                    _backdropService.Teardown();
+                };
             }
             catch { }
 
@@ -106,9 +114,13 @@ namespace KalOS
             _backdropService.UpdateSystemBackdropState(ResolveEffectiveTheme(_themeService.CurrentTheme));
 
             // Keep the backdrop's input state in sync with window focus.
-            Activated += (_, args) => _backdropService.UpdateSystemBackdropState(
-                ResolveEffectiveTheme(_themeService.CurrentTheme),
-                args.WindowActivationState != WindowActivationState.Deactivated);
+            Activated += (_, args) =>
+            {
+                if (_isClosing) return;
+                _backdropService.UpdateSystemBackdropState(
+                    ResolveEffectiveTheme(_themeService.CurrentTheme),
+                    args.WindowActivationState != WindowActivationState.Deactivated);
+            };
 
             _themeService.ThemeChanged += OnThemeChanged;
             // When in System (Default) mode, the OS theme can change underneath us.
@@ -116,6 +128,7 @@ namespace KalOS
             // title-bar colors and backdrop (which are set manually) to stay in sync.
             RootGrid.ActualThemeChanged += (_, _) =>
             {
+                if (_isClosing) return;
                 if (_themeService.CurrentTheme == ElementTheme.Default)
                 {
                     DispatcherQueue.TryEnqueue(() =>
@@ -140,12 +153,16 @@ namespace KalOS
             {
                 try { BackgroundImage.Source = null; } catch { }
                 _backgroundImageBitmap = null;
+                // The main-window close bypasses ShutdownProcess — drop the
+                // empty pre-opened dump file so no stale file is left behind.
+                App.CleanupEmptyNativeDump();
             };
 
             // Refresh the background image when settings change.
             var settingsVm = App.Services.GetRequiredService<ViewModels.SettingsViewModel>();
             settingsVm.PropertyChanged += (_, e) =>
             {
+                if (_isClosing) return;
                 if (e.PropertyName is nameof(ViewModels.SettingsViewModel.BackgroundImagePath)
                     or nameof(ViewModels.SettingsViewModel.BackgroundImageFit)
                     or nameof(ViewModels.SettingsViewModel.BackgroundImageVerticalAlignment)
@@ -229,6 +246,7 @@ namespace KalOS
 
         private void OnThemeChanged(object? sender, ElementTheme theme)
         {
+            if (_isClosing) return;
             DispatcherQueue.TryEnqueue(() =>
             {
                 try
@@ -303,6 +321,7 @@ namespace KalOS
 
         private void OnBackdropChanged(object? sender, BackdropType backdrop)
         {
+            if (_isClosing) return;
             DispatcherQueue.TryEnqueue(() =>
             {
                 if (backdrop == BackdropType.None)

@@ -73,6 +73,14 @@ namespace KalOS
         [DllImport("kernel32.dll")]
         private static extern uint GetCurrentProcessId();
 
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr LoadLibraryW(string fileName);
+
+        // Loaded-module snapshot (name + base + size), captured at startup so
+        // the crash handler can map the faulting address to a module with a
+        // couple of pointer walks — no API calls on the faulting thread.
+        private static (ulong Base, uint Size, string Name)[] _loadedModules = Array.Empty<(ulong, uint, string)>();
+
         [DllImport("dbghelp.dll", SetLastError = true)]
         private static extern bool MiniDumpWriteDump(IntPtr process, uint processId, IntPtr file,
             uint dumpType, IntPtr exceptionParam, IntPtr userStreamParam, IntPtr callbackParam);
@@ -91,19 +99,90 @@ namespace KalOS
         {
             try
             {
-                // EXCEPTION_POINTERS → ExceptionRecord → ExceptionCode (first DWORD).
+                // EXCEPTION_POINTERS → ExceptionRecord (first pointer).
                 IntPtr record = Marshal.ReadIntPtr(exceptionPointers);
                 if (record == IntPtr.Zero || Marshal.ReadInt32(record) != unchecked((int)0xC0000005))
                 {
                     return 0; // EXCEPTION_CONTINUE_SEARCH
                 }
 
+                // EXCEPTION_RECORD (x64): Code@0, Flags@4, Record@8, Address@0x10.
+                ulong faultAddress = (ulong)Marshal.ReadInt64(record, 0x10);
+
+                // Map the faulting address to a loaded module (snapshot taken
+                // at startup) so the culprit is known even if the dump fails.
+                string module = "unknown";
+                ulong moduleOffset = faultAddress;
+                foreach (var m in _loadedModules)
+                {
+                    if (faultAddress >= m.Base && faultAddress < (ulong)(m.Base + m.Size))
+                    {
+                        module = m.Name;
+                        moduleOffset = faultAddress - m.Base;
+                        break;
+                    }
+                }
+
+                // Walk the stack (heuristic): read the CONTEXT's RSP/RIP from
+                // EXCEPTION_POINTERS and scan the stack for return addresses
+                // that land inside a loaded module. Crude, but it reveals the
+                // call chain (e.g. XAML teardown ← KalOS code) without a debugger.
+                // AMD64 CONTEXT: ContextRecord@8, Rip@0xF8, Rsp@0x98.
+                var chain = new System.Text.StringBuilder();
+                try
+                {
+                    IntPtr context = Marshal.ReadIntPtr(exceptionPointers, IntPtr.Size);
+                    if (context != IntPtr.Zero)
+                    {
+                        ulong rip = (ulong)Marshal.ReadInt64(context, 0xF8);
+                        ulong rsp = (ulong)Marshal.ReadInt64(context, 0x98);
+                        chain.Append($"\nrip: 0x{rip:X}\nrsp: 0x{rsp:X}\n");
+                        ulong seen = 0;
+                        for (ulong addr = rsp; addr < rsp + 0x8000 && seen < 24; addr += 8)
+                        {
+                            ulong value;
+                            try { value = (ulong)Marshal.ReadInt64((IntPtr)addr); }
+                            catch { break; }
+                            if (value == 0) continue;
+                            foreach (var m in _loadedModules)
+                            {
+                                if (value >= m.Base && value < (ulong)(m.Base + m.Size))
+                                {
+                                    chain.Append($"  {m.Name} + 0x{value - m.Base:X}\n");
+                                    seen++;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                catch { }
+
+                bool dumpOk = false;
+                int dumpError = 0;
                 if (_nativeDumpFile?.SafeFileHandle is { IsInvalid: false } handle)
                 {
-                    MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(),
+                    dumpOk = MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(),
                         handle.DangerousGetHandle(),
                         0x2 /* MiniDumpWithDataSegs */, exceptionPointers, IntPtr.Zero, IntPtr.Zero);
+                    dumpError = Marshal.GetLastWin32Error();
                 }
+
+                // Always leave a text record with the faulting module — a
+                // minidump alone is useless without a debugger installed.
+                try
+                {
+                    string txt = System.IO.Path.Combine(
+                        System.IO.Path.GetDirectoryName(_nativeDumpPath) ?? string.Empty,
+                        System.IO.Path.GetFileNameWithoutExtension(_nativeDumpPath) + ".txt");
+                    System.IO.File.WriteAllText(txt,
+                        $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Access violation 0xC0000005\n" +
+                        $"fault address: 0x{faultAddress:X}\n" +
+                        $"module: {module} + 0x{moduleOffset:X}\n" +
+                        $"minidump: {(dumpOk ? "ok" : $"failed (error {dumpError})")}\n" +
+                        chain.ToString());
+                }
+                catch { }
             }
             catch { }
             return 0; // never swallow the exception — WER / the OS still sees it
@@ -146,6 +225,18 @@ namespace KalOS
 
                 _nativeDumpPath = System.IO.Path.Combine(dir, $"native_{DateTime.Now:yyyyMMdd_HHmmss}.dmp");
                 _nativeDumpFile = System.IO.File.Create(_nativeDumpPath);
+
+                // Pre-load dbghelp so the handler never triggers a first-use
+                // loader lock, and snapshot the module list for address mapping.
+                LoadLibraryW("dbghelp.dll");
+                try
+                {
+                    _loadedModules = Process.GetCurrentProcess().Modules.Cast<ProcessModule>()
+                        .Select(m => ((ulong)m.BaseAddress.ToInt64(), (uint)m.ModuleMemorySize, m.ModuleName ?? string.Empty))
+                        .ToArray();
+                }
+                catch { }
+
                 _vectoredHandler = NativeExceptionDumpHandler;
                 AddVectoredExceptionHandler(1 /* first: observe, never swallow */,
                     Marshal.GetFunctionPointerForDelegate(_vectoredHandler));
@@ -241,6 +332,22 @@ namespace KalOS
         /// uses for OnLastWindowClose. Work is deferred to the dispatcher so
         /// the caller's frame unwinds first.
         /// </summary>
+        /// <summary>Removes the empty pre-opened dump file after a clean exit.</summary>
+        internal static void CleanupEmptyNativeDump()
+        {
+            try
+            {
+                _nativeDumpFile?.Dispose();
+                _nativeDumpFile = null;
+                if (_nativeDumpPath is { } path && System.IO.File.Exists(path)
+                    && new System.IO.FileInfo(path).Length == 0)
+                {
+                    System.IO.File.Delete(path);
+                }
+            }
+            catch { }
+        }
+
         internal static void ExitSoon()
         {
             try
@@ -262,17 +369,7 @@ namespace KalOS
             HideOpenDialogs();
 
             // Normal exit: remove the (still empty) pre-opened dump file.
-            try
-            {
-                _nativeDumpFile?.Dispose();
-                _nativeDumpFile = null;
-                if (_nativeDumpPath is { } path && System.IO.File.Exists(path)
-                    && new System.IO.FileInfo(path).Length == 0)
-                {
-                    System.IO.File.Delete(path);
-                }
-            }
-            catch { }
+            CleanupEmptyNativeDump();
 
             lock (AuxiliaryWindows)
             {

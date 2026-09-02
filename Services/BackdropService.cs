@@ -41,6 +41,7 @@ namespace KalOS.Services
         private ISystemBackdropControllerWithTargets? _controller;
         private SystemBackdropConfiguration? _configuration;
         private ICompositionSupportsSystemBackdrop? _target;
+        private bool _disposed;
 
         public BackdropService()
         {
@@ -122,7 +123,7 @@ namespace KalOS.Services
         /// </summary>
         public void UpdateSystemBackdropState(ElementTheme effectiveTheme, bool isInputActive = true)
         {
-            if (_configuration is null) return;
+            if (_disposed || _configuration is null) return;
             _configuration.IsInputActive = isInputActive;
             _configuration.Theme = effectiveTheme switch
             {
@@ -150,7 +151,7 @@ namespace KalOS.Services
 
         private void ApplyBackdrop(BackdropType backdrop)
         {
-            if (_window == null) return;
+            if (_disposed || _window == null) return;
 
             _controller?.Dispose();
             _controller = null;
@@ -206,6 +207,24 @@ namespace KalOS.Services
         {
             _controller?.Dispose();
             _controller = null;
+        }
+
+        /// <summary>
+        /// Detaches and disposes the composition backdrop BEFORE the window is
+        /// destroyed. A SystemBackdropController left attached to a window while
+        /// XAML tears it down corrupts the CoreMessaging heap and crashes the
+        /// process at exit — the 0xC0000005 access violation in
+        /// ucrtbase/CoreMessagingXP seen on every close. After this, all
+        /// backdrop operations become no-ops.
+        /// </summary>
+        public void Teardown()
+        {
+            _disposed = true;
+            _controller?.Dispose();
+            _controller = null;
+            _configuration = null;
+            _target = null;
+            _window = null;
         }
     }
 }
