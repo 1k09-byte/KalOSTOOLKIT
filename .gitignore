@@ -1,12 +1,11 @@
 # Build outputs
 bin/
 obj/
-publish/
-dist/
-AppPackages/
-*.user
-*.suo
-.vs/
+*.dll
+*.pdb
+*.exe
+**/KalOSTOOLKITobjverify*/
+.kalos-pr-merge-backups/
 
 # Test outputs
 tests/bin/
