@@ -250,8 +250,8 @@ namespace KalOS.ViewModels
                             dispatcher.TryEnqueue(() =>
                             {
                                 item.IsInstalled = true;
-                                item.ShowSuccessNotice = true;
-                                item.StatusText = "Already installed";
+                                item.ShowSuccessNotice = false;
+                                item.StatusText = string.Empty;
 
                                 if (item is BrowserItem browser)
                                 {

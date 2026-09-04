@@ -33,6 +33,21 @@ namespace KalOS.ViewModels
         public string DevicesText => Record.AssociatedDevices.Count == 0
             ? "—"
             : string.Join(", ", Record.AssociatedDevices.Select(d => string.IsNullOrEmpty(d.Description) ? d.InstanceId : d.Description).Distinct().Take(3)) + (Record.AssociatedDevices.Count > 3 ? "…" : string.Empty);
+        public bool ShowDevicesText => Record.AssociatedDevices.Count != 0;
+        // Swapped: driver name as title, company as subtitle (was opposite)
+        public string DriverDisplayName
+        {
+            get
+            {
+                var firstDevice = Record.AssociatedDevices.FirstOrDefault()?.Description;
+                if (!string.IsNullOrWhiteSpace(firstDevice) && firstDevice != "—")
+                    return firstDevice!;
+                if (!string.IsNullOrWhiteSpace(Record.DriverClass) && !Record.DriverClass.Equals("Unknown", StringComparison.OrdinalIgnoreCase))
+                    return Record.DriverClass;
+                return Record.InfName;
+            }
+        }
+        public string CompanyDisplayName => string.IsNullOrWhiteSpace(Provider) ? "Unknown" : Provider;
         public bool IsOffline => Record.IsOffline;
 
         [ObservableProperty]
@@ -201,7 +216,11 @@ namespace KalOS.ViewModels
                 var provider = CreateProvider();
                 var records = await Task.Run(() => provider.EnumeratePackages(IncludeInbox));
 
-                foreach (var r in records.OrderByDescending(r => r.BootCritical).ThenBy(r => r.Provider, StringComparer.OrdinalIgnoreCase))
+                // Hide boot-critical + dash-drivers entirely (second line would be "—" U+2014)
+                // and drivers whose description is BOTH Unknown AND a dash (e.g. "Unknown —").
+                var filtered = records.Where(r => !r.BootCritical && !IsUnknownAndDash(r.DriverClass) && r.AssociatedDevices.Count > 0).ToList();
+
+                foreach (var r in filtered.OrderByDescending(r => r.BootCritical).ThenBy(r => r.Provider, StringComparer.OrdinalIgnoreCase))
                     Packages.Add(new DriverPackageRow(r));
 
                 StatusText = $"{Packages.Count} package(s) — {TargetDescription}";
@@ -231,6 +250,17 @@ namespace KalOS.ViewModels
                 IsBusy = false;
                 BusyText = string.Empty;
             }
+        }
+
+        private static bool IsUnknownAndDash(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return false;
+            var t = value.Trim();
+            bool hasUnknown = t.IndexOf("Unknown", StringComparison.OrdinalIgnoreCase) >= 0;
+            // Exact dash from code: "—" U+2014 em dash (hex E2 80 94) used everywhere as placeholder
+            // e.g. VersionText => ?? "—", FormatBytes => "\u2014"
+            bool hasDash = t.Contains('—');
+            return hasUnknown && hasDash;
         }
 
         private static bool IsNativeInteropFailure(Exception ex) =>

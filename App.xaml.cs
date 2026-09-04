@@ -436,7 +436,17 @@ namespace KalOS
 
             this.InitializeComponent();
 
-            EnableNativeCrashDumps();
+            // Don't install the low-level vectored handler when a debugger is
+            // attached: the handler walks the raw stack with Marshal.ReadInt64
+            // and writes a minidump. Under the VS debugger that races the
+            // debugger's own vectored handlers and corrupts the CLR, surfacing
+            // as System.ExecutionEngineException 0x80131506 only while
+            // debugging (Ctrl+F5 works fine). The WER LocalDumps registry
+            // + managed LogCrash() still cover non-debugger crashes.
+            if (!System.Diagnostics.Debugger.IsAttached)
+            {
+                EnableNativeCrashDumps();
+            }
 
             var serviceCollection = new ServiceCollection();
             ConfigureServices(serviceCollection);
@@ -529,20 +539,12 @@ namespace KalOS
         /// <param name="args">Details about the launch request and process.</param>
         protected override void OnLaunched(LaunchActivatedEventArgs args)
         {
-            // WASDK 2.3.1+ opt-in XAML performance work (spec: must run before any
-            // XAML initializes — OnLaunched is that point). These are the change
-            // ids that exist in the shipped 2.4 projection; each enables a
-            // targeted WinUI optimization that is safe for this app (we use no
-            // custom control templates that re-implement the affected internals).
-            try
-            {
-                XamlOptionalChanges.EnableChange(XamlChangeId.OptimizeApplyStyles);        // defer style property setters + delayed style apply
-                XamlOptionalChanges.EnableChange(XamlChangeId.DefaultStyleOptimizations);  // lighter default control styles (optimized ScrollBar etc.)
-                XamlOptionalChanges.EnableChange(XamlChangeId.IconNoGridOptimization);     // FontIcon/BitmapIcon skip an extra Grid layer
-                XamlOptionalChanges.EnableChange(XamlChangeId.DeferContextFlyoutInit);     // skip default ContextFlyout init on TextBlock enter/leave
-                XamlOptionalChanges.Lock();
-            }
-            catch { } // older runtime or renamed id → silently run without the opt-ins
+            // WASDK 2.3.1+ opt-in XAML performance work is now applied in
+            // Program.Main — BEFORE Application.Start — which is the only
+            // point where XamlOptionalChanges may be modified. Doing it here
+            // in OnLaunched is too late (XAML is already initialized) and
+            // throws InvalidOperationException 0x8000000D:
+            // "XamlOptionalChanges cannot be modified after XAML has been initialized."
 
             this.UnhandledException += App_UnhandledException;
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;

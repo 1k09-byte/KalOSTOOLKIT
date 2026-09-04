@@ -122,8 +122,8 @@
 
                                     <StackPanel Grid.Column="1" Spacing="2">
                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock Text="{x:Bind Provider}" FontWeight="SemiBold" />
-                                            <TextBlock Text="{x:Bind VersionText}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            <TextBlock Text="{x:Bind DriverDisplayName}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                            <TextBlock Text="{x:Bind VersionText}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
                                             <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4" Padding="6,1"
                                                     Visibility="{x:Bind InUse}">
                                                 <TextBlock Text="IN USE" FontSize="11" />
@@ -133,8 +133,7 @@
                                                 <TextBlock Text="BOOT-CRITICAL" FontSize="11" Foreground="#FFC9C9C9" />
                                             </Border>
                                         </StackPanel>
-                                        <TextBlock Text="{x:Bind DriverClass}" Style="{StaticResource MetricCaptionStyle}" />
-                                        <TextBlock Text="{x:Bind DevicesText}" Style="{StaticResource MetricCaptionStyle}" TextWrapping="Wrap" />
+                                        <TextBlock Text="{x:Bind CompanyDisplayName}" Style="{StaticResource MetricCaptionStyle}" TextWrapping="Wrap" />
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="2" HorizontalAlignment="Right">

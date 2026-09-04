@@ -33,35 +33,9 @@ namespace KalOS.Views
             
             if (!ViewModel.HasScanned && !ViewModel.IsScanning)
             {
-                // Await the scan so installed-state is accurate before the
-                // Runtimes popup renders (otherwise every runtime shows an
-                // Install button because nothing is marked installed yet).
                 await ViewModel.ScanForInstalledBrowsersAsync();
             }
 
-            // Show Runtimes popup exactly like the tab would have looked, as soon as the page opens
-            if (!_runtimesPopupShown)
-            {
-                _runtimesPopupShown = true;
-                ShowRuntimesPopupAsync();
-            }
-        }
-
-        private static bool _runtimesPopupShown = false;
-
-        private void RuntimesCloseButton_Click(object sender, RoutedEventArgs e)
-        {
-            RuntimesOverlay.Visibility = Visibility.Collapsed;
-        }
-
-        private void ShowRuntimesPopupAsync()
-        {
-            if ((App.Current as App)?.MainWindow?.Content == null) return;
-            RuntimesList.ItemsSource = ViewModel.Runtimes;
-            // A full-page centered overlay never has the XamlRoot/positioning
-            // problems of a ContentDialog, so the popup is always centered.
-            RuntimesOverlay.Opacity = 1.0;
-            RuntimesOverlay.Visibility = Visibility.Visible;
         }
 
         private void InstallButton_Click(object sender, RoutedEventArgs e)

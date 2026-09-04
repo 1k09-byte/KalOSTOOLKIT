@@ -245,8 +245,8 @@ namespace KalOS.Services
 
         [DllImport("drvstore.dll", EntryPoint = "DriverStoreOpenW", SetLastError = true, CharSet = CharSet.Unicode)]
         internal static extern IntPtr DriverStoreOpen(
-            string targetSystemPath,
-            string targetBootDrive,
+            string? targetSystemPath,
+            string? targetBootDrive,
             uint flags,
             IntPtr transactionHandle);
 
@@ -298,7 +298,7 @@ namespace KalOS.Services
             DriverStoreOfflineAddDriverPackageFlags Flags,
             IntPtr Reserved,
             ushort ProcessorArchitecture,
-            string LocaleName,
+            string? LocaleName,
             StringBuilder DestInfPath,
             ref int cchDestInfPath,
             string TargetSystemRoot,
@@ -330,7 +330,7 @@ namespace KalOS.Services
         internal static extern IntPtr DriverPackageOpen(
             string driverPackageFilename,
             ProcessorArchitecture processorArchitecture,
-            string localeName,
+            string? localeName,
             DriverPackageOpenFlags flags,
             IntPtr resolveContext);
 

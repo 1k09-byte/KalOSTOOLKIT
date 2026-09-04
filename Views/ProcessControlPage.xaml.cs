@@ -318,7 +318,7 @@ public sealed partial class ProcessControlPage : Page
     {
         try
         {
-            string exe = Environment.ProcessPath;
+            string? exe = Environment.ProcessPath;
             if (string.IsNullOrEmpty(exe)) return;
             ProcessControlService.EndEngineSession();
             Process.Start(new ProcessStartInfo
