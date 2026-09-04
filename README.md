@@ -69,3 +69,31 @@ powershell -ExecutionPolicy Bypass -File publish-consumer.ps1
 - Crash logs: `%LOCALAPPDATA%\KalOS\CrashLogs\` (last 5 kept).
 - License: KalOS is MIT — see `LICENSE.md`. Third-party components have their own terms (`THIRD-PARTY-NOTICES.md`).
 - See `THIRD-PARTY-NOTICES.md` for dependency and asset licensing.
+
+## Process Control
+
+The **Process Control** page (nav: 🎚️) gives Process Lasso–class control over per-process CPU priority, I/O priority, memory priority, and core affinity, with persistent rules that auto-reapply whenever a matching process launches.
+
+**Feature set** (all included, no gating):
+
+- **Sticky Rules** — rules persist by process name, full path, or command line (opt-in per rule, so unrelated same-named processes can be told apart), with optional 1-based **instance targeting** ("2nd instance of X"). Rules reapply to every new instance, including multiple simultaneous copies.
+- **AutoBalance** — background sampling of per-process CPU load; temporarily lowers the priority of hogging background processes above a configurable threshold and restores them when load drops. Conservative defaults, user-configurable exclusions, never terminates anything.
+- **Core Isolation presets** — one-click E-Cores Off / P-Cores Off / CCD0 Off / CCD1 Off / SMT Off via the Windows **CPU Sets** API (`SetProcessDefaultCpuSets`). CCD count is detected from L3-cache topology (real AMD CCD detection) with an "estimated" label when the heuristic fallback is used. Presets that don't apply to the detected CPU are hidden/disabled.
+- **Core Cap** — dynamic core-count/percent cap re-evaluated on a timer, plus **Hard Throttle** (suspend duty cycle) for a strict percentage ceiling.
+- **Spread Balancer** — distributes N running copies of one exe across distinct core groups.
+- **Blocklist** — auto-terminates named processes on sight; **Instance Count Limits** cap simultaneous copies.
+- **AutoRevive** — auto-relaunches a process when it exits unexpectedly; **Keep Running** protects a process from being closed (with an explicit Allow Close override).
+- **Prevent Sleep rules** — blocks system sleep while a guarded process runs.
+- **Boost Mode** — one click disables core parking / frequency scaling system-wide (powercfg), one click to revert; the previous AC/DC values are saved and restored. In plain terms: idle cores wake instantly and every core holds its max turbo frequency, at the cost of slightly higher idle power.
+- **Foreground Boost** — raises the active foreground app to Above Normal (off by default).
+- **Monitoring view** — live per-core CPU bars, total CPU history, memory, and disk throughput (PDH).
+- **Action log** — human-readable record of every automatic action (what, when, why), viewable and exportable.
+- **Safety rail** — Realtime priority / single-core pins on system-critical processes require explicit confirmation, and **Restore all managed** resets every touched process in one click.
+- **Processor Groups** — CPU Sets work across groups, so >64-logical-CPU systems are handled correctly.
+- **Export/Import** — full rule bundles as portable JSON.
+
+**Elevation.** KalOS runs elevated (`requireAdministrator` in `app.manifest`), so all scheduling calls work without a helper process.
+
+**Background persistence.** Rules enforce while KalOS is open, and — with the hidden `--rules` login session — from login onward even when the window is closed. The consumer build registers `KalOS.exe --rules` in the HKCU Run key automatically; the Engine tab shows the status and has a register/repair button. `--rules` runs a 1×1 off-screen window and the same engine; it is the only always-on part of the app (no tray icon, no service).
+
+**Storage.** Rules and the action log live in `%LOCALAPPDATA%\KalOS\process-control\` (`rules.json`, `actions.json`, `boost-saved.json`).

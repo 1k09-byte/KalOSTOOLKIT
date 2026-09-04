@@ -327,6 +327,28 @@ namespace KalOS.Setup
                     "Skipped — you chose not to install the Windhawk customization.", skipped: true);
             }
 
+            // ── Step 8: Connectivity repair (ALWAYS runs, ALWAYS last) ─────
+            // Progress budget: the final 90–100% tail when Windhawk ran (its
+            // own budget shrinks accordingly), else 95–100%. Deliberately the
+            // last registry writes of the whole install:
+            //   1. Keep-alives re-assert Start=2/3 on everything the debloat
+            //      batches must never take down (Xbox, anti-cheat, audio,
+            //      Bluetooth, Store deps, the Wi-Fi/network keep list) —
+            //      correcting any stale Disabled value from earlier runs.
+            //   2. The KalOS Wi-Fi fix restores the firewall stack (mpssvc,
+            //      mpsdrv, EnableFirewall per profile). Structurally last so
+            //      nothing above it can re-break connectivity — the
+            //      "installer never breaks your Wi-Fi" guarantee.
+            // Every entry only ever re-enables (Start=2/3, EnableFirewall=1);
+            // the plan cannot disable anything, so it is safe even though it
+            // bypasses TweaksService's WifiSafety guard (which exists to
+            // filter the *disable* catalog).
+            {
+                vm.CurrentStep = "Restoring network & connectivity defaults";
+                await RunStepAsync(vm, "Connectivity repair",
+                    () => Task.Run(() => ApplyConnectivityRepair(vm, ct)));
+            }
+
             // ── Finish ──────────────────────────────────────────────────────
             vm.CurrentStep = "Done";
             vm.CurrentDetail = string.Empty;
@@ -367,6 +389,84 @@ namespace KalOS.Setup
                 vm.LogStep(name, false, ex.Message);
                 return false;
             }
+        }
+
+        // ── Step 8: connectivity repair (keep-alives + Wi-Fi fix, always last) ──
+
+        /// <summary>
+        /// Applies <see cref="ConnectivityRepairPlan.OrderedPlan"/>: every
+        /// keep-alive, then the Wi-Fi fix as the plan's final entries. Writes
+        /// are skipped when the registry already holds the target value (fast
+        /// re-runs), failures are logged per entry without aborting the rest,
+        /// and the summary line states explicitly that the Wi-Fi fix ran
+        /// last. Runs on a worker thread via Task.Run — registry writes only.
+        /// </summary>
+        private bool ApplyConnectivityRepair(InstallerViewModel vm, CancellationToken ct)
+        {
+            var log = _services.GetRequiredService<LoggingService>();
+            int applied = 0, skipped = 0, failed = 0;
+            string? firstFailure = null;
+
+            foreach (var entry in ConnectivityRepairPlan.OrderedPlan)
+            {
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    if (ApplyRepairEntry(entry))
+                        applied++;
+                    else
+                        skipped++;
+                }
+                catch (Exception ex)
+                {
+                    failed++;
+                    firstFailure ??= $"{entry.Name}: {ex.Message}";
+                    log.Error($"Connectivity repair — {entry.Name}: {ex.Message}");
+                }
+            }
+
+            vm.CurrentDetail = $"{applied} restored, {skipped} already correct"
+                + (failed > 0 ? $", {failed} failed — {firstFailure}" : string.Empty)
+                + ". Wi-Fi fix applied last (firewall service, driver, profiles).";
+            return failed == 0;
+        }
+
+        /// <summary>Apply one plan entry. Returns false when already in the target state.</summary>
+        private static bool ApplyRepairEntry(ConnectivityRepairPlan.PlanEntry entry)
+        {
+            const string ServicesPrefix = @"HKLM\SYSTEM\CurrentControlSet\Services\";
+            string subKey;
+            Microsoft.Win32.RegistryKey root;
+
+            if (entry.Key.StartsWith(ServicesPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                root = Microsoft.Win32.Registry.LocalMachine;
+                subKey = entry.Key[ServicesPrefix.Length..];
+            }
+            else if (entry.Key.StartsWith("HKLM\\", StringComparison.OrdinalIgnoreCase))
+            {
+                root = Microsoft.Win32.Registry.LocalMachine;
+                subKey = entry.Key[5..];
+            }
+            else if (entry.Key.StartsWith("HKCU\\", StringComparison.OrdinalIgnoreCase))
+            {
+                root = Microsoft.Win32.Registry.CurrentUser;
+                subKey = entry.Key[5..];
+            }
+            else
+            {
+                throw new InvalidOperationException($"Unsupported hive in '{entry.Key}'");
+            }
+
+            using var key = root.OpenSubKey(subKey, writable: true)
+                ?? throw new InvalidOperationException($"Key not found: {entry.Key}");
+
+            var existing = key.GetValue(entry.ValueName);
+            if (existing is int i && int.TryParse(entry.Data, out int target) && i == target)
+                return false; // already correct — skip
+
+            key.SetValue(entry.ValueName, int.Parse(entry.Data), Microsoft.Win32.RegistryValueKind.DWord);
+            return true;
         }
 
         // ── Step 1: KalOS deploy (native + script fallback) ───────────────
@@ -618,6 +718,13 @@ namespace KalOS.Setup
         /// restart that makes the mods take effect without a manual toggle.
         /// Never throws; the outcome is returned for the live step log.
         /// </summary>
+        /// <remarks>
+        /// After the deploy, the pass verifies each mod against the engine's
+        /// OWN load evidence (mod-status files) and repairs dormant mods
+        /// (registered + compiled but not loaded) via EnsureModsActiveAsync —
+        /// the same fix the main app applies, so the customization actually
+        /// works at first logon instead of only after a manual re-enable.
+        /// </remarks>
         private async Task<(bool Ok, string Detail)> ApplyWindhawkCustomizationAsync(
             InstallerViewModel vm, CancellationToken ct)
         {
@@ -641,7 +748,7 @@ namespace KalOS.Setup
                 return (false, "The Windhawk mod manifest in this build is empty.");
             }
 
-            vm.CurrentDetail = "Deploying the Windhawk customization (dark translucent dock)…";
+            vm.CurrentDetail = "Deploying the Windhawk customization (translucent dock + translucent Explorer)…";
             var results = await windhawk.DeployModsAsync(manifest.Mods, manifest, progress, ct);
 
             foreach (var result in results)
@@ -649,11 +756,42 @@ namespace KalOS.Setup
                 log.Info(result.Summary);
             }
 
+            // Verify against the engine's own load evidence and repair anything
+            // dormant: mods can end up registered + compiled while the engine
+            // is not running them (a killed engine, a cold-start injection gap).
+            // DeployModsAsync already kicks those when it deployed them — this
+            // second pass also covers mods that were already on the machine
+            // before this install (DeployModAsync skips mods it believes are
+            // fine, so a pre-existing dormant mod would otherwise survive the
+            // whole wizard untouched). Never throws — failures land in the log.
+            var dormant = manifest.Mods
+                .Where(entry => windhawk.ModRegistryEntryExists(entry.Id)
+                                && windhawk.IsModReady(entry.Id)
+                                && !windhawk.IsModLoadedAnywhere(entry.Id, entry.TargetProcess))
+                .ToList();
+            if (dormant.Count > 0)
+            {
+                vm.CurrentDetail = $"{dormant.Count} mod(s) registered but not active — repairing…";
+                log.Warn($"Windhawk: {dormant.Count} mod(s) not loaded after deploy — repairing: {string.Join(", ", dormant.Select(m => m.Id))}");
+                var repaired = await windhawk.EnsureModsActiveAsync(dormant, progress, ct);
+                foreach (var result in repaired)
+                {
+                    log.Info($"Repair: {result.Summary}");
+                    var existing = results.FirstOrDefault(r => string.Equals(r.ModId, result.ModId, StringComparison.OrdinalIgnoreCase));
+                    if (existing is not null && result.Success)
+                    {
+                        existing.Success = true;
+                        existing.Verified = true;
+                        existing.Detail = result.Detail;
+                    }
+                }
+            }
+
             int ok = results.Count(r => r.Success);
             var failed = results.Where(r => !r.Success).Select(r => r.ModId).ToList();
             return ok == results.Count
-                ? (true, $"Windhawk ready — {ok}/{results.Count} customization mods deployed.")
-                : (false, $"{ok}/{results.Count} Windhawk mods deployed — failed: {string.Join(", ", failed)}.");
+                ? (true, $"Windhawk ready — {ok}/{results.Count} customization mods deployed and active.")
+                : (false, $"{ok}/{results.Count} Windhawk mods active — failed: {string.Join(", ", failed)}.");
         }
     }
 }

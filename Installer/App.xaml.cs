@@ -88,7 +88,9 @@ namespace KalOS.Setup
             services.AddSingleton<IDriverProvider, AmdDriverProvider>();
             services.AddSingleton<IDriverProvider, IntelDriverProvider>();
             services.AddSingleton<DriverService>();
-            services.AddSingleton<CoreSpreadingService>();
+            // CoreSpreadingService (NIC interrupt pinning / RSS tuning — a
+            // network-behavior modifier) is deliberately NOT registered: the
+            // installer never tunes the network stack.
 
             // New Phase 1 install services — the native KalOS deploy path.
             services.AddSingleton<GitHubReleaseClient>();

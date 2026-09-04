@@ -1,4 +1,4 @@
-﻿<Page
+<Page
     x:Class="KalOS.Views.HomePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -6,91 +6,182 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:viewmodels="using:KalOS.ViewModels"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:local="using:KalOS.Views"
     mc:Ignorable="d"
     NavigationCacheMode="Enabled">
 
     <ScrollViewer Style="{StaticResource PageScrollStyle}">
-        <!-- Grid wrapper works around a known ItemsRepeater/MaxWidth glitch in SettingsExpander -->
         <Grid>
-            <StackPanel MaxWidth="{StaticResource PageContentMaxWidth}" HorizontalAlignment="Stretch"
-                        Spacing="{StaticResource SettingsCardSpacing}"
+            <StackPanel MaxWidth="1180" HorizontalAlignment="Stretch"
+                        Spacing="24"
                         Margin="{StaticResource PagePadding}">
                 <StackPanel.ChildrenTransitions>
-                    <EntranceThemeTransition FromVerticalOffset="50" IsStaggeringEnabled="False" />
+                    <EntranceThemeTransition FromVerticalOffset="40" IsStaggeringEnabled="False" />
                     <RepositionThemeTransition IsStaggeringEnabled="False" />
                 </StackPanel.ChildrenTransitions>
 
-                <!-- Page Header -->
-                <StackPanel Spacing="4" Margin="0,0,0,6">
-                    <TextBlock Text="Home" Style="{StaticResource PageTitleStyle}" />
-                    <TextBlock Text="Your post-install companion — drivers, browsers, tweaks, and system tools in one place."
-                               Style="{StaticResource PageSubtitleStyle}" />
-                </StackPanel>
+                <!-- ═══════════ MODULES GRID ═══════════
+                     WinUI card pattern (Dev Home / Settings): left-aligned
+                     icon + title row, description indented under the title.
+                     All sizing/type ramp comes from the shared text styles. -->
+                <TextBlock Text="What’s inside" Style="{StaticResource SectionLabelStyle}" />
+                <Grid ColumnSpacing="12" RowSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-                <!-- Quick Actions -->
-                <TextBlock Text="Quick Actions" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
+                    <Button Grid.Row="0" Grid.Column="0" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="ProcessControl">
+                        <StackPanel Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <FontIcon Glyph="&#xE9D9;" FontSize="18" Foreground="{ThemeResource AccentBrush}" />
+                                <TextBlock Text="Process Control" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="14" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="Per-process priorities, AutoBalance, and restart-on-change rules."
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap" Margin="30,0,0,0" />
+                        </StackPanel>
+                    </Button>
 
-                <controls:SettingsCard Header="Device Manager"
-                                       Description="Manage hardware devices and drivers.">
-                    <controls:SettingsCard.HeaderIcon>
-                        <FontIcon Glyph="&#xE964;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                    </controls:SettingsCard.HeaderIcon>
-                    <Button Content="Open" Command="{x:Bind ViewModel.OpenDeviceManagerCommand}" />
-                </controls:SettingsCard>
+                    <Button Grid.Row="0" Grid.Column="1" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="AffinityManager">
+                        <StackPanel Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <FontIcon Glyph="&#xE950;" FontSize="18" Foreground="{ThemeResource AccentBrush}" />
+                                <TextBlock Text="Per-CPU Scheduling" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="14" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="Pin device interrupts to dedicated cores, MSI mode, IRQ policies."
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap" Margin="30,0,0,0" />
+                        </StackPanel>
+                    </Button>
 
-                <controls:SettingsCard Header="Windows Settings"
-                                       Description="Open the native Windows Settings app.">
-                    <controls:SettingsCard.HeaderIcon>
-                        <FontIcon Glyph="&#xE713;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                    </controls:SettingsCard.HeaderIcon>
-                    <Button Content="Open" Command="{x:Bind ViewModel.OpenWindowsSettingsCommand}" />
-                </controls:SettingsCard>
+                    <Button Grid.Row="0" Grid.Column="2" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="GpuDrivers">
+                        <StackPanel Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <FontIcon Glyph="&#xE7F4;" FontSize="18" Foreground="{ThemeResource AccentBrush}" />
+                                <TextBlock Text="GPU Drivers" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="14" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="Latest NVIDIA / AMD drivers — stripped, silent, painless."
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap" Margin="30,0,0,0" />
+                        </StackPanel>
+                    </Button>
 
-                <!-- Modules -->
-                <TextBlock Text="Modules" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
+                    <Button Grid.Row="1" Grid.Column="0" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="Browsers">
+                        <StackPanel Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <FontIcon Glyph="&#xE774;" FontSize="18" Foreground="{ThemeResource AccentBrush}" />
+                                <TextBlock Text="Browsers &amp; Software" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="14" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="Silent installs via winget, Chocolatey, Scoop, or direct download."
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap" Margin="30,0,0,0" />
+                        </StackPanel>
+                    </Button>
 
-                <controls:SettingsCard Header="Browsers &amp; Software"
-                                       Description="Silent installs via winget, Chocolatey, Scoop, or direct download."
-                                       IsClickEnabled="True" Click="NavigateCard_Click" Tag="Browsers">
-                    <controls:SettingsCard.HeaderIcon>
-                        <FontIcon Glyph="&#xE774;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                    </controls:SettingsCard.HeaderIcon>
-                </controls:SettingsCard>
+                    <Button Grid.Row="1" Grid.Column="1" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="Personalization">
+                        <StackPanel Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <FontIcon Glyph="&#xE790;" FontSize="18" Foreground="{ThemeResource AccentBrush}" />
+                                <TextBlock Text="Customize Windows" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="14" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="Visual effects, transparency, tints, and background images."
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap" Margin="30,0,0,0" />
+                        </StackPanel>
+                    </Button>
 
-                <controls:SettingsCard Header="GPU Drivers"
-                                       Description="Fetch the latest NVIDIA or AMD driver — stripped, silent install."
-                                       IsClickEnabled="True" Click="NavigateCard_Click" Tag="GpuDrivers">
-                    <controls:SettingsCard.HeaderIcon>
-                        <FontIcon Glyph="&#xE7F4;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                    </controls:SettingsCard.HeaderIcon>
-                </controls:SettingsCard>
+                    <Button Grid.Row="1" Grid.Column="2" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="SystemOverview">
+                        <StackPanel Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <FontIcon Glyph="&#xE9D2;" FontSize="18" Foreground="{ThemeResource AccentBrush}" />
+                                <TextBlock Text="System Overview" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="14" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="Full sensor dashboard — temps, fans, clocks, voltages."
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap" Margin="30,0,0,0" />
+                        </StackPanel>
+                    </Button>
 
-                <controls:SettingsCard Header="Hardware Affinity"
-                                       Description="Optimize CPU affinity and MSI mode for latency-sensitive devices."
-                                       IsClickEnabled="True" Click="NavigateCard_Click" Tag="AffinityManager">
-                    <controls:SettingsCard.HeaderIcon>
-                        <FontIcon Glyph="&#xE9F3;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                    </controls:SettingsCard.HeaderIcon>
-                </controls:SettingsCard>
+                    <Button Grid.Row="2" Grid.Column="0" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="AdditionalTweaks">
+                        <StackPanel Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <FontIcon Glyph="&#xE90F;" FontSize="18" Foreground="{ThemeResource AccentBrush}" />
+                                <TextBlock Text="Additional Tweaks" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="14" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="Debloat, privacy, and deep OS behavior tuning."
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap" Margin="30,0,0,0" />
+                        </StackPanel>
+                    </Button>
 
-                <controls:SettingsCard Header="Customize Windows"
-                                       Description="Visual effects, transparency, and performance tuning."
-                                       IsClickEnabled="True" Click="NavigateCard_Click" Tag="Personalization">
-                    <controls:SettingsCard.HeaderIcon>
-                        <FontIcon Glyph="&#xE790;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                    </controls:SettingsCard.HeaderIcon>
-                </controls:SettingsCard>
+                    <Button Grid.Row="2" Grid.Column="1" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="Sdio">
+                        <StackPanel Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <FontIcon Glyph="&#xE77B;" FontSize="18" Foreground="{ThemeResource AccentBrush}" />
+                                <TextBlock Text="Other Drivers" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="14" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="Chipset, audio, network — find outdated drivers."
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap" Margin="30,0,0,0" />
+                        </StackPanel>
+                    </Button>
 
-                <!-- Community -->
-                <TextBlock Text="Community" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" />
+                    <Button Grid.Row="2" Grid.Column="2" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="Bios">
+                        <StackPanel Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <FontIcon Glyph="&#xE7F8;" FontSize="18" Foreground="{ThemeResource AccentBrush}" />
+                                <TextBlock Text="BIOS Manager" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="14" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="Read your board's BIOS state and update safely."
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap" Margin="30,0,0,0" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
 
-                <controls:SettingsCard Header="KalOS Discord"
-                                       Description="Ask for support and make friends!">
-                    <controls:SettingsCard.HeaderIcon>
-                        <FontIcon Glyph="&#xE8A7;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                    </controls:SettingsCard.HeaderIcon>
-                    <HyperlinkButton Content="Join server" Click="JoinDiscord_Click" />
-                </controls:SettingsCard>
+                <!-- ═══════════ QUICK LINKS ROW ═══════════ -->
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Button Grid.Column="0" Style="{StaticResource CompactActionTileStyle}" MinHeight="56" Command="{x:Bind ViewModel.OpenDeviceManagerCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                            <FontIcon Glyph="&#xE9F3;" FontSize="16" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Text="Device Manager" VerticalAlignment="Center" FontSize="13" />
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="1" Style="{StaticResource CompactActionTileStyle}" MinHeight="56" Command="{x:Bind ViewModel.OpenWindowsSettingsCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                            <FontIcon Glyph="&#xE713;" FontSize="16" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Text="Windows Settings" VerticalAlignment="Center" FontSize="13" />
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="2" Style="{StaticResource CompactActionTileStyle}" MinHeight="56" Click="JoinDiscord_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                            <FontIcon Glyph="&#xE8F2;" FontSize="16" Foreground="{ThemeResource AccentBrush}" />
+                            <TextBlock Text="Join the Discord" VerticalAlignment="Center" FontSize="13" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
 
             </StackPanel>
         </Grid>

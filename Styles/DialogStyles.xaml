@@ -1,0 +1,53 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ═══════════════════════════════════════════════════════════
+         Rounded dialogs — app-wide, with redundancy, because WinUI
+         resolves the dialog chrome's radius through several paths and
+         each can lose to WinUI's own theme-scoped dictionaries:
+
+         1. Theme-scoped OverlayCornerRadius overrides (Light/Dark/
+            HighContrast) — the ContentDialog template's inner
+            "DialogSpace" grid reads the theme resource directly.
+         2. An explicit RoundedContentDialogStyle setting the ContentDialog
+            CornerRadius PROPERTY (the template's outer BackgroundElement
+            border uses TemplateBinding CornerRadius). Implicit styles do
+            not reach derived classes (DeviceAffinityDialog etc.), so the
+            five custom dialog XAML files reference this style explicitly.
+         3. App-level (theme-independent) OverlayCornerRadius as a final
+            fallback for anything else that reads the key.
+         WinUI default is 8 — 16 gives the clearly-rounded look.
+         ═══════════════════════════════════════════════════════════ -->
+
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+            <CornerRadius x:Key="OverlayCornerRadius">16,16,16,16</CornerRadius>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Default">
+            <CornerRadius x:Key="OverlayCornerRadius">16,16,16,16</CornerRadius>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="HighContrast">
+            <CornerRadius x:Key="OverlayCornerRadius">16,16,16,16</CornerRadius>
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+
+    <CornerRadius x:Key="OverlayCornerRadius">16,16,16,16</CornerRadius>
+
+    <!-- Flyouts/menus get a slightly tighter radius for hierarchy. -->
+    <CornerRadius x:Key="FlyoutPresenterCornerRadius">12,12,12,12</CornerRadius>
+    <CornerRadius x:Key="MenuFlyoutPresenterCornerRadius">12,12,12,12</CornerRadius>
+
+    <!-- Explicit rounded dialog style: the CornerRadius property feeds the
+         template's outer border via TemplateBinding, which no resource
+         lookup can override. -->
+    <Style x:Key="RoundedContentDialogStyle" TargetType="ContentDialog" BasedOn="{StaticResource DefaultContentDialogStyle}">
+        <Setter Property="CornerRadius" Value="16" />
+    </Style>
+
+    <!-- Implicit style: covers plain `new ContentDialog { ... }` instances
+         (derived classes need the explicit reference above — WinUI implicit
+         styles only apply to the exact type). -->
+    <Style TargetType="ContentDialog" BasedOn="{StaticResource RoundedContentDialogStyle}" />
+
+</ResourceDictionary>

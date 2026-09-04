@@ -18,14 +18,17 @@ namespace KalOS
     public sealed partial class MainWindow : WinUIEx.WindowEx
     {
         private bool _isClosing;
+        private TrayIconService? _trayService;
 
         private static readonly Dictionary<string, Type> PageRegistry = new()
         {
             ["Home"] = typeof(HomePage),
             ["SystemOverview"] = typeof(SystemOverviewPage),
             ["Browsers"] = typeof(BrowserPage),
+            ["DriverStore"] = typeof(DriverStorePage),
             ["GpuDrivers"] = typeof(GpuDriversPage),
             ["AffinityManager"] = typeof(AffinityManagerPage),
+            ["ProcessControl"] = typeof(ProcessControlPage),
             ["Sdio"] = typeof(SdioPage),
             ["Bios"] = typeof(BiosPage),
             ["AdditionalTweaks"] = typeof(AdditionalTweaksPage),
@@ -74,6 +77,16 @@ namespace KalOS
             var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
             var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
 
+            // System tray: when "run in background" is enabled, pressing X
+            // hides to the tray instead of exiting (the process keeps
+            // running — sticky rules keep applying in-process).
+            try
+            {
+                _trayService = new TrayIconService(hwnd);
+                App.TrayService = _trayService;
+            }
+            catch { }
+
             // Set once teardown starts (AppWindow.Closing, before the window
             // is destroyed). Everything that touches the visual tree or the
             // composition backdrop becomes a no-op from here on — updating
@@ -81,11 +94,22 @@ namespace KalOS
             // crashes the process at exit (the 0xC0000005 on close).
             try
             {
-                appWindow.Closing += (_, _) =>
+                appWindow.Closing += (sender, args) =>
                 {
+                    // Run-in-background: convert the close into hide-to-tray
+                    // and cancel the actual window destruction.
+                    if (_trayService is not null && _trayService.HandleClosingRequest())
+                    {
+                        args.Cancel = true;
+                        return;
+                    }
+
                     _isClosing = true;
                     App.HideOpenDialogs();
                     _backdropService.Teardown();
+                    // Hand rule enforcement to a fresh background session so
+                    // sticky rules keep applying after the window is gone.
+                    Views.ProcessControlPage.HandEngineToBackgroundSession();
                 };
             }
             catch { }

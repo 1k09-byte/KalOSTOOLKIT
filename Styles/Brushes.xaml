@@ -3,38 +3,60 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
-        Semantic color layer — stripped down for a pure Windows 11 Settings app look.
-        We rely 100% on the platform's built-in ThemeResource brushes for all surfaces.
-        Only keeping core branding and semantic status colors.
+        App-level semantic color tokens.
+        Policy: stay on the WinUI 3 platform palette for all surfaces and status colors
+        (SubtleFillColor*, ControlStrokeColor*, TextFillColor*, AccentForegroundBrush, etc.)
+        so the app recolors like a first-party Windows 11 app across theme, high contrast,
+        and accent color changes. We only define a small app identity layer here — brand
+        accent, semantic status (when a native SemanticColor isn't available), and any
+        control-specific highlight that does not have a direct platform brush.
     -->
     <ResourceDictionary.ThemeDictionaries>
 
         <ResourceDictionary x:Key="Dark">
-            <!-- Brand Accent -->
-            <Color x:Key="AccentColor">#60CDFF</Color>
-            <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
-            <SolidColorBrush x:Key="OnAccentBrush" Color="#0F0F0F" />
+            <!-- Brand Accent — used sparingly: selection, key icon accents, active chip.
+                 Kept close to Windows 11 default accent so the app feels native. -->
+            <Color x:Key="AppAccentColor">#60CDFF</Color>
+            <SolidColorBrush x:Key="AppAccentBrush" Color="{StaticResource AppAccentColor}" />
+            <SolidColorBrush x:Key="AppOnAccentBrush" Color="#0F0F0F" />
 
-            <!-- Core Status Colors (Native WinUI 3 Palette) -->
-            <SolidColorBrush x:Key="SuccessBrush" Color="#6CCB5F" />
-            <SolidColorBrush x:Key="WarningBrush" Color="#FCE100" />
-            <SolidColorBrush x:Key="ErrorBrush" Color="#FF99A4" />
-            <SolidColorBrush x:Key="InfoBrush" Color="#60CDFF" />
-            
-            <SolidColorBrush x:Key="MutedTextBrush" Color="#9D9D9D" />
+            <!-- Semantic status — present because WinUI 3 SemanticColors are not reliably
+                 surfaceable as StaticResource keys in all contexts; these mirror the
+                 platform semantics (success / warning / error / info) in our own control
+                 templates only. -->
+            <SolidColorBrush x:Key="AppSuccessBrush" Color="#6CCB5F" />
+            <SolidColorBrush x:Key="AppWarningBrush" Color="#FCE100" />
+            <SolidColorBrush x:Key="AppErrorBrush" Color="#FF99A4" />
+            <SolidColorBrush x:Key="AppInfoBrush" Color="#60CDFF" />
+
+            <!-- Hero card: Windows 11 Settings-style card is a soft surface, not a gradient.
+                 Use SubtleFillColorSecondaryBrush (platform) by default; the brush below is
+                 only for the rare case we want a slightly warmer/calmer surface for the hero
+                 without painting a hard accent wash across the page. -->
+            <SolidColorBrush x:Key="HeroSurfaceBrush" Color="#1A2330" />
+            <SolidColorBrush x:Key="HeroBorderBrush" Color="#323D4E" />
+
+            <!-- Module/non-hero cards use the platform default card surface rather than a
+                 custom dark fill, so they recolor with the theme like Settings does. -->
+            <SolidColorBrush x:Key="ModuleTileBrush" Color="{ThemeResource SubtleFillColorSecondaryBrush}" />
+            <SolidColorBrush x:Key="ModuleTileBorderBrush" Color="{ThemeResource ControlStrokeColorDefaultBrush}" />
         </ResourceDictionary>
 
         <ResourceDictionary x:Key="Light">
-            <Color x:Key="AccentColor">#0078D4</Color>
-            <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
-            <SolidColorBrush x:Key="OnAccentBrush" Color="#FFFFFF" />
+            <Color x:Key="AppAccentColor">#0078D4</Color>
+            <SolidColorBrush x:Key="AppAccentBrush" Color="{StaticResource AppAccentColor}" />
+            <SolidColorBrush x:Key="AppOnAccentBrush" Color="#FFFFFF" />
 
-            <SolidColorBrush x:Key="SuccessBrush" Color="#0F7B0F" />
-            <SolidColorBrush x:Key="WarningBrush" Color="#9D5D00" />
-            <SolidColorBrush x:Key="ErrorBrush" Color="#C42B1C" />
-            <SolidColorBrush x:Key="InfoBrush" Color="#0067C0" />
-            
-            <SolidColorBrush x:Key="MutedTextBrush" Color="#5C5C5C" />
+            <SolidColorBrush x:Key="AppSuccessBrush" Color="#0F7B0F" />
+            <SolidColorBrush x:Key="AppWarningBrush" Color="#9D5D00" />
+            <SolidColorBrush x:Key="AppErrorBrush" Color="#C42B1C" />
+            <SolidColorBrush x:Key="AppInfoBrush" Color="#0067C0" />
+
+            <SolidColorBrush x:Key="HeroSurfaceBrush" Color="#F4F6FA" />
+            <SolidColorBrush x:Key="HeroBorderBrush" Color="#D2D8E2" />
+
+            <SolidColorBrush x:Key="ModuleTileBrush" Color="{ThemeResource SubtleFillColorSecondaryBrush}" />
+            <SolidColorBrush x:Key="ModuleTileBorderBrush" Color="{ThemeResource ControlStrokeColorDefaultBrush}" />
         </ResourceDictionary>
 
     </ResourceDictionary.ThemeDictionaries>

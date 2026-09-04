@@ -23,6 +23,11 @@ public sealed partial class MetricRing : UserControl, INotifyPropertyChanged
     public static readonly DependencyProperty RingBrushProperty = DependencyProperty.Register(
         nameof(RingBrush), typeof(Brush), typeof(MetricRing), new PropertyMetadata(null));
 
+    /// <summary>Diameter of the ring in DIPs. Sizes the whole control (ring + padding).
+    /// Default 154 matches the original fixed 180x110 layout.</summary>
+    public static readonly DependencyProperty DiameterProperty = DependencyProperty.Register(
+        nameof(Diameter), typeof(double), typeof(MetricRing), new PropertyMetadata(154d, OnDiameterChanged));
+
     public string Label
     {
         get => (string)GetValue(LabelProperty);
@@ -51,6 +56,25 @@ public sealed partial class MetricRing : UserControl, INotifyPropertyChanged
     {
         get => (Brush?)GetValue(RingBrushProperty);
         set => SetValue(RingBrushProperty, value);
+    }
+
+    public double Diameter
+    {
+        get => (double)GetValue(DiameterProperty);
+        set => SetValue(DiameterProperty, value);
+    }
+
+    private static void OnDiameterChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
+    {
+        if (sender is MetricRing ring && args.NewValue is double d && d > 40)
+        {
+            ring.Ring.Width = d;
+            ring.Ring.Height = d;
+            ring.Width = d + 26;
+            ring.Height = d + 26;
+            // Keep the centered value text proportional
+            ring.ValueTextBlock.FontSize = Math.Max(15, d * 0.19);
+        }
     }
 
     public string ValueText => double.IsNaN(Value) ? "N/A" : $"{Math.Clamp(Value, 0, 100):0}{Unit}";

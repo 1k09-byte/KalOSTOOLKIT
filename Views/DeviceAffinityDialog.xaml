@@ -12,11 +12,13 @@
     PrimaryButtonText="Apply"
     CloseButtonText="Cancel"
     PrimaryButtonClick="SaveClick"
-    DefaultButton="Primary">
+    DefaultButton="Primary"
+    Style="{StaticResource RoundedContentDialogStyle}">
 
-    <ContentDialog.Resources>
-        <CornerRadius x:Key="OverlayCornerRadius">24</CornerRadius>
-    </ContentDialog.Resources>
+    <!-- Corner rounding: explicit RoundedContentDialogStyle (implicit styles
+         don't reach derived ContentDialog classes); the theme-scoped
+         OverlayCornerRadius overrides in Styles/DialogStyles.xaml cover the
+         rest of the popup chrome. -->
 
     <Grid HorizontalAlignment="Stretch">
         <Grid.RowDefinitions>

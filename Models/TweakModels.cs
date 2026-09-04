@@ -80,9 +80,6 @@ namespace KalOS.Models
     /// <summary>Disable a service (Start=4) and stop it if running.</summary>
     public sealed record DisableServiceAction(string ServiceName) : TweakAction;
 
-    /// <summary>Block a set of domains by appending 0.0.0.0 entries to the hosts file.</summary>
-    public sealed record HostsBlockAction(IReadOnlyList<string> Domains) : TweakAction;
-
     /// <summary>Disable scheduled task(s) matching a folder path + name pattern.</summary>
     public sealed record DisableTaskAction(string TaskPath, string TaskNamePattern) : TweakAction;
 

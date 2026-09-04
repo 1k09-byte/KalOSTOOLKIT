@@ -42,6 +42,59 @@ public class TweaksServiceTests
         Assert.Empty(dups);
     }
 
+    // ── Hand-added sync/debloat tweaks (disablesync.reg + debloat.reg) ──
+
+    [Fact]
+    public void SyncAndDebloat_Tweaks_ArePresent()
+    {
+        var actions = TweaksService.All.Select(t => t.Action).ToList();
+
+        // Offline Files / Sync Center / MSMQ services
+        Assert.Contains(actions.OfType<DisableServiceAction>(),
+            a => a.ServiceName == "CSC");
+        Assert.Contains(actions.OfType<DisableServiceAction>(),
+            a => a.ServiceName == "CscService");
+        Assert.Contains(actions.OfType<DisableServiceAction>(),
+            a => a.ServiceName == "MSMQ");
+
+        // Sync Center policy + partner store + mobsync logon trigger
+        Assert.Contains(actions.OfType<RegistrySetAction>(),
+            a => a.Key.EndsWith(@"Policies\Microsoft\Windows\NetCache")
+                 && a.ValueName == "Enabled" && a.Data == "0");
+        Assert.Contains(actions.OfType<RegistrySetAction>(),
+            a => a.Key.EndsWith(@"CurrentVersion\SyncMgr")
+                 && a.ValueName == "KeepSyncPartners" && a.Data == "0");
+        Assert.Contains(actions.OfType<RegistrySetAction>(),
+            a => a.Key.EndsWith(@"CurrentVersion\SyncMgr")
+                 && a.ValueName == "StartOnLogin" && a.Data == "0");
+
+        // Taskbar / Explorer visuals (debloat)
+        Assert.Contains(actions.OfType<RegistrySetAction>(),
+            a => a.Key.EndsWith(@"Explorer\Advanced")
+                 && a.ValueName == "ShowTaskViewButton" && a.Data == "0");
+        Assert.Contains(actions.OfType<RegistrySetAction>(),
+            a => a.Key.EndsWith(@"Explorer\Advanced")
+                 && a.ValueName == "TaskbarAnimations" && a.Data == "0");
+        Assert.Contains(actions.OfType<RegistrySetAction>(),
+            a => a.Key.EndsWith(@"Explorer\Advanced")
+                 && a.ValueName == "IconsOnly" && a.Data == "1");
+    }
+
+    [Fact]
+    public void SyncAndDebloat_Tweaks_PassWifiSafetyGuard()
+    {
+        var newOnes = TweaksService.All.Where(t =>
+            t.Action is DisableServiceAction d && (d.ServiceName is "CSC" or "CscService" or "MSMQ")
+            || t.Action is RegistrySetAction r
+                && (r.Key.Contains("NetCache", StringComparison.OrdinalIgnoreCase)
+                    || r.Key.Contains("SyncMgr", StringComparison.OrdinalIgnoreCase)));
+
+        Assert.NotEmpty(newOnes);
+        Assert.All(newOnes, t => Assert.False(
+            WifiSafety.IsWifiTouching(t),
+            $"tween '{t.Name}' must never be refused as wifi-touching"));
+    }
+
     // ── Executor: registry (HKCU, no admin) ────────────────────────────
 
     [Fact]

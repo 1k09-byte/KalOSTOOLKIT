@@ -115,7 +115,7 @@
                                 <StackPanel Grid.Column="0" HorizontalAlignment="Center">
                                     <local:MetricRing Value="{x:Bind ViewModel.CpuMetric.Value, Mode=OneWay}"
                                                       Progress="{x:Bind ViewModel.CpuMetric.Progress, Mode=OneWay}"
-                                                      Unit="%"
+                                                      Unit="{x:Bind ViewModel.CpuMetric.Unit, Mode=OneWay}"
                                                       Label="CPU usage"
                                                       RingBrush="{ThemeResource AccentFillColorDefaultBrush}" />
                                     <TextBlock Text="{x:Bind ViewModel.CpuMetric.Description, Mode=OneWay}"
@@ -125,7 +125,7 @@
                                 <StackPanel Grid.Column="1" HorizontalAlignment="Center">
                                     <local:MetricRing Value="{x:Bind ViewModel.GpuMetric.Value, Mode=OneWay}"
                                                       Progress="{x:Bind ViewModel.GpuMetric.Progress, Mode=OneWay}"
-                                                      Unit="%"
+                                                      Unit="{x:Bind ViewModel.GpuMetric.Unit, Mode=OneWay}"
                                                       Label="GPU usage"
                                                       RingBrush="{ThemeResource AccentFillColorDefaultBrush}" />
                                     <TextBlock Text="{x:Bind ViewModel.GpuMetric.Description, Mode=OneWay}"
@@ -135,7 +135,7 @@
                                 <StackPanel Grid.Column="2" HorizontalAlignment="Center">
                                     <local:MetricRing Value="{x:Bind ViewModel.RamMetric.Value, Mode=OneWay}"
                                                       Progress="{x:Bind ViewModel.RamMetric.Progress, Mode=OneWay}"
-                                                      Unit="%"
+                                                      Unit="{x:Bind ViewModel.RamMetric.Unit, Mode=OneWay}"
                                                       Label="RAM usage"
                                                       RingBrush="{ThemeResource AccentFillColorDefaultBrush}" />
                                     <TextBlock Text="{x:Bind ViewModel.RamMetric.Description, Mode=OneWay}"

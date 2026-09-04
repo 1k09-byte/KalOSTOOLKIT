@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
 using KalOS.Models;
@@ -282,11 +283,21 @@ public sealed class WindhawkManagerService
             // three to be in place.
             if (result.WasRegistered && IsModReady(entry.Id) && HasRequiredSettings(entry))
             {
-                result.Success = true;
-                result.Verified = true;
-                result.Detail = "Already deployed (registered, enabled, compiled, and themed).";
-                _log.Info(result.Detail + " " + entry.Id);
-                return result;
+                if (IsModLoadedAnywhere(entry.Id, entry.TargetProcess))
+                {
+                    result.Success = true;
+                    result.Verified = true;
+                    result.Detail = "Already deployed and loaded by the engine (status files confirm).";
+                    _log.Info(result.Detail + " " + entry.Id);
+                    return result;
+                }
+
+                // Registered, enabled, and compiled — yet the engine shows no
+                // status file for it: a dormant mod. Falling through re-runs
+                // the deploy so the batch restart + reload kick re-injects it,
+                // instead of reporting success while the mod does nothing
+                // (the "works only after I re-enable it" bug).
+                _log.Info($"{entry.Id}: registered and compiled, but the engine is not running it — re-kicking.");
             }
 
             progress?.Report(15);
@@ -373,8 +384,13 @@ public sealed class WindhawkManagerService
         foreach (var entry in mods)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            // Capture the index per iteration: Progress<T> callbacks are posted
+            // to the sync context and run asynchronously, by which time the
+            // loop variable has already advanced — the stale capture inflated
+            // batch progress past 100 (the wizard once displayed 820%).
+            int currentIndex = index;
             var modProgress = new Progress<double>(value =>
-                progress?.Report((index * 100d + value) / mods.Count));
+                progress?.Report((currentIndex * 100d + value) / mods.Count));
 
             var result = await DeployModAsync(entry, manifest, modProgress, cancellationToken, engineStopped);
             engineStopped |= result.EngineStopped;
@@ -396,26 +412,31 @@ public sealed class WindhawkManagerService
             // mods end up loaded-but-not-injected (the disable/re-enable bug).
             await Task.Delay(EngineSettleDelayMs, cancellationToken);
 
-            // The engine accepts a mod by keeping its registry entry (and
-            // deletes entries for mods it cannot load), so survival of the
-            // entry in an enabled state is the acceptance signal.
+            // Verify against the engine's own status files — registry state is
+            // satisfied by our deploy writes, so it cannot prove the engine is
+            // actually running anything.
+            var entriesById = mods
+                .GroupBy(m => m.Id, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
             foreach (var result in results.Where(r => r.NeedsEngineRestart))
             {
-                bool verified = await WaitForModAcceptedAsync(result.ModId, cancellationToken);
+                bool verified = await WaitForModAcceptedAsync(result.ModId, entriesById[result.ModId], cancellationToken);
                 result.Verified = verified;
                 result.Success = verified;
                 result.Detail = verified
-                    ? "Deployed (source + registry); the engine accepted and enabled it."
-                    : "Deployed, but the engine did not load it within 3 minutes — check the mod in the Windhawk UI.";
+                    ? "Deployed; the engine loaded it into the target processes (status files confirm)."
+                    : "Deployed (registered + enabled), but the engine has not loaded it — a reload kick was attempted; check the mod in the Windhawk UI.";
                 _log.Info(result.Summary);
             }
 
             // After a cold engine start, freshly registered mods are often
             // loaded-but-not-injected into processes that were already running.
-            // Kick a disable→enable cycle so the engine re-injects them — this
-            // is what users previously had to do by hand in the Windhawk UI.
+            // Kick a disable→enable cycle for EVERY deployed mod — not only the
+            // verified ones. The old "verified only" gate was backwards: mods
+            // the engine failed to load were exactly the ones that never got
+            // the kick and stayed dormant until the user toggled them by hand.
             var kickedIds = results
-                .Where(r => r.NeedsEngineRestart && r.Verified)
+                .Where(r => r.NeedsEngineRestart)
                 .Select(r => r.ModId)
                 .ToList();
             if (kickedIds.Count > 0)
@@ -435,6 +456,116 @@ public sealed class WindhawkManagerService
             {
                 await RestartExplorerAsync(cancellationToken);
             }
+
+            // Final state: re-read the engine's status files after the kick so
+            // a mod that only loads thanks to the kick is still reported OK.
+            foreach (var result in results.Where(r => r.NeedsEngineRestart && !r.Verified))
+            {
+                if (IsModLoadedAnywhere(result.ModId, entriesById[result.ModId].TargetProcess))
+                {
+                    result.Verified = true;
+                    result.Success = true;
+                    result.Detail = "Deployed; the reload kick got the engine to load it (status files confirm).";
+                    _log.Info(result.Summary);
+                }
+            }
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Repair path for the "installed but not working" state: mods are
+    /// registered, enabled, and compiled, yet the engine is not running them
+    /// (the engine restarted without injecting them, or it was killed since).
+    /// Restarts the engine cleanly, waits for the engine's own status files to
+    /// show each mod loaded, and kicks a disable→enable cycle (plus an
+    /// Explorer restart for shell-targeted mods) for anything still dormant.
+    /// Success means the status files confirm the engine is running the mod.
+    /// </summary>
+    public async Task<List<WindhawkDeployResult>> EnsureModsActiveAsync(
+        IReadOnlyList<WindhawkModEntry> mods,
+        IProgress<double>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        var results = new List<WindhawkDeployResult>();
+
+        foreach (var entry in mods)
+        {
+            if (!ModRegistryEntryExists(entry.Id))
+            {
+                results.Add(new WindhawkDeployResult(entry.Id)
+                {
+                    Detail = "Not deployed yet — run Deploy to install it.",
+                });
+            }
+            else if (!IsModReady(entry.Id))
+            {
+                results.Add(new WindhawkDeployResult(entry.Id)
+                {
+                    Detail = "Registered but not enabled/compiled — run Deploy to fix it.",
+                });
+            }
+            else if (IsModLoadedAnywhere(entry.Id, entry.TargetProcess))
+            {
+                results.Add(new WindhawkDeployResult(entry.Id)
+                {
+                    Success = true,
+                    Verified = true,
+                    Detail = "Already loaded by the engine (status files confirm).",
+                });
+            }
+        }
+
+        // The repair targets: registered, enabled, compiled — but not loaded.
+        var dormant = mods
+            .Where(entry => ModRegistryEntryExists(entry.Id) && IsModReady(entry.Id))
+            .Where(entry => !IsModLoadedAnywhere(entry.Id, entry.TargetProcess))
+            .ToList();
+
+        progress?.Report(dormant.Count == 0 ? 100 : 5);
+        if (dormant.Count == 0)
+        {
+            _log.Info("EnsureModsActive: every mod is already loaded — nothing to repair.");
+            return results;
+        }
+
+        _log.Info($"EnsureModsActive: {dormant.Count} mod(s) registered but not loaded — restarting the engine.");
+        await StopEngineAsync(cancellationToken);
+        await StartEngineAsync(cancellationToken);
+        progress?.Report(30);
+
+        // Same settle window as a deploy: let the engine finish booting before
+        // reading status files / kicking, or it misses the toggle.
+        await Task.Delay(EngineSettleDelayMs, cancellationToken);
+        progress?.Report(50);
+
+        foreach (var entry in dormant)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!IsModLoadedAnywhere(entry.Id, entry.TargetProcess))
+            {
+                await KickModsReloadAsync(new[] { entry.Id }, cancellationToken);
+
+                if (TargetsExplorer(new[] { entry }, new[] { entry.Id }))
+                {
+                    await RestartExplorerAsync(cancellationToken);
+                }
+            }
+
+            bool loaded = IsModLoadedAnywhere(entry.Id, entry.TargetProcess);
+            var result = new WindhawkDeployResult(entry.Id)
+            {
+                Success = loaded,
+                Verified = loaded,
+                Detail = loaded
+                    ? "The engine was not running it — restarted/re-kicked and it is loaded now (status files confirm)."
+                    : "The engine was not running it and a reload kick did not help — check the mod in the Windhawk UI.",
+            };
+            _log.Info(result.Summary);
+            results.Add(result);
+            progress?.Report(50 + (results.Count * 45d / Math.Max(dormant.Count, 1)));
         }
 
         return results;
@@ -500,20 +631,26 @@ public sealed class WindhawkManagerService
             // booting before verifying / kicking, or it misses the toggle.
             await Task.Delay(EngineSettleDelayMs, cancellationToken);
 
-            bool verified = await WaitForModAcceptedAsync(entry.Id, cancellationToken);
-            if (verified)
-            {
-                // Same cold-start injection gap as a batch deploy: kick a
-                // disable→enable cycle so the updated mod actually re-injects.
-                await KickModsReloadAsync(new[] { entry.Id }, cancellationToken);
+            bool verified = await WaitForModAcceptedAsync(entry.Id, entry, cancellationToken);
 
-                // Explorer-targeted mods additionally need a fresh shell: the
-                // disable→enable cycle alone can leave the old Explorer running
-                // the updated library half-applied.
-                if (TargetsExplorer(new[] { entry }, new[] { entry.Id }))
-                {
-                    await RestartExplorerAsync(cancellationToken);
-                }
+            // Same cold-start injection gap as a batch deploy: kick a
+            // disable→enable cycle regardless of the acceptance probe so the
+            // updated mod re-injects into processes that were already running.
+            await KickModsReloadAsync(new[] { entry.Id }, cancellationToken);
+
+            // Explorer-targeted mods additionally need a fresh shell: the
+            // disable→enable cycle alone can leave the old Explorer running
+            // the updated library half-applied.
+            if (TargetsExplorer(new[] { entry }, new[] { entry.Id }))
+            {
+                await RestartExplorerAsync(cancellationToken);
+            }
+
+            // A mod the probe missed but that loads after the kick still
+            // counts as updated — trust the status files over the probe.
+            if (!verified && IsModLoadedAnywhere(entry.Id, entry.TargetProcess))
+            {
+                verified = true;
             }
             result.Verified = verified;
             result.Success = verified;
@@ -1336,6 +1473,125 @@ public sealed class WindhawkManagerService
         _log.Info($"Reload kick applied to {ids.Count} mod(s) — engine reloaded and re-injected them.");
     }
 
+    // ═══════════════════════ Load state (engine ground truth) ═══════════════════════
+
+    /// <summary>
+    /// Directory the engine's injected DLLs write per loaded mod instance:
+    /// %ProgramData%\Windhawk\Engine\ModsWritable\mod-status. File name layout
+    /// (verified on 1.7.3): {sessionPid}_{sessionTime}_{processPid}_{modId},
+    /// content "{imageName}|Loaded". A status file for a mod is the engine's
+    /// OWN evidence that the mod is loaded and initialized in a live process —
+    /// unlike registry readiness, it cannot be satisfied by our own deploy
+    /// writes, and it disappears the moment the mod unloads.
+    /// </summary>
+    private string GetModStatusDirectory() => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+        InstallDirName, "Engine", "ModsWritable", "mod-status");
+
+    /// <summary>
+    /// Process id of the engine's session manager (the windhawk.exe running in
+    /// session 0), which prefixes every current status file name. 0 when the
+    /// engine is not running.
+    /// </summary>
+    internal static int GetEngineSessionManagerProcessId()
+    {
+        try
+        {
+            return Process.GetProcessesByName("windhawk")
+                .FirstOrDefault(process => process.SessionId == 0)?.Id ?? 0;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// Parses "{sessionPid}_{sessionTime}_{processPid}_{modId}". The mod id may
+    /// itself contain underscores, so the parse anchors on the trailing
+    /// "_{modId}" and requires the remaining three fields to be numeric.
+    /// </summary>
+    internal static bool TryParseModStatusFileName(
+        string fileName, string modId, out long sessionPid, out long processPid)
+    {
+        sessionPid = 0;
+        processPid = 0;
+        string suffix = "_" + modId;
+        if (!fileName.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) return false;
+
+        string[] parts = fileName[..^suffix.Length].Split('_');
+        if (parts.Length != 3
+            || !long.TryParse(parts[0], out long parsedSessionPid) || parsedSessionPid <= 0
+            || !long.TryParse(parts[2], out long parsedProcessPid) || parsedProcessPid <= 0)
+        {
+            return false;
+        }
+
+        sessionPid = parsedSessionPid;
+        processPid = parsedProcessPid;
+        return true;
+    }
+
+    /// <summary>True when a process with that id is alive (and, when a name is given, has that image name).</summary>
+    internal static bool IsProcessAlive(long processId, string expectedImageName)
+    {
+        if (processId <= 0 || processId > int.MaxValue) return false;
+        try
+        {
+            using var process = Process.GetProcessById((int)processId);
+            process.Refresh();
+            if (process.HasExited) return false;
+            return string.IsNullOrEmpty(expectedImageName)
+                || process.ProcessName.Equals(expectedImageName, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            // Gone, access-denied, or never existed — treat as not alive.
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// True when the engine's status files show the mod loaded in at least one
+    /// live process of the running engine session. Status files left over from
+    /// a previous engine session or a dead process are ignored, so a stale
+    /// store never masquerades as a working mod. Best-effort: an unreadable
+    /// status store reports "no evidence", which steers callers toward the
+    /// reload kick — the safe direction.
+    /// </summary>
+    public bool IsModLoadedAnywhere(string modId, string targetProcess)
+    {
+        try
+        {
+            string statusDir = GetModStatusDirectory();
+            if (!Directory.Exists(statusDir)) return false;
+
+            long enginePid = GetEngineSessionManagerProcessId();
+            if (enginePid == 0) return false;
+
+            // TargetProcess may list several processes ("a.exe;b.exe") — the
+            // first one is a good enough liveness probe for our mods.
+            string expectedImage = targetProcess
+                .Split(new[] { ';', ',' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .FirstOrDefault()?.Replace(".exe", string.Empty, StringComparison.OrdinalIgnoreCase) ?? string.Empty;
+
+            foreach (string file in Directory.EnumerateFiles(statusDir, $"*_{modId}", SearchOption.TopDirectoryOnly))
+            {
+                if (!TryParseModStatusFileName(Path.GetFileName(file), modId, out long sessionPid, out long processPid))
+                    continue;
+                if (sessionPid != enginePid) continue; // stale file from an old engine session
+                if (!IsProcessAlive(processPid, expectedImage)) continue;
+                return true;
+            }
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _log.Warn($"Mod-status check failed for {modId}: {ex.Message}");
+            return false;
+        }
+    }
+
     // ═══════════════════════════ Part 4: shell (Explorer) restart ═══════════════════════════
 
     /// <summary>
@@ -1400,23 +1656,33 @@ public sealed class WindhawkManagerService
 
         // ── Phase 2: relaunch the shell UNELEVATED. KalOS runs elevated, and an
         // Explorer started straight from this process would inherit the admin
-        // token (degraded shell: broken drag & drop, elevated file windows). A
-        // one-shot scheduled task with /RL LIMITED + /IT runs explorer.exe in
-        // the interactive session under a filtered token — the mechanism other
-        // debloat tools use to hand the shell back to the user.
-        bool relaunched = await LaunchExplorerTaskAsync(explorerExe, sessionId, cancellationToken);
-        if (!relaunched)
+        // token: a degraded shell (broken drag & drop, elevated file windows) —
+        // and the Windhawk engine, which runs at the user's normal integrity,
+        // cannot inject mods into a High-integrity Explorer. So a filtered
+        // token is built from our own token — Medium integrity, admin SIDs
+        // deny-only, no privileges — and the shell starts with it: the same
+        // result a manual Explorer restart produces, with no dependency on the
+        // Task Scheduler service (commonly disabled on tweaked gaming builds).
+        bool relaunched = false;
+        try
         {
-            _log.Warn("Scheduled-task Explorer relaunch did not confirm; falling back to a direct start.");
-            try
+            if (LaunchProcessAsStandardUser(explorerExe, null, out int explorerPid, out int launchError, out string launchStage))
             {
+                _log.Info($"Launched Explorer unelevated (pid {explorerPid}).");
+                relaunched = true;
+            }
+            else
+            {
+                _log.Warn(
+                    $"Unelevated Explorer launch failed ({launchStage}, error {launchError}); " +
+                    "falling back to a direct start — mods may not inject into an elevated shell.");
                 Process.Start(new ProcessStartInfo(explorerExe) { UseShellExecute = true });
                 relaunched = true;
             }
-            catch (Exception ex)
-            {
-                _log.Error($"Could not start Explorer: {ex.Message}");
-            }
+        }
+        catch (Exception ex)
+        {
+            _log.Error($"Could not start Explorer: {ex.Message}");
         }
 
         // ── Phase 3: wait for the new shell to appear.
@@ -1483,53 +1749,204 @@ public sealed class WindhawkManagerService
     }
 
     /// <summary>
-    /// Launches explorer.exe in the interactive session through a one-shot,
-    /// least-privilege scheduled task (deleted afterwards) and reports whether
-    /// an Explorer process showed up in the session.
+    /// Launches a process in the interactive session with a filtered token —
+    /// Medium integrity, admin SIDs deny-only, no privileges — the token a
+    /// manually restarted shell runs with. Builds it from our own (elevated)
+    /// token, so it needs neither the Task Scheduler service (schtasks /IT
+    /// /RL LIMITED, which also silently leaves the built-in Administrator's
+    /// token unfiltered) nor any special privilege. Returns true when the
+    /// process started, with its pid.
     /// </summary>
-    private async Task<bool> LaunchExplorerTaskAsync(
-        string explorerExe, int sessionId, CancellationToken cancellationToken)
+    internal static bool LaunchProcessAsStandardUser(
+        string executable, string? arguments, out int processId, out int lastError, out string lastStage)
     {
-        string taskName = $"KalOS-ExplorerRestart-{Process.GetCurrentProcess().Id}";
-        string userName = $@"{Environment.UserDomainName}\{Environment.UserName}";
-        string startTime = DateTime.Now.AddMinutes(1).ToString("HH:mm");
-
-        string[] commands =
-        {
-            $"schtasks /Create /F /TN \"{taskName}\" /SC ONCE /ST {startTime} /RU \"{userName}\" /IT /RL LIMITED /TR \"{explorerExe}\"",
-            $"schtasks /Run /TN \"{taskName}\"",
-            $"schtasks /Delete /F /TN \"{taskName}\"",
-        };
-
+        processId = 0;
+        lastError = 0;
+        lastStage = string.Empty;
+        IntPtr hToken = IntPtr.Zero;
+        IntPtr duplicated = IntPtr.Zero;
+        IntPtr restricted = IntPtr.Zero;
         try
         {
-            foreach (string command in commands)
+            if (!OpenProcessToken(GetCurrentProcess(), TokenMaximumAllowed, out hToken))
             {
-                // schtasks runs under the current (elevated) token and its exit
-                // code is checked rather than its stderr; failure is fine — the
-                // caller falls back to launching Explorer directly.
-                int exitCode = await RunProcessAsync("schtasks.exe", command, TimeSpan.FromSeconds(30), cancellationToken);
-                if (exitCode != 0)
+                lastStage = "OpenProcessToken";
+                lastError = Marshal.GetLastWin32Error();
+                return false;
+            }
+            if (!DuplicateTokenEx(hToken, TokenMaximumAllowed, IntPtr.Zero,
+                    SecurityImpersonation, TokenPrimary, out duplicated))
+            {
+                lastStage = "DuplicateTokenEx";
+                lastError = Marshal.GetLastWin32Error();
+                return false;
+            }
+
+            // Administrators SID (S-1-5-32-544) → deny-only, like a standard
+            // user's logon token.
+            var adminSid = new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null);
+            byte[] sidBytes = new byte[adminSid.BinaryLength];
+            adminSid.GetBinaryForm(sidBytes, 0);
+            IntPtr sidPtr = Marshal.AllocHGlobal(sidBytes.Length);
+            try
+            {
+                Marshal.Copy(sidBytes, 0, sidPtr, sidBytes.Length);
+                var disable = new[] { new SidAndAttributes { Sid = sidPtr, Attributes = 0 } };
+                if (!CreateRestrictedToken(duplicated, DisableMaxPrivilege | SandboxInert,
+                        1, disable, 0, IntPtr.Zero, 0, IntPtr.Zero, out restricted))
                 {
-                    _log.Warn($"schtasks exited {exitCode}: {command}");
+                    lastStage = "CreateRestrictedToken";
+                    lastError = Marshal.GetLastWin32Error();
+                    return false;
                 }
             }
-        }
-        catch (Exception ex)
-        {
-            _log.Warn($"Scheduled-task Explorer relaunch failed: {ex.Message}");
-            return false;
-        }
+            finally
+            {
+                Marshal.FreeHGlobal(sidPtr);
+            }
 
-        var deadline = DateTime.UtcNow.AddSeconds(15);
-        while (DateTime.UtcNow < deadline)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (GetSessionExplorers(sessionId).Count > 0) return true;
-            await Task.Delay(300, cancellationToken);
+            // Lower integrity High → Medium (S-1-16-8192): the engine cannot
+            // inject into a High-integrity shell. SetTokenInformation can only
+            // lower integrity, which is exactly what we need. The SID is built
+            // directly (label-SID type numbers differ across Windows versions,
+            // so CreateWellKnownSid is not used).
+            var mediumLabel = new SecurityIdentifier("S-1-16-8192");
+            byte[] labelBytes = new byte[mediumLabel.BinaryLength];
+            mediumLabel.GetBinaryForm(labelBytes, 0);
+            IntPtr labelSid = Marshal.AllocHGlobal(labelBytes.Length);
+            try
+            {
+                Marshal.Copy(labelBytes, 0, labelSid, labelBytes.Length);
+                var label = new TokenMandatoryLabel
+                {
+                    Label = new SidAndAttributes { Sid = labelSid, Attributes = SeGroupIntegrity },
+                };
+                if (!SetTokenInformation(restricted, TokenIntegrityLevel, ref label,
+                        (uint)Marshal.SizeOf<TokenMandatoryLabel>()))
+                {
+                    lastStage = "SetTokenInformation";
+                    lastError = Marshal.GetLastWin32Error();
+                    return false;
+                }
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(labelSid);
+            }
+
+            // Launch with CreateProcessWithTokenW: it needs only
+            // SeImpersonatePrivilege (which Administrators hold) — unlike
+            // CreateProcessAsUser, which also requires SeAssignPrimaryToken-
+            // Privilege (System-only by default). With a NULL environment the
+            // child gets the user's profile environment automatically.
+            var startupInfo = new StartUpInfo
+            {
+                cb = Marshal.SizeOf<StartUpInfo>(),
+                lpDesktop = "winsta0\\default",
+            };
+            var processInfo = new ProcessInformation();
+            if (!CreateProcessWithToken(restricted, 0, executable, arguments, 0,
+                    IntPtr.Zero, null, ref startupInfo, out processInfo))
+            {
+                lastStage = "CreateProcessWithToken";
+                lastError = Marshal.GetLastWin32Error();
+                return false;
+            }
+
+            processId = processInfo.dwProcessId;
+            CloseHandle(processInfo.hProcess);
+            CloseHandle(processInfo.hThread);
+            return true;
         }
-        return false;
+        finally
+        {
+            if (restricted != IntPtr.Zero) CloseHandle(restricted);
+            if (duplicated != IntPtr.Zero) CloseHandle(duplicated);
+            if (hToken != IntPtr.Zero) CloseHandle(hToken);
+        }
     }
+
+    // ── Native interop for the unelevated relaunch ──────────────────────
+    private const uint TokenMaximumAllowed = 0x02000000;
+    private const uint DisableMaxPrivilege = 0x1;
+    private const uint SandboxInert = 0x2;
+    private const int SecurityImpersonation = 2;
+    private const int TokenPrimary = 1;
+    private const int TokenIntegrityLevel = 25;
+    private const uint SeGroupIntegrity = 0x20;
+    private const uint CreateUnicodeEnvironment = 0x00000400;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SidAndAttributes
+    {
+        public IntPtr Sid;
+        public uint Attributes;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct TokenMandatoryLabel
+    {
+        public SidAndAttributes Label;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct StartUpInfo
+    {
+        public int cb;
+        public string? lpReserved;
+        public string? lpDesktop;
+        public string? lpTitle;
+        public int dwX;
+        public int dwY;
+        public int dwXSize;
+        public int dwYSize;
+        public int dwXCountChars;
+        public int dwYCountChars;
+        public int dwFillAttribute;
+        public int dwFlags;
+        public short wShowWindow;
+        public short cbReserved2;
+        public IntPtr lpReserved2;
+        public IntPtr hStdInput;
+        public IntPtr hStdOutput;
+        public IntPtr hStdError;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ProcessInformation
+    {
+        public IntPtr hProcess;
+        public IntPtr hThread;
+        public int dwProcessId;
+        public int dwThreadId;
+    }
+
+    [DllImport("kernel32.dll")]
+    private static extern IntPtr GetCurrentProcess();
+
+    [DllImport("advapi32.dll", SetLastError = true)]
+    private static extern bool OpenProcessToken(IntPtr processHandle, uint desiredAccess, out IntPtr tokenHandle);
+
+    [DllImport("advapi32.dll", SetLastError = true)]
+    private static extern bool DuplicateTokenEx(IntPtr existingTokenHandle, uint desiredAccess,
+        IntPtr tokenAttributes, int impersonationLevel, int tokenType, out IntPtr newTokenHandle);
+
+    [DllImport("advapi32.dll", SetLastError = true)]
+    private static extern bool CreateRestrictedToken(IntPtr existingTokenHandle, uint flags,
+        uint disableSidCount, [In] SidAndAttributes[]? sidsToDisable, uint deletePrivilegeCount,
+        IntPtr privilegesToDelete, uint restrictedSidCount, IntPtr sidsToRestrict, out IntPtr newTokenHandle);
+
+    [DllImport("advapi32.dll", SetLastError = true)]
+    private static extern bool SetTokenInformation(IntPtr tokenHandle, int tokenInformationClass,
+        [In] ref TokenMandatoryLabel tokenInformation, uint tokenInformationLength);
+
+    [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool CreateProcessWithToken(IntPtr token, uint logonFlags,
+        string applicationName, string? commandLine, uint creationFlags, IntPtr environment,
+        string? currentDirectory, ref StartUpInfo startupInfo, out ProcessInformation processInformation);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CloseHandle(IntPtr handle);
 
     private static bool IsProcessRunning(string name) =>
         Process.GetProcessesByName(name).Length > 0;
@@ -1672,24 +2089,24 @@ public sealed class WindhawkManagerService
     }
 
     /// <summary>
-    /// Waits for the engine to accept a deployed mod: the engine keeps a mod's
-    /// registry entry when it loads it and DELETES entries it cannot load, and
-    /// only sets the compiled library after a successful compile. So readiness
-    /// (registered + enabled + compiled library) is the acceptance signal.
-    /// Compilation of these large mods can take a while, so the timeout is
-    /// generous. NOTE: because our own deploy writes (LibraryFileName + DLL)
-    /// already satisfy readiness, this cannot distinguish "we wrote it" from
-    /// "the engine loaded it" — callers must give the engine a settle window
-    /// (EngineSettleDelayMs) after StartEngineAsync before treating readiness
-    /// as engine acceptance.
+    /// Waits for hard evidence that the engine is actually RUNNING the mod.
+    /// Registry readiness (entry + enabled + compiled library) is necessary
+    /// but not sufficient: our own deploy writes satisfy it, and a mod the
+    /// engine never loaded used to be reported as deployed-and-verified — the
+    /// root of the "mods only work after I re-enable them" bug. The decisive
+    /// signal is the engine's mod-status files (written by the injected
+    /// windhawk.dll in each target process): they appear when the mod loads
+    /// and are removed when it unloads, so our writes cannot fake them.
+    /// Registry readiness is still required first; compilation of large mods
+    /// can take a while, so the timeout is generous.
     /// </summary>
-    private async Task<bool> WaitForModAcceptedAsync(string modId, CancellationToken cancellationToken)
+    private async Task<bool> WaitForModAcceptedAsync(string modId, WindhawkModEntry entry, CancellationToken cancellationToken)
     {
         var deadline = DateTime.UtcNow.AddSeconds(180);
         while (DateTime.UtcNow < deadline)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (IsModReady(modId))
+            if (IsModReady(modId) && IsModLoadedAnywhere(modId, entry.TargetProcess))
             {
                 return true;
             }

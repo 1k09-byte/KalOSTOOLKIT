@@ -36,6 +36,13 @@ class Action:
 
 
 SKIP_SECTION = re.compile(r"(?i)onedrive|edge")
+
+# Sections that modify network behavior are never generated: hosts-file
+# blocking (changes system-wide name resolution), firewall disables and
+# firewall/WFP service kills (break connectivity + security posture).
+# These stay out of the catalog even if upstream privacy.sexy keeps them.
+NETWORK_TAMPER_SECTION = re.compile(
+    r"(?i)hosts|firewall|wfp|network inspection")
 REVERT_RE = re.compile(r"\(?revert\b", re.IGNORECASE)
 
 # comment-line extractors (the apply direction; revert lines are filtered out)
@@ -68,11 +75,25 @@ RE_SERVICE = re.compile(r"\$service(?:Query|Name)\s*=\s*'([^']+)'")
 # NlaSvc off → network identification fails and Wi-Fi drops/fails to
 # reconnect; netprofm (Network List Service) depends on NlaSvc, compounding
 # it. WlanSvc excluded defensively — disabling it literally turns Wi-Fi off.
+# The rest are the firewall/WFP stack, DNS and DHCP — network-critical, the
+# catalog must never disable them.
 EXCLUDED_SERVICES = {
     "NlaSvc",
     "netprofm",
     "WlanSvc",
     "Wcmsvc",
+    "Dnscache",
+    "Dhcp",
+    "DPS",
+    "MpsSvc",
+    "mpsdrv",
+    "MsSecWfp",
+    "bfe",
+    "RmSvc",
+    "NdisUio",
+    "nwifi",
+    "NativeWifiP",
+    "dot3svc",
 }
 RE_TASK = re.compile(r"\$taskPathPattern='([^']*)';\s*\$taskNamePattern='([^']*)'")
 RE_HOSTS = re.compile(r"^:: Add hosts entries for (\S+)\s*$")
@@ -84,8 +105,9 @@ def unescape(line: str) -> str:
 
 
 def classify_section(title: str) -> bool:
-    """True when a section should be skipped (hand-implemented composites)."""
-    return bool(SKIP_SECTION.search(title))
+    """True when a section should be skipped (hand-implemented composites
+    and any network-tampering section — see NETWORK_TAMPER_SECTION)."""
+    return bool(SKIP_SECTION.search(title)) or bool(NETWORK_TAMPER_SECTION.search(title))
 
 
 def path_group(path: str) -> str:
@@ -102,9 +124,9 @@ def parse_file(path: Path, catalog: dict, order: list):
     hosts: dict[str, list] = {}  # section title -> domains, flushed on section change
 
     def flush_hosts(sec: str):
-        doms = hosts.pop(sec, None)
-        if doms:
-            add(catalog, order, Action("HostsBlock", Domains=tuple(doms)), sec, "Privacy")
+        # Hosts-file blocking is never generated (name resolution is
+        # network-critical); the accumulator is drained and discarded.
+        hosts.pop(sec, None)
 
     for raw in lines:
         line = raw.rstrip()

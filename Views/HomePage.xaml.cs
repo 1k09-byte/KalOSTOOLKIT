@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using KalOS.Services;
 using KalOS.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -15,10 +16,25 @@ namespace KalOS.Views
         {
             this.InitializeComponent();
             ViewModel = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<HomeViewModel>(App.Services);
+
+            Loaded += (_, _) =>
+            {
+                ViewModel.StartMetricsLoop();
+                _themeService = App.Services.GetRequiredService<ThemeService>();
+                _themeService.ThemeChanged += OnThemeChanged;
+            };
+            Unloaded += (_, _) =>
+            {
+                ViewModel.StopMetricsLoop();
+                if (_themeService != null) _themeService.ThemeChanged -= OnThemeChanged;
+            };
         }
 
-        /// <summary>Navigates to the page tagged on a module card (Tag holds the page type key).
-        /// The sender is a SettingsCard, not a Button — checking Button silently swallowed every click.</summary>
+        private ThemeService? _themeService;
+
+        private void OnThemeChanged(object? sender, ElementTheme e) => ViewModel.OnThemeChanged();
+
+        /// <summary>Navigates to the page tagged on a module tile (Tag holds the page type key).</summary>
         private void NavigateCard_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
         {
             var tag = (sender as FrameworkElement)?.Tag as string;
@@ -33,6 +49,11 @@ namespace KalOS.Views
                 "GpuDrivers" => typeof(GpuDriversPage),
                 "AffinityManager" => typeof(AffinityManagerPage),
                 "Personalization" => typeof(PersonalizationPage),
+                "ProcessControl" => typeof(ProcessControlPage),
+                "SystemOverview" => typeof(SystemOverviewPage),
+                "AdditionalTweaks" => typeof(AdditionalTweaksPage),
+                "Sdio" => typeof(SdioPage),
+                "Bios" => typeof(BiosPage),
                 _ => null
             };
 
@@ -58,7 +79,7 @@ namespace KalOS.Views
         {
             // Ensure list is fresh
             await ViewModel.LoadRestorePointsAsync();
-            
+
             if (App.Current is App { MainWindow: MainWindow window })
             {
                 var modal = new SystemRestoreModal(ViewModel);
@@ -66,8 +87,8 @@ namespace KalOS.Views
             }
             else
             {
-                var xamlRoot = (App.Current as App)?.MainWindow?.Content?.XamlRoot 
-                            ?? this.XamlRoot 
+                var xamlRoot = (App.Current as App)?.MainWindow?.Content?.XamlRoot
+                            ?? this.XamlRoot
                             ?? this.Content?.XamlRoot;
 
                 var dialog = new SystemRestoreDialog(ViewModel)

@@ -144,10 +144,10 @@
                     </Border>
                     <Border Style="{StaticResource CardStyle}">
                         <StackPanel Spacing="10">
-                            <CheckBox Content="Apply the Windhawk taskbar customization (dark translucent dock)"
+                            <CheckBox Content="Apply the Windhawk customization (translucent dock + translucent Explorer)"
                                       IsChecked="{x:Bind Wizard.InstallWindhawkCustomization, Mode=TwoWay}"/>
                             <TextBlock Style="{StaticResource CardSubtitle}"
-                                       Text="Installs Windhawk and applies the curated mods (Windows 11 Taskbar Styler with the Luminosity dock theme + dock animation). This downloads Windhawk, and briefly restarts Explorer so the new look takes effect — the same customization the KalOS app offers under Personalization."/>
+                                       Text="Installs Windhawk and applies the curated mods (Windows 11 Taskbar Styler with the Luminosity dock theme, dock animation, and translucent File Explorer windows). This downloads Windhawk, and briefly restarts Explorer so the new look takes effect — the same customization the KalOS app offers under Personalization."/>
                         </StackPanel>
                     </Border>
                     <InfoBar IsOpen="True" Severity="Informational" IsClosable="False"

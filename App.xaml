@@ -20,6 +20,10 @@
                 <ResourceDictionary Source="Styles/Brushes.xaml" />
                 <ResourceDictionary Source="Styles/AppStyles.xaml" />
                 <ResourceDictionary Source="Styles/CommonStyles.xaml" />
+                <!-- Rounded dialogs/flyouts: overrides OverlayCornerRadius (+ flyout
+                     radii) app-wide. Must merge AFTER XamlControlsResources so the
+                     override wins over the WinUI defaults. -->
+                <ResourceDictionary Source="Styles/DialogStyles.xaml" />
                 <!-- The embedded setup wizard's styles (compiled from Installer/ into
                      this app). Keys that would collide with the consumer shell's own
                      (PageContentMaxWidth, PagePadding, BoolToVis ...) are renamed to

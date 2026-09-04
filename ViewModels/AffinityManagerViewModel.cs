@@ -827,20 +827,20 @@ if (category == "Network Interface Controllers") item.MaxMsiLimit = "32";
         }
 
         /// <summary>
-        /// Low-latency optimization that pins every device class except Audio to dedicated
-        /// physical cores with High priority. Audio is kept at Normal priority with MSI=1 to
-        /// avoid crackling/popping on Realtek ALC and similar codecs.
+        /// Low-latency optimization that pins every device class to dedicated physical
+        /// cores while leaving DevicePriority at 0 (Undefined) so Windows keeps its
+        /// default interrupt prioritization — only the core placement is optimized.
         ///
         ///   Audio    : IrqPolicySpecifiedProcessors (4), FullCoreMask of one non-CPU0 physical
-        ///              core, Normal priority (2), MessageNumberLimit=1.
+        ///              core, DevicePriority=0 (Undefined), MessageNumberLimit=1.
         ///   XHCI     : IrqPolicySpecifiedProcessors (4), FullCoreMask of one non-CPU0 physical
-        ///              core (distinct from Audio's), High priority (3). MessageNumberLimit is
+        ///              core (distinct from Audio's), DevicePriority=0. MessageNumberLimit is
         ///              NOT touched — XHCI drivers compute their own vector count.
         ///   Network  : IrqPolicySpecifiedProcessors (4), FullCoreMask of one non-CPU0 physical
-        ///              core (distinct from Audio/XHCI's), High priority (3). MessageNumberLimit
+        ///              core (distinct from Audio/XHCI's), DevicePriority=0. MessageNumberLimit
         ///              is NOT touched — RSS/RSC depends on multiple vectors.
         ///   GPU      : IrqPolicySpecifiedProcessors (4), up to 4 logical processors on
-        ///              dedicated physical cores, High priority (3). MessageNumberLimit is
+        ///              dedicated physical cores, DevicePriority=0. MessageNumberLimit is
         ///              NOT touched — NVIDIA/AMD scale MSI-X vectors dynamically.
         ///
         /// Other guarantees:
@@ -874,10 +874,10 @@ if (category == "Network Interface Controllers") item.MaxMsiLimit = "32";
 
             string dialogContent =
                 "Low-latency profile.\n\n" +
-                "• Audio: pinned to a dedicated E-core on hybrid CPUs (interrupt isolation from render threads), else the first non-CPU0 core. MSI limit = 1, Normal priority — eliminates crackling and DPC latency.\n" +
-                "• USB (XHCI): pinned to a dedicated performance core. High priority; MSI vector count left at driver default so high-polling-rate mice (1000–8000 Hz) never micro-stutter.\n" +
-                "• Network (WiFi / Ethernet): pinned to a dedicated performance core. High priority; NDIS RSS base processor re-pointed to the assigned core (*RssBaseProcNumber).\n" +
-                "• GPU: pinned to 2 physical performance cores (up to 4 SMT threads). High priority; MSI limit = 1 to stabilize frame pacing. The GPU IS restarted — your screen will flicker/go black for a few seconds while the graphics stack re-initializes.\n" +
+                "• Audio: pinned to a dedicated E-core on hybrid CPUs (interrupt isolation from render threads), else the first non-CPU0 core. MSI limit = 1; device priority left at Windows default (Undefined) — eliminates crackling and DPC latency.\n" +
+                "• USB (XHCI): pinned to a dedicated performance core. MSI vector count left at driver default so high-polling-rate mice (1000–8000 Hz) never micro-stutter.\n" +
+                "• Network (WiFi / Ethernet): pinned to a dedicated performance core; NDIS RSS base processor re-pointed to the assigned core (*RssBaseProcNumber).\n" +
+                "• GPU: pinned to 2 physical performance cores (up to 4 SMT threads); MSI limit = 1 to stabilize frame pacing. The GPU IS restarted — your screen will flicker/go black for a few seconds while the graphics stack re-initializes.\n" +
                 "\nCPU 0 stays available for system threads. On 2-4 core CPUs the targets share cores gracefully instead of failing. Audio / USB / Network / GPU devices are restarted in the background after the registry writes.\n\n";
 
             if (audioTouched || xhciTouched || networkTouched || gpuTouched)
@@ -968,7 +968,7 @@ if (category == "Network Interface Controllers") item.MaxMsiLimit = "32";
                     // Force enable MSI mode and set affinity.
                     if (item.Category == "Audio Controllers" && audioMask != 0)
                     {
-                        ForceEnableMsiAndSetAffinity(item, audioMask, priority: 2, msiLimit: 1);
+                        ForceEnableMsiAndSetAffinity(item, audioMask, priority: 0, msiLimit: 1);
                         devicesToRestart.Add(item.DeviceId);
                         hasChanges = true;
                     }
@@ -992,7 +992,7 @@ if (category == "Network Interface Controllers") item.MaxMsiLimit = "32";
                         // do NOT touch MessageNumberLimit. The XHCI driver sets its own count
                         // based on enabled ports; overriding it crashes isochronous transfers
                         // (USB mice / keyboards / audio interfaces).
-                        SetDeviceAffinityPolicyOnly(item, xhciMask, priority: 3);
+                        SetDeviceAffinityPolicyOnly(item, xhciMask, priority: 0);
                         devicesToRestart.Add(item.DeviceId);
                         hasChanges = true;
                     }
@@ -1007,7 +1007,7 @@ if (category == "Network Interface Controllers") item.MaxMsiLimit = "32";
                         // NICs (the adapter briefly disconnects, then reconnects — apps
                         // with retry logic are unaffected, and Wi-Fi roaming reassociates
                         // within seconds).
-                        SetDeviceAffinityPolicyOnly(item, networkMask, priority: 3);
+                        SetDeviceAffinityPolicyOnly(item, networkMask, priority: 0);
                         if (plan.NetworkBaseProcessor is int rssBase)
                         {
                             SetNicRssBaseProcessor(item.DeviceId, rssBase);
@@ -1023,7 +1023,7 @@ if (category == "Network Interface Controllers") item.MaxMsiLimit = "32";
                         // the registry writes so everything applies immediately.
                         // NOTE: restarting the primary graphics adapter makes the screen
                         // flicker/go black for a few seconds while dxgkrnl re-initializes.
-                        SetDeviceAffinity(item, gpuMask, priority: 3, msiLimit: 1);
+                        SetDeviceAffinity(item, gpuMask, priority: 0, msiLimit: 1);
                         devicesToRestart.Add(item.DeviceId);
                         hasGpuChanges = true;
                         hasChanges = true;

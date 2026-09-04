@@ -54,49 +54,62 @@
                          ItemInvoked="NavView_ItemInvoked">
             <NavigationView.MenuItems>
                 <!-- ─── Overview ─── -->
-                <NavigationViewItem Content="Home" Tag="Home">
+                <NavigationViewItem Content="Home" Tag="Home" IsSelected="True">
                     <NavigationViewItem.Icon>
-                        <FontIcon FontFamily="Segoe UI Emoji" Glyph="🏠" />
+                        <FontIcon Glyph="&#xE80F;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItemHeader Content="Optimize" />
                 <NavigationViewItem Content="System Overview" Tag="SystemOverview">
                     <NavigationViewItem.Icon>
-                        <FontIcon FontFamily="Segoe UI Emoji" Glyph="💻" />
+                        <FontIcon Glyph="&#xE9D2;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Content="Browsers &amp; Software" Tag="Browsers">
+                <NavigationViewItem Content="Process Control" Tag="ProcessControl">
                     <NavigationViewItem.Icon>
-                        <FontIcon FontFamily="Segoe UI Emoji" Glyph="🌐" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="GPU Drivers" Tag="GpuDrivers">
-                    <NavigationViewItem.Icon>
-                        <FontIcon FontFamily="Segoe UI Emoji" Glyph="🎮" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Other Drivers" Tag="Sdio">
-                    <NavigationViewItem.Icon>
-                        <FontIcon FontFamily="Segoe UI Emoji" Glyph="🔧" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="BIOS Manager" Tag="Bios">
-                    <NavigationViewItem.Icon>
-                        <FontIcon FontFamily="Segoe UI Emoji" Glyph="⚙️" />
+                        <FontIcon Glyph="&#xE9D9;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem Content="Per-CPU Scheduling" Tag="AffinityManager">
                     <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/Cpu.png" ShowAsMonochrome="False" />
+                        <FontIcon Glyph="&#xE950;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Content="Personalization" Tag="Personalization">
+                <NavigationViewItemHeader Content="Install &amp; Update" />
+                <NavigationViewItem Content="Driver Store" Tag="DriverStore">
                     <NavigationViewItem.Icon>
-                        <FontIcon FontFamily="Segoe UI Emoji" Glyph="🎨" />
+                        <FontIcon Glyph="&#xE965;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Browsers &amp; Software" Tag="Browsers">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE774;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="GPU Drivers" Tag="GpuDrivers">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE7F4;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Other Drivers" Tag="Sdio">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE77B;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItemHeader Content="Tune &amp; Personalize" />
+                <NavigationViewItem Content="BIOS Manager" Tag="Bios">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE7F8;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem Content="Additional Tweaks" Tag="AdditionalTweaks">
                     <NavigationViewItem.Icon>
-                        <FontIcon FontFamily="Segoe UI Emoji" Glyph="🛠️" />
+                        <FontIcon Glyph="&#xE90F;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Personalization" Tag="Personalization">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE790;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>
@@ -104,7 +117,7 @@
             <NavigationView.FooterMenuItems>
                 <NavigationViewItem Content="Settings" Tag="Settings">
                     <NavigationViewItem.Icon>
-                        <FontIcon FontFamily="Segoe UI Emoji" Glyph="⚙️" />
+                        <FontIcon Glyph="&#xE713;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.FooterMenuItems>

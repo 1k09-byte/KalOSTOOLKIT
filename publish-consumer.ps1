@@ -19,7 +19,10 @@ Write-Host "Building KalOS ($Config, $Platform)..."
 dotnet build KalOS.csproj -c $Config -p:Platform=$Platform -p:RuntimeIdentifier=win-x64 -p:DefineConstants=CONSUMER_BUILD
 if ($LASTEXITCODE -ne 0) { throw "Build failed with exit code $LASTEXITCODE" }
 
-$out = Join-Path $PSScriptRoot "bin\$Platform\$Config\net9.0-windows10.0.22621.0\win-x64"
+# TFM folder name must match the <TargetFramework> in KalOS.csproj — it changes
+# on runtime upgrades (currently net10.0-windows10.0.26100).
+$tfm = [regex]::Match((Get-Content (Join-Path $PSScriptRoot "KalOS.csproj") -Raw), '<TargetFramework>([^<]+)</TargetFramework>').Groups[1].Value
+$out = Join-Path $PSScriptRoot "bin\$Platform\$Config\$tfm\win-x64"
 if (-not (Test-Path (Join-Path $out "KalOS.exe"))) { throw "Output not found: $out" }
 
 # Strip debug symbols to slim the package.

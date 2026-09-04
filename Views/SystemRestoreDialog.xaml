@@ -9,7 +9,8 @@
     Title="System Restore Manager"
     PrimaryButtonText="Close"
     DefaultButton="Primary"
-    MaxWidth="560">
+    MaxWidth="560"
+    Style="{StaticResource RoundedContentDialogStyle}">
 
     <Grid RowSpacing="12" HorizontalAlignment="Stretch">
         <Grid.RowDefinitions>

@@ -57,6 +57,310 @@ namespace KalOS.Services
                         @"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced\TaskbarDeveloperSettings",
                         @"TaskbarEndTask", TweakValueKind.Dword, @"1")),
 
+                // ── Sync / Offline Files cleanup (from disablesync.reg + debloat.reg) ──
+                // Kills the offline-files cache engine and its per-user service,
+                // the Sync Center policy + partner store, and the mobsync logon
+                // trigger. Pure sync machinery — no network connectivity impact.
+                new TweakDef("Disable Offline Files (CSC) service",
+                    TweakGroup.Services,
+                    new DisableServiceAction(@"CSC")),
+                new TweakDef("Disable Offline Files (CSC) service",
+                    TweakGroup.Services,
+                    new DisableServiceAction(@"CscService")),
+                new TweakDef("Disable Sync Center Group Policy (NetCache)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(
+                        @"HKLM\SOFTWARE\Policies\Microsoft\Windows\NetCache",
+                        @"Enabled", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable Sync Center sync partner retention",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(
+                        @"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\SyncMgr",
+                        @"KeepSyncPartners", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable Sync Center (mobsync) logon trigger",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(
+                        @"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\SyncMgr",
+                        @"StartOnLogin", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable Message Queuing (MSMQ) service",
+                    TweakGroup.Services,
+                    new DisableServiceAction(@"MSMQ")),
+
+                // ── Shell visuals from debloat.reg ──
+                new TweakDef("Remove Task View button from taskbar",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(
+                        @"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+                        @"ShowTaskViewButton", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable taskbar animations",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(
+                        @"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+                        @"TaskbarAnimations", TweakValueKind.Dword, @"0")),
+                new TweakDef("Always show icons, never thumbnails (File Explorer)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(
+                        @"HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+                        @"IconsOnly", TweakValueKind.Dword, @"1")),
+
+                // ── Gaming-box service disables (from the user's
+                //    "Disable-Services-Gaming-Xbox-BT-WiFi-Safe" batch) ──
+                // Everything the WiFi-safe keep list protects is deliberately
+                // absent: WlanSvc/WcmSvc/netprofm/Dhcp/Dnscache/NlaSvc/DPS/
+                // MpsSvc/mpsdrv/BFE (enforced by WifiSafety at run time), plus
+                // the Bluetooth stack, audio, LanmanWorkstation/LanmanServer
+                // and SharedAccess (kept per the batch's own keep list).
+                // Winmgmt is NOT here: disabling WMI breaks KalOS's own
+                // hardware/driver pages. wlidsvc is NOT here: killing the
+                // Microsoft-account sign-in service breaks Xbox/Store sign-in,
+                // contradicting the batch's own "Xbox stack kept" goal.
+                // DPS is NOT here: it is WifiSafety-protected (the engine would
+                // refuse it every run), and the WiFi fix relies on it.
+
+                // Telemetry / diagnostics
+                new TweakDef("Disable DiagTrack (Connected User Experiences & Telemetry) service", TweakGroup.Services, new DisableServiceAction(@"DiagTrack")),
+                new TweakDef("Disable dmwappushservice (WAP Push Message Routing) service", TweakGroup.Services, new DisableServiceAction(@"dmwappushservice")),
+                new TweakDef("Disable diagnostics hub standard collector service", TweakGroup.Services, new DisableServiceAction(@"diagnosticshub.standardcollector.service")),
+                new TweakDef("Disable Data Sharing Service (DsSvc)", TweakGroup.Services, new DisableServiceAction(@"DsSvc")),
+                new TweakDef("Disable Problem Reports Control Panel support (wercplsupport)", TweakGroup.Services, new DisableServiceAction(@"wercplsupport")),
+                new TweakDef("Disable Windows Error Reporting Service (WerSvc)", TweakGroup.Services, new DisableServiceAction(@"WerSvc")),
+                new TweakDef("Disable TroubleshootingSvc service", TweakGroup.Services, new DisableServiceAction(@"TroubleshootingSvc")),
+                new TweakDef("Disable Diagnostic Service (diagsvc)", TweakGroup.Services, new DisableServiceAction(@"diagsvc")),
+                new TweakDef("Disable DeviceTelemetry service", TweakGroup.Services, new DisableServiceAction(@"DeviceTelemetry")),
+                new TweakDef("Disable Windows Update Quality Metrics (wuqisvc)", TweakGroup.Services, new DisableServiceAction(@"wuqisvc")),
+                new TweakDef("Disable Windows Event Collector (Wecsvc)", TweakGroup.Services, new DisableServiceAction(@"Wecsvc")),
+                new TweakDef("Disable Performance Logs & Alerts (pla)", TweakGroup.Services, new DisableServiceAction(@"pla")),
+                new TweakDef("Disable Diagnostic Service Host (WdiServiceHost)", TweakGroup.Services, new DisableServiceAction(@"WdiServiceHost")),
+                new TweakDef("Disable Diagnostic System Host (WdiSystemHost)", TweakGroup.Services, new DisableServiceAction(@"WdiSystemHost")),
+
+                // Search / indexing / prefetch
+                new TweakDef("Disable Windows Search indexing (WSearch)", TweakGroup.Services, new DisableServiceAction(@"WSearch")),
+                new TweakDef("Disable Distributed Link Tracking Client (TrkWks)", TweakGroup.Services, new DisableServiceAction(@"TrkWks")),
+                new TweakDef("Disable SysMain (Superfetch)", TweakGroup.Services, new DisableServiceAction(@"SysMain")),
+
+                // Print / fax / scan
+                new TweakDef("Disable Print Spooler (Spooler)", TweakGroup.Services, new DisableServiceAction(@"Spooler")),
+                new TweakDef("Disable Fax service", TweakGroup.Services, new DisableServiceAction(@"Fax")),
+                new TweakDef("Disable Printer Extensions and Notifications (PrintNotify)", TweakGroup.Services, new DisableServiceAction(@"PrintNotify")),
+                new TweakDef("Disable Print Device Configuration Service", TweakGroup.Services, new DisableServiceAction(@"PrintDeviceConfigurationService")),
+                new TweakDef("Disable Print Scan Broker Service", TweakGroup.Services, new DisableServiceAction(@"PrintScanBrokerService")),
+                new TweakDef("Disable Print Workflow User Service (per-user)", TweakGroup.Services, new DisableServiceAction(@"PrintWorkflowUserSvc_*")),
+                new TweakDef("Disable Windows Image Acquisition (WIA) — WiaRpc", TweakGroup.Services, new DisableServiceAction(@"WiaRpc")),
+                new TweakDef("Disable Windows Image Acquisition — StiSvc", TweakGroup.Services, new DisableServiceAction(@"StiSvc")),
+
+                // Remote access / hosting (client gaming box = no hosting)
+                new TweakDef("Disable Remote Registry", TweakGroup.Services, new DisableServiceAction(@"RemoteRegistry")),
+                new TweakDef("Disable Routing and Remote Access (RemoteAccess)", TweakGroup.Services, new DisableServiceAction(@"RemoteAccess")),
+                new TweakDef("Disable RPC Locator (RpcLocator)", TweakGroup.Services, new DisableServiceAction(@"RpcLocator")),
+                new TweakDef("Disable Remote Desktop Services (TermService)", TweakGroup.Services, new DisableServiceAction(@"TermService")),
+                new TweakDef("Disable Remote Desktop Services UserMode Port Redirector (UmRdpService)", TweakGroup.Services, new DisableServiceAction(@"UmRdpService")),
+                new TweakDef("Disable Remote Desktop Configuration (SessionEnv)", TweakGroup.Services, new DisableServiceAction(@"SessionEnv")),
+                new TweakDef("Disable RAS AutoDial (RasAuto)", TweakGroup.Services, new DisableServiceAction(@"RasAuto")),
+
+                // Smart card / biometric / phone / sensor / NFC
+                new TweakDef("Disable Smart Card (SCardSvr)", TweakGroup.Services, new DisableServiceAction(@"SCardSvr")),
+                new TweakDef("Disable Smart Card Device Enumeration (ScDeviceEnum)", TweakGroup.Services, new DisableServiceAction(@"ScDeviceEnum")),
+                new TweakDef("Disable Smart Card Removal Policy (SCPolicySvc)", TweakGroup.Services, new DisableServiceAction(@"SCPolicySvc")),
+                new TweakDef("Disable Windows Biometric Service (WbioSrvc)", TweakGroup.Services, new DisableServiceAction(@"WbioSrvc")),
+                new TweakDef("Disable Phone Service (PhoneSvc)", TweakGroup.Services, new DisableServiceAction(@"PhoneSvc")),
+                new TweakDef("Disable Telephony (TapiSrv)", TweakGroup.Services, new DisableServiceAction(@"TapiSrv")),
+                new TweakDef("Disable Sensor Service", TweakGroup.Services, new DisableServiceAction(@"SensorService")),
+                new TweakDef("Disable Sensor Data Service", TweakGroup.Services, new DisableServiceAction(@"SensorDataService")),
+                new TweakDef("Disable Motion Sensor Service (SensrSvc)", TweakGroup.Services, new DisableServiceAction(@"SensrSvc")),
+                new TweakDef("Disable NFC/SE Manager (SEMgrSvc)", TweakGroup.Services, new DisableServiceAction(@"SEMgrSvc")),
+                new TweakDef("Disable Geolocation Service (lfsvc)", TweakGroup.Services, new DisableServiceAction(@"lfsvc")),
+                new TweakDef("Disable Maps Broker (MapsBroker)", TweakGroup.Services, new DisableServiceAction(@"MapsBroker")),
+
+                // Sync / cloud (per-user services use wildcards — the engine
+                // expands them against every installed suffix, e.g. _a158c)
+                new TweakDef("Disable Sync Host (OneSyncSvc, per-user)", TweakGroup.Services, new DisableServiceAction(@"OneSyncSvc_*")),
+                new TweakDef("Disable Cloud Identity Service (cloudidsvc)", TweakGroup.Services, new DisableServiceAction(@"cloudidsvc")),
+                new TweakDef("Disable Cloud Backup and Restore (per-user)", TweakGroup.Services, new DisableServiceAction(@"CloudBackupRestoreSvc_*")),
+                new TweakDef("Disable Messaging Service (per-user)", TweakGroup.Services, new DisableServiceAction(@"MessagingService_*")),
+                new TweakDef("Disable Plan 9 File Server redirector (P9RdrService, WSL shares)", TweakGroup.Services, new DisableServiceAction(@"P9RdrService_*")),
+                new TweakDef("Disable Wallet Service", TweakGroup.Services, new DisableServiceAction(@"WalletService")),
+
+                // User / misc app services
+                new TweakDef("Disable Clipboard User Service (cbdhsvc, per-user)", TweakGroup.Services, new DisableServiceAction(@"cbdhsvc_*")),
+                new TweakDef("Disable Connected Devices Platform User Service (CDPUserSvc, per-user)", TweakGroup.Services, new DisableServiceAction(@"CDPUserSvc_*")),
+                new TweakDef("Disable Contact Indexing (PimIndexMaintenanceSvc, per-user)", TweakGroup.Services, new DisableServiceAction(@"PimIndexMaintenanceSvc_*")),
+                new TweakDef("Disable User Data Access (UserDataSvc, per-user)", TweakGroup.Services, new DisableServiceAction(@"UserDataSvc_*")),
+                new TweakDef("Disable User Data Storage (UnistoreSvc, per-user)", TweakGroup.Services, new DisableServiceAction(@"UnistoreSvc_*")),
+                new TweakDef("Disable Notification User Service (WpnUserService, per-user)", TweakGroup.Services, new DisableServiceAction(@"WpnUserService_*")),
+                new TweakDef("Disable Microsoft Store Install Service", TweakGroup.Services, new DisableServiceAction(@"InstallService")),
+                new TweakDef("Disable Windows Insider Service (wisvc)", TweakGroup.Services, new DisableServiceAction(@"wisvc")),
+                new TweakDef("Disable Enterprise App Management Service (EntAppSvc)", TweakGroup.Services, new DisableServiceAction(@"EntAppSvc")),
+                new TweakDef("Disable Program Compatibility Assistant (PcaSvc)", TweakGroup.Services, new DisableServiceAction(@"PcaSvc")),
+
+                // Discovery / sharing helpers
+                new TweakDef("Disable SSDP Discovery (SSDPSRV)", TweakGroup.Services, new DisableServiceAction(@"SSDPSRV")),
+                new TweakDef("Disable UPnP Device Host (upnphost)", TweakGroup.Services, new DisableServiceAction(@"upnphost")),
+                new TweakDef("Disable BranchCache (PeerDistSvc)", TweakGroup.Services, new DisableServiceAction(@"PeerDistSvc")),
+
+                // ── Telemetry / bloat policies (from the user's
+                //    "Disable-Telemetry-Diagnostics-Bloat-WiFi-Xbox-Safe" +
+                //    "disableerrorreporting" batches; WiFi/BT/Xbox/anticheat
+                //    untouched, firewall untouched) ──
+
+                // Telemetry level
+                new TweakDef("Set diagnostic data collection to off (policy AllowTelemetry)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\Windows\DataCollection", @"AllowTelemetry", TweakValueKind.Dword, @"0")),
+                new TweakDef("Restrict the maximum telemetry level (MaxTelemetryAllowed)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\Windows\DataCollection", @"MaxTelemetryAllowed", TweakValueKind.Dword, @"0")),
+                new TweakDef("Set diagnostic data collection to off (legacy policy path)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\DataCollection", @"AllowTelemetry", TweakValueKind.Dword, @"0")),
+
+                // Error reporting (merged: both batches set WER Disabled=1)
+                new TweakDef("Disable Windows Error Reporting (global)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Microsoft\Windows\Windows Error Reporting", @"Disabled", TweakValueKind.Dword, @"1")),
+                new TweakDef("Disable Windows Error Reporting (policy)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\Windows\Windows Error Reporting", @"Disabled", TweakValueKind.Dword, @"1")),
+                new TweakDef("Disable Windows Error Reporting logging (policy)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\Windows\Windows Error Reporting", @"LoggingDisabled", TweakValueKind.Dword, @"1")),
+                new TweakDef("Disable Automatic Maintenance (Schedule Maintenance)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Microsoft\Windows NT\CurrentVersion\Schedule\Maintenance", @"MaintenanceDisabled", TweakValueKind.Dword, @"1")),
+
+                // Compatibility telemetry / CEIP
+                new TweakDef("Disable Application Impact Telemetry (AIT)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\Windows\AppCompat", @"AITEnable", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable steps recorder (DisableUAR)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\Windows\AppCompat", @"DisableUAR", TweakValueKind.Dword, @"1")),
+                new TweakDef("Disable the Connected Devices Platform (EnableCdp)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System", @"EnableCdp", TweakValueKind.Dword, @"0")),
+
+                // Tailored experiences / feedback / consumer content
+                new TweakDef("Disable tailored experiences with diagnostic data",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKCU\Software\Microsoft\Windows\CurrentVersion\Privacy", @"TailoredExperiencesWithDiagnosticDataEnabled", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable feedback telemetry level",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKCU\Software\Microsoft\Windows\CurrentVersion\Privacy", @"SendTelemetryLevel", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable Windows consumer features (suggested apps)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\Windows\CloudContent", @"DisableWindowsConsumerFeatures", TweakValueKind.Dword, @"1")),
+                new TweakDef("Disable third-party suggestions in Start",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\Windows\CloudContent", @"DisableThirdPartySuggestions", TweakValueKind.Dword, @"1")),
+                new TweakDef("Disable Windows spotlight / soft landing suggestions",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\Windows\CloudContent", @"DisableSoftLanding", TweakValueKind.Dword, @"1")),
+
+                // Start / lock screen / content suggestions
+                new TweakDef("Disable Start menu suggestions",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKCU\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager", @"SystemPaneSuggestionsEnabled", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable soft landing suggestions",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKCU\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager", @"SoftLandingEnabled", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable rotating lock screen images",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKCU\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager", @"RotatingLockScreenEnabled", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable lock screen fun facts / tips overlay",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKCU\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager", @"RotatingLockScreenOverlayEnabled", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable subscribed content: tips & suggestions (310093)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKCU\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager", @"SubscribedContent-310093Enabled", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable subscribed content: Start suggestions (338389)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKCU\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager", @"SubscribedContent-338389Enabled", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable subscribed content: settings suggestions (338393)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKCU\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager", @"SubscribedContent-338393Enabled", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable subscribed content: timeline suggestions (314559)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKCU\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager", @"SubscribedContent-314559Enabled", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable subscribed content: preinstalled app suggestions (338388)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKCU\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager", @"SubscribedContent-338388Enabled", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable subscribed content: lock screen suggestions (353696)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKCU\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager", @"SubscribedContent-353696Enabled", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable subscribed content: welcome experience (353694)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKCU\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager", @"SubscribedContent-353694Enabled", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable silent install of suggested apps",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKCU\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager", @"SilentInstalledAppsEnabled", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable preinstalled (bloat) apps",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKCU\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager", @"PreInstalledAppsEnabled", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable preinstalled app re-install tracking",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKCU\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager", @"PreInstalledAppsEverEnabled", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable OEM preinstalled apps",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKCU\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager", @"OemPreInstalledAppsEnabled", TweakValueKind.Dword, @"0")),
+
+                // Activity history / cloud search / Cortana
+                new TweakDef("Disable activity history feed",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\Windows\System", @"EnableActivityFeed", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable publishing user activities",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\Windows\System", @"PublishUserActivities", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable uploading user activities",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\Windows\System", @"UploadUserActivities", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable cloud search (no web results in search)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\Windows\Windows Search", @"AllowCloudSearch", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable Bing in search (policy)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\Windows\Windows Search", @"BingSearchEnabled", TweakValueKind.Dword, @"1")),
+                new TweakDef("Disable Cortana (policy)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\Windows\Windows Search", @"AllowCortana", TweakValueKind.Dword, @"0")),
+                new TweakDef("Search cannot use location",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\Windows\Windows Search", @"AllowSearchToUseLocation", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable location scripting",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\Windows\System", @"EnableLocationScripting", TweakValueKind.Dword, @"0")),
+
+                // Ink / handwriting / advertising ID
+                new TweakDef("Restrict implicit text collection (ink & handwriting)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\InputPersonalization", @"RestrictImplicitTextCollection", TweakValueKind.Dword, @"1")),
+                new TweakDef("Restrict implicit ink collection (ink & handwriting)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\InputPersonalization", @"RestrictImplicitInkCollection", TweakValueKind.Dword, @"1")),
+                new TweakDef("Disable input personalization (cloud handwriting)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\InputPersonalization", @"AllowInputPersonalization", TweakValueKind.Dword, @"0")),
+                new TweakDef("Disable the advertising ID",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKCU\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo", @"Enabled", TweakValueKind.Dword, @"0")),
+
+                // Settings sync (from disableerrorreporting.reg) + Fault Tolerant Heap
+                new TweakDef("Disable Windows setting sync (SettingSync)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\Windows\SettingSync", @"DisableSettingSync", TweakValueKind.Dword, @"2")),
+                new TweakDef("Block users from re-enabling setting sync",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\Windows\SettingSync", @"DisableSettingSyncUserOverride", TweakValueKind.Dword, @"1")),
+                new TweakDef("Disable setting sync on paid networks",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Policies\Microsoft\Windows\SettingSync", @"DisableSyncOnPaidNetwork", TweakValueKind.Dword, @"1")),
+                new TweakDef("Disable the Fault Tolerant Heap (FTH)",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKLM\Software\Microsoft\FTH", @"Enabled", TweakValueKind.Dword, @"0")),
+
+                // Taskbar search button (from the search batch)
+                new TweakDef("Hide the taskbar search box",
+                    TweakGroup.Privacy,
+                    new RegistrySetAction(@"HKCU\Software\Microsoft\Windows\CurrentVersion\Search", @"SearchboxTaskbarMode", TweakValueKind.Dword, @"0")),
+
                 // The wizard's appearance defaults: dark mode everywhere plus
                 // transparency effects. Written to the current user's
                 // HKCU\...\Themes\Personalize (the same values Windows' Colors
@@ -128,8 +432,6 @@ namespace KalOS.Services
                         return !FileSystemPathExists(a.Path);
                     case DisableServiceAction a:
                         return !ServiceEnabled(a.ServiceName);
-                    case HostsBlockAction a:
-                        return HostsAlreadyBlocked(a);
                     case DisableFeatureAction a:
                         return FeatureIsAlreadyDisabled(a);
                     default:
@@ -242,20 +544,6 @@ namespace KalOS.Services
             return start is not int s || s != 4;
         }
 
-        private bool HostsAlreadyBlocked(HostsBlockAction a)
-        {
-            string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),
-                "drivers", "etc", "hosts");
-            if (!File.Exists(path)) return false;
-            var blocked = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var line in File.ReadAllLines(path))
-            {
-                var parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length >= 2 && !parts[0].StartsWith("#")) blocked.Add(parts[1]);
-            }
-            return a.Domains.All(blocked.Contains);
-        }
-
         /// <summary>True when a DISM feature is confirmed disabled or absent (via the cached feature listing).</summary>
         private bool FeatureIsAlreadyDisabled(DisableFeatureAction a)
         {
@@ -273,6 +561,12 @@ namespace KalOS.Services
     /// <paramref name="onSkipped"/> so the summary stays honest without a
     /// scary ✗ for a machine that simply will not allow the change.
     /// </summary>
+    /// <remarks>
+    /// Wi-Fi safety: tweaks that would disable/remove any WLAN stack component
+    /// (services, drivers, capabilities, tasks, radio policies) are refused
+    /// outright — see <see cref="WifiSafety"/>. The installer inherits this
+    /// guarantee, so running the wizard can never break wireless connectivity.
+    /// </remarks>
     public async Task<(int Applied, int Failed)> ApplyAsync(
         IEnumerable<TweakDef> tweaks,
         Action<string>? report = null,
@@ -334,6 +628,20 @@ namespace KalOS.Services
                 ct.ThrowIfCancellationRequested();
                 var tweak = remaining[i];
                 report?.Invoke(tweak.Name);
+
+                // Hard wifi safety net: refuse (as a skipped, logged no-op)
+                // any tweak that would touch the WLAN stack. This is the last
+                // line of defense — even a hand-edited or regenerated catalog
+                // cannot make the installer break wireless networking.
+                if (WifiSafety.IsWifiTouching(tweak))
+                {
+                    skipped++;
+                    string reason = $"{tweak.Name} — refused: it would modify Wi-Fi/network-critical settings (Wi-Fi is never tweaked).";
+                    onSkipped?.Invoke(reason);
+                    report?.Invoke(reason);
+                    progress?.Invoke((double)((list.Count - remaining.Count) + i + 1) / Math.Max(list.Count, 1));
+                    continue;
+                }
 
                 // Skip tweaks already in their target state — this is what makes
                 // re-runs and partially-configured machines fast. Counted as
@@ -411,7 +719,6 @@ namespace KalOS.Services
                 RemoveCapabilityAction a => RemoveCapabilitiesAsync(a, ct),
                 DisableServiceAction a => DisableServiceAsync(a, ct),
                 DisableTaskAction a => DisableTasksAsync(a, ct, onFailure),
-                HostsBlockAction a => Task.Run(() => BlockHosts(a), ct),
                 ClearEventLogsAction _ => ClearEventLogsAsync(ct),
                 RunToolAction a => RunAsync(a.FileName, a.Arguments, ct),
                 RemoveOneDriveAction _ => RemoveOneDriveAsync(ct),
@@ -901,38 +1208,6 @@ namespace KalOS.Services
                 if (f == index) return field;
             }
             return string.Empty;
-        }
-
-        // ── hosts-file blocking (0.0.0.0 sinkhole entries) ───────────────
-
-        /// <summary>
-        /// Appends 0.0.0.0 entries for each domain to the hosts file, skipping
-        /// any domain that is already blocked (by any address). Idempotent.
-        /// </summary>
-        private static void BlockHosts(HostsBlockAction a)
-        {
-            string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),
-                "drivers", "etc", "hosts");
-
-            var blocked = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (File.Exists(path))
-            {
-                foreach (var line in File.ReadAllLines(path))
-                {
-                    var parts = line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
-                    if (parts.Length >= 2 && !parts[0].StartsWith("#"))
-                        blocked.Add(parts[1]);
-                }
-            }
-
-            var toAdd = a.Domains.Where(d => !blocked.Contains(d)).ToList();
-            if (toAdd.Count == 0) return;
-
-            using var writer = File.AppendText(path);
-            writer.WriteLine();
-            writer.WriteLine("# Blocked by KalOS tweaks");
-            foreach (var d in toAdd)
-                writer.WriteLine($"0.0.0.0\t{d} # KalOS");
         }
 
         // ── event logs ────────────────────────────────────────────────────

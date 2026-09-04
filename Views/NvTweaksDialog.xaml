@@ -9,7 +9,7 @@
     PrimaryButtonText="Install"
     CloseButtonText="Cancel"
     DefaultButton="Primary"
-    Style="{StaticResource DefaultContentDialogStyle}">
+    Style="{StaticResource RoundedContentDialogStyle}">
 
     <ContentDialog.Resources>
         <x:Double x:Key="ContentDialogMinWidth">560</x:Double>

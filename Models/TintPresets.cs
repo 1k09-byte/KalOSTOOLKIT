@@ -20,9 +20,34 @@ namespace KalOS.Models
         public Windows.UI.Color Color { get; init; }
 
         // Lazily created: SolidColorBrush needs a live WinUI runtime, so the
-        // catalog must stay constructible in headless unit-test contexts.
+        // tint catalog must stay constructible in headless / unit-test contexts.
+        // We therefore only create the real brush when there's an actual XAML
+        // runtime; otherwise we return a safe fallback brush.
         private SolidColorBrush? _brush;
-        public SolidColorBrush Brush => _brush ??= new SolidColorBrush(Color);
+        private SolidColorBrush? _fallbackBrush;
+        public SolidColorBrush Brush
+        {
+            get
+            {
+                if (_brush != null) return _brush;
+                try
+                {
+                    _brush = new SolidColorBrush(Color);
+                    return _brush;
+                }
+                catch
+                {
+                    // No live WinUI runtime (e.g. startup-before-OnLaunched, or a
+                    // headless unit-test environment). Fall back to a non-null brush
+                    // so the XAML binding doesn't throw a parse / initialization error.
+                    if (_fallbackBrush == null)
+                    {
+                        _fallbackBrush = new SolidColorBrush(Color);
+                    }
+                    return _fallbackBrush;
+                }
+            }
+        }
     }
 
     /// <summary>

@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Settings;
 using KalOS.Services;
 using KalOS.ViewModels;
 
@@ -19,8 +20,17 @@ namespace KalOS
     {
         private const string SingleInstanceMutexName = @"Local\KalOS.SingleInstance";
 
+        private const int SW_RESTORE = 9;
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
+
         private Window? _window;
         private StartupBannerWindow? _startupBanner;
+        private Window? _rulesWindow;
         private Mutex? _instanceMutex;
         public Window? MainWindow => _window;
 
@@ -31,6 +41,9 @@ namespace KalOS
 
         /// <summary>HWND of the single main window, cached so view-layer helpers (file pickers, dialogs) can attach without an instance reference.</summary>
         public static IntPtr MainWindowHandle;
+
+        /// <summary>The tray-icon / run-in-background service (null until the main window is created).</summary>
+        public static TrayIconService? TrayService;
 
         /// <summary>Just the assembly version, e.g. "1.1.4.0" — shown in the window title bar.</summary>
         public static string AppVersion { get; } =
@@ -447,6 +460,7 @@ namespace KalOS
             services.AddSingleton<ProcessManager>();
             services.AddSingleton<RadioStackService>();
             services.AddSingleton<PackageManagerService>();
+            services.AddSingleton<RestorePointService>();
             services.AddSingleton<WindowsServiceManager>();
             services.AddSingleton<ElevationService>();
             services.AddSingleton<WindhawkManagerService>();
@@ -455,6 +469,7 @@ namespace KalOS
             services.AddSingleton<UpdateService>();
             services.AddSingleton<StartupTasksService>();
             services.AddSingleton<DiskCleanupService>();
+            services.AddSingleton<ProcessControlService>();
 
             // ── BIOS management ─────────────────────────────────────────────
             services.AddSingleton<KalOS.Services.Bios.IWmiClient, KalOS.Services.Bios.SystemManagementWmiClient>();
@@ -503,6 +518,8 @@ namespace KalOS
             services.AddSingleton<AdditionalTweaksViewModel>();
             services.AddSingleton<SystemOverviewViewModel>();
             services.AddTransient<BiosViewModel>();
+            services.AddSingleton<ProcessControlViewModel>();
+            services.AddSingleton<DriverStoreViewModel>();
 
         }
 
@@ -512,6 +529,21 @@ namespace KalOS
         /// <param name="args">Details about the launch request and process.</param>
         protected override void OnLaunched(LaunchActivatedEventArgs args)
         {
+            // WASDK 2.3.1+ opt-in XAML performance work (spec: must run before any
+            // XAML initializes — OnLaunched is that point). These are the change
+            // ids that exist in the shipped 2.4 projection; each enables a
+            // targeted WinUI optimization that is safe for this app (we use no
+            // custom control templates that re-implement the affected internals).
+            try
+            {
+                XamlOptionalChanges.EnableChange(XamlChangeId.OptimizeApplyStyles);        // defer style property setters + delayed style apply
+                XamlOptionalChanges.EnableChange(XamlChangeId.DefaultStyleOptimizations);  // lighter default control styles (optimized ScrollBar etc.)
+                XamlOptionalChanges.EnableChange(XamlChangeId.IconNoGridOptimization);     // FontIcon/BitmapIcon skip an extra Grid layer
+                XamlOptionalChanges.EnableChange(XamlChangeId.DeferContextFlyoutInit);     // skip default ContextFlyout init on TextBlock enter/leave
+                XamlOptionalChanges.Lock();
+            }
+            catch { } // older runtime or renamed id → silently run without the opt-ins
+
             this.UnhandledException += App_UnhandledException;
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
             System.Threading.Tasks.TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
@@ -522,9 +554,41 @@ namespace KalOS
             _instanceMutex = new Mutex(true, SingleInstanceMutexName, out bool createdNew);
             if (!createdNew)
             {
+                // If the running copy is hidden in the tray, wake it instead of
+                // exiting silently — the user launched KalOS expecting a window.
+                try
+                {
+                    var existing = System.Diagnostics.Process.GetProcessesByName("KalOS");
+                    foreach (var p in existing)
+                    {
+                        if (p.Id == Environment.ProcessId) continue;
+                        if (p.MainWindowHandle == IntPtr.Zero) continue;
+
+                        // The window exists but may be hidden (tray) — restore it.
+                        ShowWindow(p.MainWindowHandle, SW_RESTORE);
+                        SetForegroundWindow(p.MainWindowHandle);
+                    }
+                }
+                catch { }
+
                 this.Exit();
                 return;
             }
+
+            // Hidden background mode: enforces sticky process-control rules
+            // from login with no UI. Uses a 1×1 off-screen window to keep the
+            // dispatcher loop alive while the engine runs.
+            var cmdArgs = Environment.GetCommandLineArgs();
+            if (Array.IndexOf(cmdArgs, "--rules") >= 0 || Array.IndexOf(cmdArgs, "-rules") >= 0)
+            {
+                StartRulesBackgroundMode();
+                return;
+            }
+
+            // Process Control engine: applies rules to running + newly
+            // launched processes while the app is open (any UI mode). Waits
+            // briefly for the background session to hand over the engine.
+            try { Services.GetRequiredService<ProcessControlService>().Start(backgroundSession: false); } catch { }
 
             // Startup diagnostics: the very first line of every log file identifies
             // the exact build, OS, and architecture — "which exe is running" is
@@ -539,12 +603,13 @@ namespace KalOS
             // leaves the Run key to the Settings toggle instead.
 #if CONSUMER_BUILD
             StartupTasksService.EnableAutostart();
+            // Hidden login session for always-on sticky-rule enforcement.
+            ProcessControlService.EnableRulesAutostart();
 #endif
 
             // Launched at Windows login (HKCU Run key writes "KalOS.exe --startup").
             // Skip the main window entirely: show only the drop-down banner that
             // runs the user's startup command list and checks for toolkit updates.
-            var cmdArgs = Environment.GetCommandLineArgs();
             if (Array.IndexOf(cmdArgs, "--startup") >= 0 || Array.IndexOf(cmdArgs, "-startup") >= 0)
             {
                 StartStartupBanner();
@@ -699,6 +764,56 @@ namespace KalOS
                 catch { }
                 ExitSoon();
             }
+        }
+
+        /// <summary>
+        /// Hidden background mode (--rules): keeps a 1×1 off-screen window
+        /// alive so the dispatcher loop never exits while the Process Control
+        /// engine enforces sticky rules at login. No UI, no tray icon — the
+        /// only trace is the process in Task Manager.
+        /// </summary>
+        private void StartRulesBackgroundMode()
+        {
+            try
+            {
+                var window = new Window { Content = new Grid() };
+                try
+                {
+                    var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
+                    var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
+                    var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
+                    appWindow.MoveAndResize(new Windows.Graphics.RectInt32(-32000, -32000, 1, 1));
+                }
+                catch { }
+                window.Activate();
+                _rulesWindow = window;
+            }
+            catch
+            {
+                // Without a window the process exits; rules simply won't run at login.
+            }
+
+            try
+            {
+                Services.GetRequiredService<ProcessControlService>().Start(backgroundSession: true);
+                Services.GetRequiredService<LogService>()
+                    .WriteAsync("App", "RulesMode", "Background rule enforcement started (" + BuildInfo + ")");
+            }
+            catch { }
+
+            // When the UI app launches it takes over the engine; this session
+            // then exits quietly. When the UI closes, it spawns a replacement
+            // --rules process — so enforcement never has a gap.
+            ProcessControlService.WaitForEngineStopRequest(() =>
+            {
+                try
+                {
+                    Services.GetRequiredService<LogService>()
+                        .WriteAsync("App", "RulesMode", "Handing engine over to the UI session.");
+                }
+                catch { }
+                try { Environment.Exit(0); } catch { }
+            });
         }
 
         private void ShowRollbackIfRequired(UpdateInfo? update = null)

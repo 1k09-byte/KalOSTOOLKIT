@@ -14,8 +14,8 @@ namespace KalOS.Views
 
             // WinUI caps ContentDialog width at the ContentDialogMaxWidth theme
             // resource (548) regardless of the inner layout. Override it on this
-            // instance so the dialog opens wider. Corner radius is set in XAML
-            // via the OverlayCornerRadius resource.
+            // instance so the dialog opens wider. Corner rounding is app-wide
+            // (Styles/DialogStyles.xaml).
             this.Resources["ContentDialogMaxWidth"] = 920d;
 
             this.InitializeComponent();

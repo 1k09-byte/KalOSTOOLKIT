@@ -264,11 +264,14 @@ public partial class WindhawkViewModel : ObservableObject
             return;
         }
 
-        // Already deployed, enabled, AND themed — nothing to do, and don't
-        // touch the engine. Missing themes are NOT skipped (they need a deploy).
-        if (selectedMods.All(m => m.IsDeployed && m.IsEnabled && m.HasRequiredSettings))
+        // Already deployed, enabled, themed, AND actually running? Nothing to
+        // do. Anything less runs the repair path: dormant mods (registered +
+        // compiled but not loaded by the engine) used to hit this early return
+        // and stay broken until the user toggled them by hand in Windhawk.
+        if (selectedMods.All(m => m.IsDeployed && m.IsEnabled && m.HasRequiredSettings)
+            && selectedMods.All(m => _service.IsModLoadedAnywhere(m.Id, m.Entry.TargetProcess)))
         {
-            StatusText = "All selected mods are already deployed, enabled, and themed — nothing to do.";
+            StatusText = "All selected mods are deployed, enabled, and active — nothing to do.";
             return;
         }
 
@@ -285,6 +288,21 @@ public partial class WindhawkViewModel : ObservableObject
             {
                 status.Report("Windhawk is not installed — installing it first…");
                 await _service.InstallWindhawkAsync(progress, status, _cts.Token);
+            }
+            else if (selectedMods.All(m => m.IsDeployed && m.IsEnabled && m.HasRequiredSettings))
+            {
+                // Nothing needs writing — the problem is the engine not running
+                // (all of) them. Repair instead of a full redeploy.
+                status.Report("Checking the engine and re-activating dormant mods…");
+                var repaired = await _service.EnsureModsActiveAsync(selected, progress, _cts.Token);
+
+                RefreshState();
+                int okCount = repaired.Count(r => r.Success);
+                HasError = okCount < repaired.Count;
+                StatusText = okCount == repaired.Count
+                    ? $"All {okCount} selected mods are active again."
+                    : $"{okCount}/{repaired.Count} mods active — check the log for the rest.";
+                return;
             }
             else
             {

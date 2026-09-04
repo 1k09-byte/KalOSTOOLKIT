@@ -24,6 +24,18 @@
       "version": "1.9.2",
       "targetProcess": "explorer.exe",
       "enabled": true
+    },
+    {
+      "id": "translucent-windows",
+      "displayName": "Translucent Explorer",
+      "description": "Makes File Explorer windows translucent with a dark blur.",
+      "sourceType": "windhawk",
+      "version": "1.8.0",
+      "targetProcess": "explorer.exe",
+      "enabled": true,
+      "settings": {
+        "BackgroundEffects.type": "acrylicblur"
+      }
     }
   ]
 }
