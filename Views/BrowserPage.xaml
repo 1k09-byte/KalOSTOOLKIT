@@ -13,7 +13,16 @@
     <Page.Resources>
         <DataTemplate x:Key="BrowserItemTemplate" x:DataType="viewmodels:InstallableItem">
             <StackPanel Margin="0,0,0,4">
-                <controls:SettingsCard Header="{x:Bind Name}">
+                <controls:SettingsCard>
+                    <controls:SettingsCard.Header>
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <TextBlock Text="{x:Bind Name}" VerticalAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <Border Background="{ThemeResource SystemFillColorSuccessBrush}" CornerRadius="4" Padding="6,2"
+                                    Visibility="{x:Bind IsInstalled, Mode=OneWay}">
+                                <TextBlock Text="Installed" FontSize="11" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                            </Border>
+                        </StackPanel>
+                    </controls:SettingsCard.Header>
                     <controls:SettingsCard.HeaderIcon>
                         <ImageIcon Source="{x:Bind IconPath, FallbackValue=''}" Width="24" Height="24" />
                     </controls:SettingsCard.HeaderIcon>
@@ -100,8 +109,16 @@
         <!-- External software: same card/buttons, but no browser-extensions panel -->
         <DataTemplate x:Key="SoftwareItemTemplate" x:DataType="viewmodels:SoftwareItem">
             <StackPanel Margin="0,0,0,4">
-                <controls:SettingsCard Header="{x:Bind Name}"
-                                       Description="{x:Bind Description}">
+                <controls:SettingsCard Description="{x:Bind Description}">
+                    <controls:SettingsCard.Header>
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <TextBlock Text="{x:Bind Name}" VerticalAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <Border Background="{ThemeResource SystemFillColorSuccessBrush}" CornerRadius="4" Padding="6,2"
+                                    Visibility="{x:Bind IsInstalled, Mode=OneWay}">
+                                <TextBlock Text="Installed" FontSize="11" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                            </Border>
+                        </StackPanel>
+                    </controls:SettingsCard.Header>
                     <controls:SettingsCard.HeaderIcon>
                         <ImageIcon Source="{x:Bind IconPath, FallbackValue=''}" Width="24" Height="24" />
                     </controls:SettingsCard.HeaderIcon>
@@ -156,8 +173,16 @@
              so RuntimeItem instances render correctly. -->
         <DataTemplate x:Key="RuntimePopupTemplate" x:DataType="viewmodels:InstallableItem">
             <StackPanel Margin="0,0,0,4">
-                <controls:SettingsCard Header="{x:Bind Name}"
-                                       Description="{x:Bind Description}">
+                <controls:SettingsCard Description="{x:Bind Description}">
+                    <controls:SettingsCard.Header>
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <TextBlock Text="{x:Bind Name}" VerticalAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <Border Background="{ThemeResource SystemFillColorSuccessBrush}" CornerRadius="4" Padding="6,2"
+                                    Visibility="{x:Bind IsInstalled, Mode=OneWay}">
+                                <TextBlock Text="Installed" FontSize="11" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                            </Border>
+                        </StackPanel>
+                    </controls:SettingsCard.Header>
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE950;" FontSize="20"/>
                     </controls:SettingsCard.HeaderIcon>
@@ -297,44 +322,5 @@
             </StackPanel>
         </Grid>
         </ScrollViewer>
-
-        <!-- Runtimes popup: full-page centered overlay. Shown automatically
-             (once) when the page opens; dismissing it just hides the overlay. -->
-        <Grid x:Name="RuntimesOverlay"
-              Visibility="Collapsed"
-              Background="#DD000000">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-
-            <Border Grid.Row="1" Grid.Column="1"
-                    MaxWidth="700" MaxHeight="540"
-                    MinWidth="440"
-                    Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
-                    BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="24">
-                <StackPanel Spacing="14">
-                    <TextBlock Text="Runtimes — Visual C++ 2005-2022, .NET 6-9, DirectX, XNA, Java, OpenAL"
-                               FontWeight="SemiBold" TextWrapping="Wrap"/>
-                    <TextBlock Text="These are required by many games and apps. The list below is exactly what the Runtimes tab would have shown — install or update what's missing."
-                               TextWrapping="Wrap" Opacity="0.8" FontSize="12"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                    <ScrollViewer MaxHeight="360" VerticalScrollBarVisibility="Auto">
-                        <ItemsControl x:Name="RuntimesList" ItemTemplate="{StaticResource RuntimePopupTemplate}"/>
-                    </ScrollViewer>
-                    <Button Content="Close" Style="{StaticResource AccentButtonStyle}"
-                            HorizontalAlignment="Right" Click="RuntimesCloseButton_Click"/>
-                </StackPanel>
-            </Border>
-        </Grid>
     </Grid>
 </Page>

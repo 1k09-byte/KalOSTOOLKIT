@@ -6,7 +6,8 @@
     <RootNamespace>KalOS</RootNamespace>
     <AssemblyName>KalOS</AssemblyName>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationManifest Condition="'$(Configuration)' == 'Debug'">app.manifest.debug</ApplicationManifest>
+    <ApplicationManifest Condition="'$(Configuration)' != 'Debug'">app.manifest</ApplicationManifest>
     <Version>1.1.1.4</Version>
     <Platform>x64</Platform>
     <Platforms>x64;ARM64</Platforms>
@@ -19,12 +20,26 @@
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
     <Nullable>enable</Nullable>
-    <NoWarn>$(NoWarn);MVVMTK0045</NoWarn>
+    <NoWarn>$(NoWarn);MVVMTK0045;CS0618</NoWarn>
     <ImplicitUsings>enable</ImplicitUsings>
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained>true</SelfContained>
     <PublishTrimmed>false</PublishTrimmed>
+    <!-- WASDK 2.3.1+ opt-in XAML optimizations must be emitted into the
+         GENERATED Program.Main BEFORE Application.Start. Doing it in
+         App.OnLaunched is too late (XAML already initialized) and throws
+         0x8000000D. The fix is to use <EnabledXamlOptionalChanges> here
+         instead of code. See https://learn.microsoft.com/en-us/windows/apps/winui/winui3/xaml-opt-in
+
+         NOTE: Enabling these on WASDK 2.4.0 + net10.0 + VS 17.13 preview
+         currently triggers a secondary System.ExecutionEngineException at
+         startup under the debugger (CLR fatal error). That is a SDK/runtime
+         bug, not an app bug. Keep the list EMPTY until the SDK is fixed —
+         the app runs correctly without them, it just misses a few ms of
+         style-apply optimization. To test one at a time, put e.g.
+         OptimizeApplyStyles alone and rebuild. -->
+    <!-- <EnabledXamlOptionalChanges>OptimizeApplyStyles,DefaultStyleOptimizations,IconNoGridOptimization,DeferContextFlyoutInit</EnabledXamlOptionalChanges> -->
   </PropertyGroup>
 
   <ItemGroup>
