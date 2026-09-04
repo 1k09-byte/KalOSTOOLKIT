@@ -95,9 +95,11 @@ namespace KalOS.Services
         public async Task<IReadOnlyList<DriverInfo>> GetDriverVersionsAsync(
             GpuInfo gpu, CancellationToken cancellationToken, int maxResults = 30)
         {
-            var isNotebook = gpu.Name.Contains("Laptop", StringComparison.OrdinalIgnoreCase)
-                || gpu.Name.Contains("Mobile", StringComparison.OrdinalIgnoreCase)
-                || gpu.Name.Contains("Notebook", StringComparison.OrdinalIgnoreCase);
+            // Laptop detection: the model name's vendor marker OR the machine's
+            // chassis type (GpuInfo.IsLaptop, stamped by the detection service).
+            // NVIDIA notebook GPUs need the notebook psid/pfid series for the
+            // DriverManualLookup API even though the package is the same DCH build.
+            var isNotebook = gpu.IsMobileGpu;
 
             var queries = isNotebook ? NotebookSeriesQueries : DesktopSeriesQueries;
 
@@ -209,15 +211,23 @@ namespace KalOS.Services
         /// a direct download URL. Keep this in sync with stable releases so the
         /// version comparison works and the silent pipeline can download.
         /// </summary>
-        public static DriverInfo GetCuratedLatest()
+        public static DriverInfo GetCuratedLatest() => GetCuratedLatest(isNotebook: false);
+
+        /// <summary>
+        /// Notebook-aware variant: laptops need the notebook (mobile) package —
+        /// NVIDIA's desktop installer refuses to run on notebook hardware
+        /// ("This graphics driver could not find compatible graphics hardware").
+        /// </summary>
+        public static DriverInfo GetCuratedLatest(bool isNotebook)
         {
             const string version = "616.56";
+            string package = isNotebook ? "notebook" : "desktop";
             return new DriverInfo
             {
                 Version = version,
-                DownloadUrl = $"https://us.download.nvidia.com/Windows/{version}/{version}-desktop-win10-win11-64bit-international-dch-whql.exe",
+                DownloadUrl = $"https://us.download.nvidia.com/Windows/{version}/{version}-{package}-win10-win11-64bit-international-dch-whql.exe",
                 ReleaseDate = new DateTime(2026, 8, 26),
-                DisplayString = $"NVIDIA Game Ready {version}"
+                DisplayString = $"NVIDIA Game Ready {version} ({(isNotebook ? "Notebook" : "Desktop")})"
             };
         }
 
@@ -243,7 +253,16 @@ namespace KalOS.Services
 
         public async Task<DriverInfo?> GetLatestDriverAsync(GpuInfo gpu, CancellationToken cancellationToken)
         {
-            return await _apiService.GetLatestDriverAsync(cancellationToken);
+            return await GetLatestDriverAsync(gpu, AmdDriverApiService.AmdPackageVariant.Desktop, cancellationToken);
+        }
+
+        /// <summary>Variant-aware lookup: Notebook resolves the desktop+notebook "combined" INF package.</summary>
+        public async Task<DriverInfo?> GetLatestDriverAsync(
+            GpuInfo gpu,
+            AmdDriverApiService.AmdPackageVariant variant,
+            CancellationToken cancellationToken)
+        {
+            return await _apiService.GetLatestDriverAsync(variant, cancellationToken);
         }
     }
 

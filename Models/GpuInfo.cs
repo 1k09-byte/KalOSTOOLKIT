@@ -10,6 +10,23 @@ namespace KalOS.Models
         public string DriverVersion { get; init; } = "Unknown";
         public string DriverDate { get; init; } = "Unknown";
         public string PnpDeviceId { get; init; } = "";
+        /// <summary>
+        /// True when the machine is a laptop/notebook/tablet. Detected from the
+        /// SMBIOS chassis type (and battery presence) — not from the GPU name —
+        /// so an "NVIDIA GeForce RTX 4060 Laptop GPU" that WMI reports without
+        /// the Laptop/Mobile/Notebook words still resolves to the notebook
+        /// driver packages.
+        /// </summary>
+        public bool IsLaptop { get; init; }
+
+        /// <summary>
+        /// True when this adapter is a mobile/notebook variant — the laptop
+        /// chassis flag, or the model name carrying the vendor's mobile marker
+        /// ("Laptop GPU", Mobile, Notebook, or an "M"-suffixed GeForce model).
+        /// NVIDIA notebook GPUs need the notebook series queries for version
+        /// lookups even though the driver package itself is the same DCH build.
+        /// </summary>
+        public bool IsMobileGpu => IsLaptop || NameContainsMobileMarker(Name);
 
         public bool IsNvidia => Name.Contains("NVIDIA", StringComparison.OrdinalIgnoreCase)
             || PnpDeviceId.Contains("VEN_10DE", StringComparison.OrdinalIgnoreCase);
@@ -23,6 +40,22 @@ namespace KalOS.Models
         public string Vendor => IsNvidia ? "NVIDIA" : IsAmd ? "AMD" : IsIntel ? "Intel" : "Other";
 
         public static GpuInfo Unknown() => new();
+
+        /// <summary>
+        /// Model-name mobile marker. Vendor naming only — never queried from
+        /// the system (WMI has no GPU-level form factor), so this is safe to
+        /// call from unit tests. Covers "Laptop GPU"/Mobile/Notebook words, the
+        /// classic "M"-suffixed GeForce models (GTX 860M), the Max-Q designs,
+        /// and the notebook-only MX series.
+        /// </summary>
+        public static bool NameContainsMobileMarker(string name) =>
+            name.Contains("Laptop", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("Mobile", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("Notebook", StringComparison.OrdinalIgnoreCase)
+            || System.Text.RegularExpressions.Regex.IsMatch(
+                name,
+                @"(Max-?Q|MX\s*\d{3}|\b(GTX|RTX)\s*\d{3,4}M\b)",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     }
 
     /// <summary>The outcome of a driver check for a single GPU.</summary>

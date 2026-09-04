@@ -104,6 +104,8 @@ namespace KalOS.Setup.Views
             bool nvidia = gpu?.IsNvidia == true;
             bool amd = gpu?.IsAmd == true;
             bool intel = gpu?.IsIntel == true;
+            // Laptop detection (chassis type / battery + model name marker).
+            bool laptop = gpu?.IsMobileGpu == true;
 
             DriverCard.Visibility = install && (nvidia || amd) ? Visibility.Visible : Visibility.Collapsed;
             NvidiaOptionsCard.Visibility = install && nvidia ? Visibility.Visible : Visibility.Collapsed;
@@ -111,10 +113,24 @@ namespace KalOS.Setup.Views
             IntelBar.IsOpen = install && intel;
             VersionsRing.IsActive = install && Wizard.IsLoadingVersions;
 
-            if (amd)
+            if (nvidia)
+            {
+                VendorNote.Text = laptop
+                    ? "Laptop detected — the NVIDIA notebook (mobile) driver series is queried; the desktop installer would reject this hardware."
+                    : "Desktop detected — the NVIDIA Game Ready desktop package is queried.";
+                VendorNote.Visibility = Visibility.Visible;
+            }
+            else if (amd)
             {
                 DriverHint.Text = "AMD — the latest driver will be downloaded, slimmed, and installed silently.";
-                DriverCard.Visibility = install ? Visibility.Visible : Visibility.Collapsed;
+                VendorNote.Text = laptop
+                    ? "Laptop detected — the combined desktop+notebook INF package is required for laptop iGPUs/dGPUs and is resolved automatically."
+                    : null;
+                VendorNote.Visibility = laptop ? Visibility.Visible : Visibility.Collapsed;
+            }
+            else
+            {
+                VendorNote.Visibility = Visibility.Collapsed;
             }
         }
 

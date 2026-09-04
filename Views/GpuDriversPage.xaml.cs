@@ -137,6 +137,14 @@ public sealed partial class GpuDriversPage : Page
         }
     }
 
+    private void InstallAmdNotebook_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is GpuDriverItem item)
+        {
+            _ = ViewModel.InstallAmdNotebookDriverCommand.ExecuteAsync(item);
+        }
+    }
+
     private async void RunAmdCleanup_Click(object sender, RoutedEventArgs e)
     {
         await ViewModel.RunAmdCleanupCommand.ExecuteAsync(null);

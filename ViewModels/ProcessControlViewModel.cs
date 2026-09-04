@@ -168,6 +168,9 @@ public partial class ProcessControlViewModel : ObservableObject
     /// <summary>True when a Core Isolation preset applies to the current CPU.</summary>
     public bool PresetAvailable(CoreIsolationPreset preset) => _service.PresetCpuSetIds(preset) != null;
 
+    /// <summary>CPU topology for the rule editor's core/thread picker (cached by the service).</summary>
+    public KalOS.Models.ProcessControl.CpuTopologyInfo GetTopology() => _service.GetTopology();
+
     /// <summary>Refreshes the login-autostart status line (called on page load and after repair).</summary>
     public void RefreshRulesAutostart()
     {

@@ -97,6 +97,22 @@ public class ProcessControlServiceTests
         Assert.Equal(16, ProcessControlService.ComputeCoreBudget(rule, 100, 16));
     }
 
+    [Fact]
+    public void ComputeCoreBudget_Pin_LimitsBudgetPool()
+    {
+        // Pinned to 4 specific CPUs: budget can never exceed the pin, even uncapped.
+        var rule = new ProcessRule { EnableCoreCap = true, CpuSetIds = new List<uint> { 1, 2, 3, 4 } };
+        Assert.Equal(4, ProcessControlService.ComputeCoreBudget(rule, 100, 16));
+
+        // Cap of 2 within the 4-CPU pin.
+        var capped = new ProcessRule { EnableCoreCap = true, MaxCores = 2, CpuSetIds = new List<uint> { 1, 2, 3, 4 } };
+        Assert.Equal(2, ProcessControlService.ComputeCoreBudget(capped, 100, 16));
+
+        // Pin larger than baseline still clamps to baseline.
+        var wide = new ProcessRule { EnableCoreCap = true, CpuSetIds = new List<uint> { 1, 2, 3, 4, 5, 6 } };
+        Assert.Equal(4, ProcessControlService.ComputeCoreBudget(wide, 100, 4));
+    }
+
     // ── Core Isolation presets (synthetic CPU-set topology) ──────────────
 
     private static List<CpuSetInfo> HybridTopology()

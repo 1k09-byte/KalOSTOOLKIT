@@ -61,6 +61,8 @@
                             <ProgressRing x:Name="VersionsRing" IsActive="False" Width="16" Height="16" VerticalAlignment="Center"/>
                         </StackPanel>
                         <TextBlock x:Name="DriverHint" Style="{StaticResource CardSubtitle}"/>
+                        <TextBlock x:Name="VendorNote" Style="{StaticResource CardSubtitle}"
+                                   TextWrapping="Wrap" Visibility="Collapsed"/>
                         <ComboBox x:Name="DriverCombo" MinWidth="400" Margin="0,4,0,0"
                                   ItemsSource="{x:Bind Wizard.DriverVersions, Mode=OneWay}"
                                   DisplayMemberPath="Version"

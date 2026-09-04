@@ -173,6 +173,7 @@ public sealed partial class ProcessControlPage : Page
         InstanceIndexBox.Text = ViewModel.EditingRule?.InstanceIndex?.ToString() ?? string.Empty;
         MaxInstancesBox.Text = ViewModel.EditingRule?.MaxInstances?.ToString() ?? string.Empty;
         _syncingEditor = false;
+        PopulateCorePicker();
 
         // MenuFlyoutItem clicks arrive while the context menu is still closing;
         // showing another flyout in the same dispatcher pass gets swallowed.
@@ -267,6 +268,102 @@ public sealed partial class ProcessControlPage : Page
     }
 
     private void ClearPin_Click(object sender, RoutedEventArgs e) => ViewModel.ClearRulePin();
+
+    // ── Core/thread picker ─────────────────────────────────────────────
+
+    /// <summary>Logical-CPU checkbox built from live topology; tracks its CPU-set id.</summary>
+    private sealed record CoreToggle(CheckBox Box, uint CpuSetId);
+
+    private readonly List<CoreToggle> _coreToggles = new();
+
+    /// <summary>Builds the per-logical-CPU checkbox grid from the detected topology and reflects the rule's current pin.</summary>
+    private void PopulateCorePicker()
+    {
+        _coreToggles.Clear();
+        CorePickerPanel.Children.Clear();
+
+        var topo = ViewModel.GetTopology();
+        var sets = topo.CpuSets;
+        if (sets.Count == 0)
+        {
+            CoreSelectionText.Text = "CPU topology unavailable — per-core selection disabled.";
+            return;
+        }
+
+        var pinned = ViewModel.EditingRule?.CpuSetIds?.ToHashSet() ?? new HashSet<uint>();
+        foreach (var group in sets
+                     .GroupBy(s => (s.Group, s.CoreIndex))
+                     .OrderBy(g => g.Key.Group).ThenBy(g => g.Key.CoreIndex))
+        {
+            var corePanel = new StackPanel { Spacing = 2 };
+            bool isHybrid = topo.HasHybridCores;
+            string classTag = isHybrid ? (group.First().IsPerformance ? "P" : "E")
+                                       : $"C{group.Key.CoreIndex}";
+            corePanel.Children.Add(new TextBlock
+            {
+                Text = $"{classTag} {group.Key.CoreIndex}",
+                FontSize = 10,
+                Opacity = 0.65,
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+
+            foreach (var set in group.OrderBy(s => s.LogicalProcessorIndex))
+            {
+                var box = new CheckBox
+                {
+                    MinWidth = 0,
+                    Padding = new Thickness(0),
+                    IsChecked = pinned.Contains(set.Id),
+                };
+                ToolTipService.SetToolTip(box, $"Logical CPU {set.LogicalProcessorIndex} (set {set.Id})");
+                box.Checked += (_, _) => OnCoreToggleChanged();
+                box.Unchecked += (_, _) => OnCoreToggleChanged();
+                _coreToggles.Add(new CoreToggle(box, set.Id));
+                corePanel.Children.Add(box);
+            }
+
+            CorePickerPanel.Children.Add(corePanel);
+        }
+
+        SyncCoreSelectionText();
+    }
+
+    /// <summary>Writes the checkbox state into the rule's CPU-set pin while the editor is open.</summary>
+    private void OnCoreToggleChanged()
+    {
+        if (_syncingEditor) return;
+        var rule = ViewModel.EditingRule;
+        if (rule == null) return;
+
+        var selected = _coreToggles.Where(t => t.Box.IsChecked == true).Select(t => t.CpuSetId).ToList();
+        rule.CpuSetIds = selected.Count > 0 ? selected : new List<uint>();
+        rule.AffinityMask = 0;
+        SyncCoreSelectionText();
+    }
+
+    private void SyncCoreSelectionText()
+    {
+        int selected = _coreToggles.Count(t => t.Box.IsChecked == true);
+        CoreSelectionText.Text = selected == 0
+            ? "Any core (no pin)"
+            : $"{selected} of {_coreToggles.Count} logical CPU(s) pinned";
+    }
+
+    private void CoreSelectAll_Click(object sender, RoutedEventArgs e)
+    {
+        _syncingEditor = true;
+        foreach (var t in _coreToggles) t.Box.IsChecked = true;
+        _syncingEditor = false;
+        OnCoreToggleChanged();
+    }
+
+    private void CoreClearAll_Click(object sender, RoutedEventArgs e)
+    {
+        _syncingEditor = true;
+        foreach (var t in _coreToggles) t.Box.IsChecked = false;
+        _syncingEditor = false;
+        OnCoreToggleChanged();
+    }
 
     private async void SaveRule_Click(object sender, RoutedEventArgs e)
     {

@@ -343,6 +343,68 @@ public partial class WindhawkViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// The reliable fix for "mods are installed but not working": hard-disable
+    /// every selected mod, restart the Windhawk engine clean, re-enable the
+    /// mods, and verify from the engine's own status files — the automated
+    /// version of toggling each mod by hand in the Windhawk UI.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanRun))]
+    private async Task ForceReloadAsync()
+    {
+        if (IsBusy) return;
+
+        var selected = Mods.Where(m => m.IsSelected).Select(m => m.Entry).ToList();
+        if (selected.Count == 0)
+        {
+            StatusError("Select at least one mod to force-reload.");
+            return;
+        }
+
+        _cts = new CancellationTokenSource();
+        SetBusy(true, "Force-reloading mods (disable → engine restart → enable)…");
+        try
+        {
+            if (!_service.IsInstalled())
+            {
+                StatusError("Windhawk must be installed first.");
+                return;
+            }
+
+            IProgress<double> progress = new System.Progress<double>(value => ProgressValue = value);
+            var results = await _service.ForceReloadModsAsync(selected, progress, _cts.Token);
+
+            RefreshState();
+            int ok = results.Count(r => r.Success);
+            HasError = ok < results.Count;
+            StatusText = ok == results.Count
+                ? $"Force reload complete — all {ok} mod(s) are loaded and injecting."
+                : $"{ok}/{results.Count} mod(s) loaded — check the log for the rest.";
+
+            foreach (var result in results)
+            {
+                _ = _log.WriteAsync("Windhawk", "ForceReload", result.Summary, isError: !result.Success);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = "Cancelled.";
+        }
+        catch (Exception ex)
+        {
+            StatusError($"Force reload failed: {ex.Message}");
+            _ = _log.WriteAsync("Windhawk", "ForceReload", ex.Message, isError: true);
+        }
+        finally
+        {
+            _cts.Dispose();
+            _cts = null;
+            IsBusy = false;
+            ShowProgress = false;
+            NotifyCanExecuteChanged();
+        }
+    }
+
     [RelayCommand(CanExecute = nameof(CanRun))]
     private async Task BackupAsync()
     {

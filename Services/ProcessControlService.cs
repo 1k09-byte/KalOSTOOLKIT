@@ -893,6 +893,11 @@ public sealed class ProcessControlService : IDisposable
         }
         else if (rule.CpuSetIds.Count > 0 || rule.AffinityMask != 0)
         {
+            // Baseline must exist even for pinned rules so a combined
+            // pin + core cap can budget WITHIN the pin later.
+            if (rule.EnableCoreCap && state.BaselineCpuSets.Count == 0 && state.BaselineMask == 0)
+                CaptureBaseline(pid, state);
+
             if (rule.CpuSetIds.Count > 0)
             {
                 if (TrySetCpuSets(pid, rule.CpuSetIds, state)) touched = true;
@@ -904,6 +909,17 @@ public sealed class ProcessControlService : IDisposable
                 touched = true;
             }
             else Log("StickyRules", "failed", name, $"pid {pid} — affinity not applied: {maskErr}");
+
+            // Apply the cap immediately within the pinned selection.
+            if (rule.EnableCoreCap)
+            {
+                int poolCount = rule.CpuSetIds.Count > 0
+                    ? Math.Min(rule.CpuSetIds.Count, Math.Max(1, state.BaselineCpuSets.Count))
+                    : Math.Max(1, System.Numerics.BitOperations.PopCount(state.BaselineMask));
+                int budget = ComputeCoreBudget(rule, 0, poolCount);
+                if (budget < poolCount)
+                    ApplyCoreBudget(pid, rule, state, budget, poolCount, rule.CpuSetIds.Count > 0 ? new List<uint>(rule.CpuSetIds) : state.BaselineCpuSets);
+            }
         }
         else if (rule.EnableCoreCap)
         {
@@ -1319,10 +1335,16 @@ public sealed class ProcessControlService : IDisposable
     /// <summary>
     /// Core budget for the dynamic Core Cap: MaxCores is a hard ceiling;
     /// MaxCpuPercent scales the budget with live load (pure, unit-testable).
+    /// A pinned rule (CpuSetIds) caps within its own selection: the budget
+    /// never exceeds the number of pinned sets, and the pinned sets are the
+    /// pool the budget is drawn from.
     /// </summary>
     internal static int ComputeCoreBudget(ProcessRule rule, double cpuPercent, int baselineCoreCount)
     {
-        int budget = rule.MaxCores > 0 ? Math.Min(rule.MaxCores, baselineCoreCount) : baselineCoreCount;
+        int pool = rule.CpuSetIds is { Count: > 0 }
+            ? Math.Min(rule.CpuSetIds.Count, baselineCoreCount)
+            : baselineCoreCount;
+        int budget = rule.MaxCores > 0 ? Math.Min(rule.MaxCores, pool) : pool;
         if (rule.MaxCpuPercent > 0)
         {
             int scaled = (int)Math.Ceiling(cpuPercent / 100.0 * baselineCoreCount);
@@ -1352,17 +1374,32 @@ public sealed class ProcessControlService : IDisposable
             lock (_sync) _managed.TryGetValue(pid, out state);
             if (state == null) continue;
 
-            // Baseline: CPU sets when enumerable; otherwise the legacy affinity mask.
+            // Baseline pool: the rule's pinned sets when it has a pin (the cap
+            // then operates WITHIN the pin instead of releasing past it);
+            // otherwise every CPU set the process had when it was first
+            // managed. Falls back to the legacy affinity mask when CPU Sets
+            // are unavailable.
+            List<uint> poolIds;
+            if (rule.CpuSetIds is { Count: > 0 })
+            {
+                poolIds = state.BaselineCpuSets.Where(rule.CpuSetIds.Contains).ToList();
+                if (poolIds.Count == 0) poolIds = new List<uint>(rule.CpuSetIds); // stale baseline — pin wins
+            }
+            else
+            {
+                poolIds = state.BaselineCpuSets;
+            }
+
             int baselineSets = state.BaselineCpuSets.Count;
             int baselineMaskBits = System.Numerics.BitOperations.PopCount(state.BaselineMask);
-            int baseline = baselineSets > 0 ? baselineSets : baselineMaskBits;
+            int baseline = baselineSets > 0 ? poolIds.Count : baselineMaskBits;
             if (baseline == 0) continue;
 
             int budget = ComputeCoreBudget(rule, cpu, baseline);
 
             if (baselineSets > 0)
             {
-                ApplyCoreBudgetViaSets(pid, rule, state, budget, baselineSets, cpu);
+                ApplyCoreBudgetViaSets(pid, rule, state, budget, baseline, cpu, poolIds);
             }
             else
             {
@@ -1371,9 +1408,9 @@ public sealed class ProcessControlService : IDisposable
         }
     }
 
-    /// <summary>One budget decision via the CPU Sets API (preferred path).</summary>
+    /// <summary>One budget decision via the CPU Sets API (preferred path). <paramref name="pool"/> is the full set of ids the budget may use.</summary>
     private void ApplyCoreBudgetViaSets(int pid, ProcessRule rule, ManagedState state,
-        int budget, int baselineCount, double cpu)
+        int budget, int baselineCount, double cpu, List<uint> pool)
     {
         bool applied = state.AppliedCpuSets != null;
         bool full = applied && state.AppliedCpuSets!.Count >= baselineCount;
@@ -1382,9 +1419,9 @@ public sealed class ProcessControlService : IDisposable
         {
             if (!full)
             {
-                if (ProcessControlNative.TrySetCpuSets(pid, state.BaselineCpuSets, out _))
+                if (ProcessControlNative.TrySetCpuSets(pid, pool, out _))
                 {
-                    state.AppliedCpuSets = state.BaselineCpuSets.ToList();
+                    state.AppliedCpuSets = pool.ToList();
                     state.CurrentCoreBudget = budget;
                     Log("CoreCap", "released", state.ProcessName, $"pid {pid} — load {cpu:0}% → full core budget");
                 }
@@ -1396,7 +1433,7 @@ public sealed class ProcessControlService : IDisposable
             return;
         }
 
-        var target = state.BaselineCpuSets.Take(budget).ToList();
+        var target = pool.Take(budget).ToList();
         if (applied && state.AppliedCpuSets!.SequenceEqual(target)) { state.CurrentCoreBudget = budget; return; }
         if (TrySetCpuSets(pid, target, state))
         {
@@ -1445,11 +1482,11 @@ public sealed class ProcessControlService : IDisposable
     }
 
     /// <summary>Applies a core-cap budget immediately (used at rule application so the cap bites before the first tick).</summary>
-    private void ApplyCoreBudget(int pid, ProcessRule rule, ManagedState state, int budget, int baselineCount)
+    private void ApplyCoreBudget(int pid, ProcessRule rule, ManagedState state, int budget, int baselineCount, List<uint>? pool = null)
     {
         if (state.BaselineCpuSets.Count > 0)
         {
-            ApplyCoreBudgetViaSets(pid, rule, state, budget, baselineCount, 0);
+            ApplyCoreBudgetViaSets(pid, rule, state, budget, baselineCount, 0, pool ?? state.BaselineCpuSets);
         }
         else
         {

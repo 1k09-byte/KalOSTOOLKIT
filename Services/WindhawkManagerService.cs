@@ -1473,6 +1473,105 @@ public sealed class WindhawkManagerService
         _log.Info($"Reload kick applied to {ids.Count} mod(s) — engine reloaded and re-injected them.");
     }
 
+    /// <summary>
+    /// The user's manual fix, automated: HARD-disable every selected mod
+    /// (Disabled=1), cleanly restart the engine so it boots with the mods
+    /// unloaded, then re-enable them (Disabled=0 + SettingsChangeTime bump)
+    /// so the engine loads and injects them from a fresh state. Stronger
+    /// than the deploy-time reload kick because the disable is confirmed by
+    /// a full engine restart, not just an engine poll — the cure for mods
+    /// that stay dormant until the user toggles them by hand in the UI.
+    /// Falls back to the lighter reload kick (plus an Explorer restart for
+    /// shell-targeted mods) for anything still not loaded afterwards.
+    /// </summary>
+    public async Task<List<WindhawkDeployResult>> ForceReloadModsAsync(
+        IReadOnlyList<WindhawkModEntry> mods,
+        IProgress<double>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        var results = new List<WindhawkDeployResult>();
+        var targets = mods.Where(m => ModRegistryEntryExists(m.Id)).ToList();
+        foreach (var missing in mods.Where(m => !ModRegistryEntryExists(m.Id)))
+        {
+            results.Add(new WindhawkDeployResult(missing.Id) { Detail = "Not deployed yet — run Deploy first." });
+        }
+
+        if (targets.Count == 0) return results;
+
+        using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+
+        // Phase 1: hard-disable everything, then restart the engine WITH the
+        // mods disabled — guarantees the engine has fully forgotten them.
+        progress?.Report(5);
+        foreach (var entry in targets)
+        {
+            try
+            {
+                using var modKey = baseKey.OpenSubKey($@"{EngineModsRegistryPath}\{entry.Id}", writable: true);
+                modKey?.SetValue("Disabled", 1, RegistryValueKind.DWord);
+                modKey?.SetValue("SettingsChangeTime", DateTimeOffset.UtcNow.ToUnixTimeSeconds(), RegistryValueKind.DWord);
+            }
+            catch (Exception ex)
+            {
+                _log.Warn($"Force reload (disable) failed for {entry.Id}: {ex.Message}");
+            }
+        }
+        _log.Info($"Force reload: {targets.Count} mod(s) hard-disabled — restarting the engine clean.");
+
+        await StopEngineAsync(cancellationToken);
+        await StartEngineAsync(cancellationToken);
+        await Task.Delay(EngineSettleDelayMs, cancellationToken);
+        progress?.Report(45);
+
+        // Phase 2: fresh enable — the engine loads + injects from a clean slate.
+        foreach (var entry in targets)
+        {
+            try
+            {
+                using var modKey = baseKey.OpenSubKey($@"{EngineModsRegistryPath}\{entry.Id}", writable: true);
+                modKey?.SetValue("Disabled", 0, RegistryValueKind.DWord);
+                modKey?.SetValue("SettingsChangeTime", DateTimeOffset.UtcNow.ToUnixTimeSeconds(), RegistryValueKind.DWord);
+            }
+            catch (Exception ex)
+            {
+                _log.Warn($"Force reload (enable) failed for {entry.Id}: {ex.Message}");
+            }
+        }
+        await Task.Delay(3000, cancellationToken);
+        progress?.Report(70);
+
+        // Phase 3: verify; escalate per mod with the lighter kick + shell restart.
+        int done = 0;
+        foreach (var entry in targets)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            bool loaded = IsModLoadedAnywhere(entry.Id, entry.TargetProcess);
+            if (!loaded)
+            {
+                await KickModsReloadAsync(new[] { entry.Id }, cancellationToken);
+                if (TargetsExplorer(new[] { entry }, new[] { entry.Id }))
+                {
+                    await RestartExplorerAsync(cancellationToken);
+                }
+                loaded = IsModLoadedAnywhere(entry.Id, entry.TargetProcess);
+            }
+
+            results.Add(new WindhawkDeployResult(entry.Id)
+            {
+                Success = loaded,
+                Verified = loaded,
+                Detail = loaded
+                    ? "Force reloaded — disabled, engine restarted, re-enabled; the engine is running it (status files confirm)."
+                    : "Force reload did not get the engine to load it — check the mod in the Windhawk UI.",
+            });
+            _log.Info(results[^1].Summary);
+            done++;
+            progress?.Report(70 + (done * 30d / targets.Count));
+        }
+
+        return results;
+    }
+
     // ═══════════════════════ Load state (engine ground truth) ═══════════════════════
 
     /// <summary>

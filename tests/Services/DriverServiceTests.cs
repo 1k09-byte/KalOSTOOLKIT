@@ -146,6 +146,36 @@ public class DriverServiceTests
         Assert.Contains("580.97", entry.DownloadUrl);
     }
 
+    // ── NVIDIA notebook (laptop) package selection ────────────────────
+
+    [Fact]
+    public void GetCuratedLatest_DesktopVariantPointsAtDesktopPackage()
+    {
+        var driver = NvidiaDriverProvider.GetCuratedLatest(isNotebook: false);
+
+        Assert.Contains("-desktop-", driver.DownloadUrl);
+        Assert.DoesNotContain("notebook", driver.DownloadUrl);
+    }
+
+    [Fact]
+    public void GetCuratedLatest_NotebookVariantPointsAtNotebookPackage()
+    {
+        // NVIDIA's desktop installer refuses notebook hardware — the curated
+        // fallback for laptops must resolve the notebook package family.
+        var driver = NvidiaDriverProvider.GetCuratedLatest(isNotebook: true);
+
+        Assert.Contains("-notebook-", driver.DownloadUrl);
+        Assert.Contains("Notebook", driver.DisplayString);
+    }
+
+    [Fact]
+    public void GetCuratedLatest_ParameterlessStaysDesktop()
+    {
+        // Existing callers (installer wizard, version-compare fallback) keep
+        // desktop semantics unless they explicitly opt into the notebook variant.
+        Assert.Contains("-desktop-", NvidiaDriverProvider.GetCuratedLatest().DownloadUrl);
+    }
+
     // ── CheckForUpdateAsync outcomes ──────────────────────────────────
 
     private sealed class StubProvider : IDriverProvider

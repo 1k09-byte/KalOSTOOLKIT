@@ -442,7 +442,9 @@ namespace KalOS.Setup.ViewModels
                 SelectedGpu = _gpus[0];
                 GpuStatusText = _gpus.Count == 0
                     ? "No graphics adapter detected."
-                    : $"Found {_gpus.Count} adapter(s). Select one to check for a driver update.";
+                    : $"Found {_gpus.Count} adapter(s)"
+                      + (_gpus.Any(g => g.IsLaptop) ? " — laptop detected (notebook driver packages)" : "")
+                      + ". Select one to check for a driver update.";
                 OnPropertyChanged(nameof(Gpus));
                 await LoadDriverVersionsAsync();
             }
@@ -480,7 +482,9 @@ namespace KalOS.Setup.ViewModels
                     // than the newest listed version — the wizard must never
                     // default to an outdated driver, and never download one.
                     var versions = (await driver.GetVersionHistoryAsync(SelectedGpu)).ToList();
-                    var curated = NvidiaDriverProvider.GetCuratedLatest();
+                    // Notebook-aware fallback: laptops resolve the notebook package
+                    // variant (the desktop installer rejects notebook hardware).
+                    var curated = NvidiaDriverProvider.GetCuratedLatest(SelectedGpu.IsMobileGpu);
                     if (curated.Version is not null
                         && (versions.Count == 0
                             || DriverVersionComparer.Compare("NVIDIA", versions[0].Version, curated.Version) < 0))

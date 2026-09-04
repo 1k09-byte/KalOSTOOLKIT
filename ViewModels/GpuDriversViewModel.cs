@@ -43,6 +43,15 @@ namespace KalOS.ViewModels
         public bool IsNvidia => Gpu.IsNvidia;
         public bool IsAmd => Gpu.IsAmd;
 
+        /// <summary>True when this adapter is on a laptop/notebook (chassis detection or a mobile model name).</summary>
+        public bool IsLaptop => Gpu.IsMobileGpu;
+
+        /// <summary>"Laptop GPU" caption next to the adapter name on the GPU Drivers page.</summary>
+        public string LaptopBadgeText => IsLaptop ? "Laptop GPU" : "";
+
+        /// <summary>Small laptop chip shown only for notebook adapters.</summary>
+        public bool ShowLaptopBadge => IsLaptop;
+
         /// <summary>"Installed driver: 26.8.1" — exactly what AMD/NVIDIA reported.</summary>
         public string InstalledText => Gpu.DriverVersion.StartsWith("10.0.")
             ? "Generic Windows Driver (No vendor driver installed)"
@@ -322,6 +331,8 @@ namespace KalOS.ViewModels
                 {
                     Gpus.Add(new GpuDriverItem(gpu));
                 }
+                OnPropertyChanged(nameof(HasAmdGpu));
+                OnPropertyChanged(nameof(HasNvidiaGpu));
 
                 if (gpus.Count == 0)
                 {
@@ -401,6 +412,78 @@ namespace KalOS.ViewModels
             {
                 _log.Warn($"NVIDIA version history failed for {item.Name}: {ex.Message}");
                 return Array.Empty<DriverInfo>();
+            }
+        }
+
+        /// <summary>
+        /// AMD only: downloads the notebook (desktop+notebook "combined" INF)
+        /// Adrenalin package for this GPU and runs it through the standard
+        /// silent extract → strip → pnputil pipeline. The variant laptop
+        /// iGPUs/dGPUs need when the desktop package's INF rejects them.
+        /// </summary>
+        [RelayCommand]
+        public async Task InstallAmdNotebookDriverAsync(GpuDriverItem? item)
+        {
+            if (item is null || !item.IsAmd || IsWorking) return;
+
+            _cts?.Dispose();
+            var cts = _cts = new CancellationTokenSource();
+            var ct = cts.Token;
+
+            IsInstalling = true;
+            item.BeginBusy("Resolving the AMD notebook (combined) package…");
+            StatusText = $"{item.Name}: resolving AMD notebook package…";
+
+            try
+            {
+                var driver = await _driverService.GetAmdNotebookDriverAsync(item.Gpu, ct);
+                if (driver is null || string.IsNullOrWhiteSpace(driver.DownloadUrl))
+                {
+                    StatusText = $"{item.Name}: no AMD notebook package available.";
+                    HasError = true;
+                    ErrorMessage = "Could not resolve the AMD notebook (combined) driver package. Open the vendor page instead.";
+                    return;
+                }
+
+                item.StatusText = $"Notebook package: {driver.DisplayString}";
+                StatusText = $"{item.Name}: downloading {driver.DisplayString}…";
+
+                var progress = new Progress<DriverUpdateProgress>(p =>
+                {
+                    item.Report(p);
+                    StatusText = $"{item.Name}: {p.Message}";
+                });
+
+                bool ok = await _driverService.UpdateAsync(item.Gpu, driver, progress, ct);
+                if (ok)
+                {
+                    _log.Success($"AMD notebook driver install completed for {item.Name}");
+                    StatusText = $"{item.Name}: notebook package installed.";
+                    await RecheckSingleAsync(item, ct);
+                }
+                else
+                {
+                    StatusText = $"{item.Name}: notebook package install did not complete.";
+                    HasError = true;
+                    ErrorMessage = "The combined package could not be downloaded or its display INF is missing. " +
+                                   "It may not cover this GPU — try the desktop package or the vendor page.";
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                StatusText = "Install cancelled.";
+            }
+            catch (Exception ex)
+            {
+                _log.Error($"AMD notebook install failed for {item.Name}: {ex.Message}");
+                HasError = true;
+                ErrorMessage = ex.Message;
+                StatusText = $"{item.Name}: notebook install failed.";
+            }
+            finally
+            {
+                item.EndBusy();
+                IsInstalling = false;
             }
         }
 

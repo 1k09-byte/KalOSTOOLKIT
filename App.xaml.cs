@@ -22,11 +22,20 @@ namespace KalOS
 
         private const int SW_RESTORE = 9;
 
+        private const int GWL_EXSTYLE = -20;
+        private const long WS_EX_TOOLWINDOW = 0x00000080;
+
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+        private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+        private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
 
         private Window? _window;
         private StartupBannerWindow? _startupBanner;
@@ -550,11 +559,39 @@ namespace KalOS
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
             System.Threading.Tasks.TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
 
-            // Single instance: a second launch exits immediately instead of
+            // Single instance: a second UI launch exits immediately instead of
             // running a second copy that could race on installers/registry and
             // confuse which build is actually on screen.
             _instanceMutex = new Mutex(true, SingleInstanceMutexName, out bool createdNew);
-            if (!createdNew)
+
+            var cmdArgs = Environment.GetCommandLineArgs();
+            bool isRulesSession = Array.IndexOf(cmdArgs, "--rules") >= 0 || Array.IndexOf(cmdArgs, "-rules") >= 0;
+
+            // A closing UI spawns its --rules replacement BEFORE it exits, so
+            // the single-instance mutex is still held for a moment. A rules
+            // session therefore waits (bounded) for the UI to release it —
+            // surfaced as AbandonedMutexException — instead of silently dying
+            // and leaving the engine with no owner.
+            bool haveInstance = createdNew;
+            if (!haveInstance && isRulesSession)
+            {
+                var takeoverDeadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+                while (!haveInstance && DateTime.UtcNow < takeoverDeadline)
+                {
+                    try
+                    {
+                        haveInstance = _instanceMutex!.WaitOne(TimeSpan.Zero);
+                    }
+                    catch (System.Threading.AbandonedMutexException)
+                    {
+                        haveInstance = true; // previous owner died — the OS granted ownership
+                    }
+                    catch { break; }
+                    if (!haveInstance) System.Threading.Thread.Sleep(250);
+                }
+            }
+
+            if (!haveInstance)
             {
                 // If the running copy is hidden in the tray, wake it instead of
                 // exiting silently — the user launched KalOS expecting a window.
@@ -578,11 +615,17 @@ namespace KalOS
             }
 
             // Hidden background mode: enforces sticky process-control rules
-            // from login with no UI. Uses a 1×1 off-screen window to keep the
-            // dispatcher loop alive while the engine runs.
-            var cmdArgs = Environment.GetCommandLineArgs();
-            if (Array.IndexOf(cmdArgs, "--rules") >= 0 || Array.IndexOf(cmdArgs, "-rules") >= 0)
+            // from login with no UI. Uses a 1×1 off-screen tool window to
+            // keep the dispatcher loop alive while the engine runs.
+            if (isRulesSession)
             {
+                // Rules sessions are background services, not "the app": drop
+                // the single-instance claim so a real UI launch always works.
+                // Engine ownership is guarded separately by the engine mutex.
+                try { _instanceMutex?.ReleaseMutex(); } catch { }
+                try { _instanceMutex?.Dispose(); } catch { }
+                _instanceMutex = null;
+
                 StartRulesBackgroundMode();
                 return;
             }
@@ -784,6 +827,15 @@ namespace KalOS
                     var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
                     var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(hwnd);
                     var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
+
+                    // Tool window BEFORE first show: no taskbar button, no
+                    // Alt-Tab entry. Without this the hidden engine window
+                    // showed as a ghost "WinUI Desktop" taskbar entry after
+                    // the user closed the main window.
+                    long exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64();
+                    SetWindowLongPtr(hwnd, GWL_EXSTYLE, new IntPtr(exStyle | WS_EX_TOOLWINDOW));
+                    appWindow.Title = "KalOS Rules Engine";
+
                     appWindow.MoveAndResize(new Windows.Graphics.RectInt32(-32000, -32000, 1, 1));
                 }
                 catch { }

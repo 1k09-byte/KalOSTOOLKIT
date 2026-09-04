@@ -83,7 +83,22 @@
 
                                             <!-- GPU Name & Version info -->
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
-                                                <TextBlock Text="{x:Bind Name, Mode=OneWay}" FontWeight="SemiBold" FontSize="16" />
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock Text="{x:Bind Name, Mode=OneWay}" FontWeight="SemiBold" FontSize="16" />
+                                                    <!-- Laptop detection badge (chassis type / mobile model name) -->
+                                                    <Border Background="{ThemeResource SubtleFillColorTertiaryBrush}"
+                                                            BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                                                            BorderThickness="1" CornerRadius="4" Padding="6,2"
+                                                            VerticalAlignment="Center"
+                                                            Visibility="{x:Bind ShowLaptopBadge, Mode=OneWay, Converter={StaticResource BoolToVis}}">
+                                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                                            <FontIcon Glyph="&#xE7F4;" FontSize="10"
+                                                                      Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                                            <TextBlock Text="{x:Bind LaptopBadgeText, Mode=OneWay}" FontSize="10.5"
+                                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                </StackPanel>
                                                 <StackPanel Orientation="Horizontal" Spacing="10">
                                                     <TextBlock Text="{x:Bind InstalledText, Mode=OneWay}" FontSize="12"
                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -141,6 +156,15 @@
                                                         </MenuFlyoutItem>
 
                                                         <MenuFlyoutSeparator />
+                                                        <MenuFlyoutItem Text="Install Notebook Version (Laptops)"
+                                                                        Click="InstallAmdNotebook_Click"
+                                                                        Visibility="{x:Bind IsAmd, Mode=OneWay, Converter={StaticResource BoolToVis}}">
+                                                            <MenuFlyoutItem.Icon>
+                                                                <FontIcon Glyph="&#xE7F4;" />
+                                                            </MenuFlyoutItem.Icon>
+                                                        </MenuFlyoutItem>
+
+                                                        <MenuFlyoutSeparator />
                                                         <MenuFlyoutItem Text="Visit Official Website"
                                                                         Click="OpenPage_Click" Tag="{Binding}">
                                                             <MenuFlyoutItem.Icon>
@@ -187,6 +211,24 @@
                                               Visibility="{x:Bind ViewModel.IsSlimming, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
                                 <TextBlock Text="Purge Telemetry" Visibility="{x:Bind ViewModel.IsSlimming, Mode=OneWay, Converter={StaticResource InverseBoolToVis}}" />
                                 <TextBlock Text="Cleaning…" Visibility="{x:Bind ViewModel.IsSlimming, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+                            </StackPanel>
+                        </Button>
+                    </controls:SettingsCard>
+
+                    <!-- AMD Notebook Package Card (AMD adapters only) -->
+                    <controls:SettingsCard Visibility="{x:Bind ViewModel.HasAmdGpu, Mode=OneWay, Converter={StaticResource BoolToVis}}"
+                                           Header="Install Notebook Version (Laptops)"
+                                           Description="Installs the AMD Adrenalin package with desktop + notebook INFs (the 'combined' build). For laptop iGPUs/dGPUs the desktop package rejects — the installer detects hardware the desktop INF doesn't cover.">
+                        <controls:SettingsCard.HeaderIcon>
+                            <FontIcon Glyph="&#xE7F4;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <Button Command="{x:Bind ViewModel.InstallAmdNotebookDriverCommand}"
+                                IsEnabled="{x:Bind ViewModel.CanCheck, Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <ProgressRing Width="16" Height="16" IsActive="{x:Bind ViewModel.IsInstalling, Mode=OneWay}"
+                                              Visibility="{x:Bind ViewModel.IsInstalling, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
+                                <TextBlock Text="Install" Visibility="{x:Bind ViewModel.IsInstalling, Mode=OneWay, Converter={StaticResource InverseBoolToVis}}" />
+                                <TextBlock Text="Installing…" Visibility="{x:Bind ViewModel.IsInstalling, Mode=OneWay, Converter={StaticResource BoolToVis}}" />
                             </StackPanel>
                         </Button>
                     </controls:SettingsCard>

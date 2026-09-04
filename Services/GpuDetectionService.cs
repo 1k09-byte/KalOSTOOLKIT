@@ -7,6 +7,27 @@ using KalOS.Models;
 namespace KalOS.Services
 {
     /// <summary>
+    /// SMBIOS chassis types that mean the machine is a portable (laptop,
+    /// notebook, convertible, tablet, etc.). Win32_SystemEnclosure
+    /// ChassisTypes — the authoritative form-factor source on Windows.
+    /// </summary>
+    internal static class PortableChassis
+    {
+        internal static readonly HashSet<int> Types = new()
+        {
+            8,   // Portable (laptop)
+            9,   // Laptop
+            10,  // Notebook
+            11,  // Hand Held
+            12,  // Docking Station
+            14,  // Sub Notebook
+            30,  // Tablet
+            31,  // Convertible
+            32,  // Detachable
+        };
+    }
+
+    /// <summary>
     /// Enumerates installed graphics adapters and their driver details through
     /// WMI/CIM (<c>Win32_VideoController</c>). Pure backend — the UI never sees
     /// WMI. All queries run off the UI thread.
@@ -22,6 +43,10 @@ namespace KalOS.Services
             return await Task.Run(() =>
             {
                 var gpus = new List<GpuInfo>();
+
+                // Form factor is a machine property, not a GPU property — read it
+                // once and stamp it on every detected adapter.
+                bool isLaptop = DetectIsLaptop();
 
                 try
                 {
@@ -69,7 +94,8 @@ namespace KalOS.Services
                             // Keep the vendor's PNP id on the record so IsAmd/IsNvidia/IsIntel
                             // and the provider routing always see the real hardware.
                             PnpDeviceId = !string.IsNullOrWhiteSpace(pnp) ? pnp : vendorId,
-                            Manufacturer = vendorId + (string.IsNullOrWhiteSpace(name) ? "" : " " + name)
+                            Manufacturer = vendorId + (string.IsNullOrWhiteSpace(name) ? "" : " " + name),
+                            IsLaptop = isLaptop
                         });
                         gpu.Dispose();
                     }
@@ -190,6 +216,49 @@ namespace KalOS.Services
                     || service.Equals("igfxn", StringComparison.OrdinalIgnoreCase)) return "Intel";
             }
             return "";
+        }
+
+        /// <summary>
+        /// True when the machine is a laptop/notebook/tablet. Reads the SMBIOS
+        /// chassis type first (authoritative); falls back to battery presence,
+        /// which distinguishes portables on OEM boxes that report a useless
+        /// chassis type. Never throws — failure means "assume desktop".
+        /// </summary>
+        internal static bool DetectIsLaptop()
+        {
+            try
+            {
+                using var enclosure = new ManagementObjectSearcher(
+                    "SELECT ChassisTypes FROM Win32_SystemEnclosure");
+                foreach (var enc in enclosure.Get())
+                {
+                    using (enc)
+                    {
+                        if (enc["ChassisTypes"] is ushort[] types)
+                        {
+                            foreach (ushort t in types)
+                            {
+                                if (PortableChassis.Types.Contains((int)t)) return true;
+                            }
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Enclosure query unavailable — fall through to the battery check.
+            }
+
+            try
+            {
+                using var batteries = new ManagementObjectSearcher(
+                    "SELECT BatteryStatus FROM Win32_Battery");
+                return batteries.Get().Count > 0;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private static string? GetAmdMarketingVersion()

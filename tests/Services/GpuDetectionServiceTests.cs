@@ -1,3 +1,4 @@
+using KalOS.Models;
 using KalOS.Services;
 
 namespace KalOS.Tests.Services;
@@ -121,5 +122,54 @@ public class GpuDetectionServiceTests
         string name = GpuDetectionService.ResolveDisplayName(
             "Microsoft Basic Display Adapter", null, "", null);
         Assert.Equal("Microsoft Basic Display Adapter", name);
+    }
+
+    // ── Laptop / mobile GPU detection ─────────────────────────────────
+
+    [Theory]
+    [InlineData("NVIDIA GeForce RTX 4060 Laptop GPU", true)]
+    [InlineData("NVIDIA GeForce GTX 1660 Ti", false)]        // no M suffix — desktop card
+    [InlineData("NVIDIA GeForce GTX 980M", true)]            // classic mobile M suffix
+    [InlineData("NVIDIA GeForce RTX 3080 Ti Mobile", true)]
+    [InlineData("NVIDIA GeForce RTX 2080 Super", false)]
+    [InlineData("GeForce RTX 4090 Max-Q", true)]             // Max-Q designs are notebook-only
+    [InlineData("NVIDIA GeForce MX550", true)]               // MX series is notebook-only
+    [InlineData("AMD Radeon RX 7900 XTX", false)]
+    [InlineData("Intel(R) UHD Graphics", false)]
+    public void NameContainsMobileMarker_ClassifiesMobileModelNames(string name, bool expected)
+        => Assert.Equal(expected, GpuInfo.NameContainsMobileMarker(name));
+
+    [Fact]
+    public void IsMobileGpu_NameMarkerWinsEvenWhenChassisUnknown()
+    {
+        var gpu = new GpuInfo { Name = "NVIDIA GeForce RTX 4060 Laptop GPU" };
+        Assert.True(gpu.IsMobileGpu);
+    }
+
+    [Fact]
+    public void IsMobileGpu_LaptopChassisFlagsDesktopNamedCard()
+    {
+        // An OEM box WMI names without the Laptop/Mobile/Notebook words still
+        // resolves via the machine's chassis detection — this is the case the
+        // old name-only check silently got wrong.
+        var gpu = new GpuInfo { Name = "NVIDIA GeForce RTX 4070", IsLaptop = true };
+        Assert.True(gpu.IsMobileGpu);
+    }
+
+    [Fact]
+    public void IsMobileGpu_DesktopChassisAndDesktopNameIsFalse()
+    {
+        var gpu = new GpuInfo { Name = "NVIDIA GeForce RTX 4070", IsLaptop = false };
+        Assert.False(gpu.IsMobileGpu);
+    }
+
+    [Fact]
+    public void PortableChassis_CoversLaptopAndTabletTypes()
+    {
+        Assert.Contains(9, KalOS.Services.PortableChassis.Types);   // Laptop
+        Assert.Contains(10, KalOS.Services.PortableChassis.Types);  // Notebook
+        Assert.Contains(31, KalOS.Services.PortableChassis.Types);  // Convertible
+        Assert.Contains(32, KalOS.Services.PortableChassis.Types);  // Detachable
+        Assert.DoesNotContain(3, KalOS.Services.PortableChassis.Types); // Desktop
     }
 }

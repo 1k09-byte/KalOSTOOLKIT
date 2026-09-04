@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.IO;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -31,30 +32,47 @@ namespace KalOS.Services
             return client;
         }
 
-        public async Task<DriverInfo?> GetLatestDriverAsync(CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                var liveInfo = await QueryTechPowerUpFeedAsync(cancellationToken);
-                if (liveInfo != null)
-                {
-                    return liveInfo;
-                }
-            }
-            catch (Exception)
-            {
-                // Fallback to curated release below
-            }
+    /// <summary>Package variant the lookup should resolve.</summary>
+    public enum AmdPackageVariant
+    {
+        /// <summary>Standard desktop Adrenalin package (default).</summary>
+        Desktop = 0,
 
-            return GetCuratedLatest();
+        /// <summary>Desktop+notebook "combined" INFs — required by many laptop GPUs/APUs the desktop INF rejects.</summary>
+        Notebook = 1,
+    }
+
+    public async Task<DriverInfo?> GetLatestDriverAsync(CancellationToken cancellationToken = default)
+    {
+        return await GetLatestDriverAsync(AmdPackageVariant.Desktop, cancellationToken);
+    }
+
+    public async Task<DriverInfo?> GetLatestDriverAsync(
+        AmdPackageVariant variant, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var liveInfo = await QueryTechPowerUpFeedAsync(variant, cancellationToken);
+            if (liveInfo != null)
+            {
+                return liveInfo;
+            }
+        }
+        catch (Exception)
+        {
+            // Fallback to curated release below
         }
 
-        private async Task<DriverInfo?> QueryTechPowerUpFeedAsync(CancellationToken cancellationToken)
+        return GetCuratedLatest(variant);
+    }
+
+        private async Task<DriverInfo?> QueryTechPowerUpFeedAsync(
+            AmdPackageVariant variant, CancellationToken cancellationToken)
         {
             const string url = "https://www.techpowerup.com/download/amd-radeon-graphics-drivers/";
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-            
+
             using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
                 .ConfigureAwait(false);
             if (!response.IsSuccessStatusCode) return null;
@@ -74,6 +92,14 @@ namespace KalOS.Services
                 ? fileMatch.Groups[1].Value.Trim()
                 : $"whql-amd-software-adrenalin-edition-{version}-win10-win11.exe";
 
+            // Notebook request → the same release's combined (desktop+notebook
+            // INFs) package. AMD lists it beside the desktop one; the desktop
+            // filename pattern ``-rdna`` maps to ``-rdna-combined`` etc.
+            if (variant == AmdPackageVariant.Notebook)
+            {
+                filename = BuildNotebookFilename(version, filename);
+            }
+
             // Pattern for Date: <span class="date">([^<]+)</span>
             DateTime? releaseDate = null;
             var dateMatch = Regex.Match(html, @"<span[^>]*class=""date""[^>]*>([^<]+)</span>", RegexOptions.IgnoreCase);
@@ -89,6 +115,7 @@ namespace KalOS.Services
             }
 
             string downloadUrl = $"https://drivers.amd.com/drivers/{filename}";
+            string displaySuffix = variant == AmdPackageVariant.Notebook ? " (Notebook/combined)" : string.Empty;
 
             return new DriverInfo
             {
@@ -96,20 +123,52 @@ namespace KalOS.Services
                 DownloadUrl = downloadUrl,
                 SupportUrl = "https://www.amd.com/en/support/download/drivers.html",
                 ReleaseDate = releaseDate,
-                DisplayString = $"AMD Adrenalin {version} WHQL"
+                DisplayString = $"AMD Adrenalin {version} WHQL{displaySuffix}"
             };
+        }
+
+        /// <summary>
+        /// Maps a desktop Adrenalin filename to the same release's combined
+        /// (desktop+notebook INFs) package, e.g.
+        /// whql-amd-software-adrenalin-edition-25.11.1-win11-nov-combined.exe.
+        /// AMD has shipped every recent Adrenalin release in both variants;
+        /// the combined file adds the notebook (mobile/APU) INFs. When the
+        /// desktop name carries no recognizable platform tag, "-combined" is
+        /// appended before the extension — the AMD CDN layout for current
+        /// unified Win11 packages.
+        /// </summary>
+        internal static string BuildNotebookFilename(string version, string desktopFilename)
+        {
+            string baseName = Path.GetFileNameWithoutExtension(desktopFilename);
+
+            // Already combined?
+            if (baseName.Contains("combined", StringComparison.OrdinalIgnoreCase))
+                return desktopFilename;
+
+            // Known platform tags get "-combined" appended (rdna → rdna-combined,
+            // may-rdna → may-rdna-combined, nov → nov-combined …).
+            return $"{baseName}-combined.exe";
         }
 
         public static DriverInfo GetCuratedLatest()
         {
+            return GetCuratedLatest(AmdPackageVariant.Desktop);
+        }
+
+        public static DriverInfo GetCuratedLatest(AmdPackageVariant variant)
+        {
             const string version = "25.10.1";
+            string filename = variant == AmdPackageVariant.Notebook
+                ? "whql-amd-software-adrenalin-edition-25.10.1-win10-win11-may-rdna-combined.exe"
+                : "whql-amd-software-adrenalin-edition-25.10.1-win10-win11-may-rdna.exe";
+            string displaySuffix = variant == AmdPackageVariant.Notebook ? " (Notebook/combined)" : string.Empty;
             return new DriverInfo
             {
                 Version = version,
-                DownloadUrl = "https://drivers.amd.com/drivers/whql-amd-software-adrenalin-edition-25.10.1-win10-win11-may-rdna.exe",
+                DownloadUrl = $"https://drivers.amd.com/drivers/{filename}",
                 SupportUrl = "https://www.amd.com/en/support/download/drivers.html",
                 ReleaseDate = new DateTime(2026, 8, 5),
-                DisplayString = $"AMD Adrenalin {version} WHQL"
+                DisplayString = $"AMD Adrenalin {version} WHQL{displaySuffix}"
             };
         }
     }

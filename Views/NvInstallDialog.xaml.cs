@@ -64,7 +64,10 @@ namespace KalOS.Views
                 : item.Gpu.DriverVersion;
 
             DchText.Text = "DCH: Yes";
-            MobileText.Text = IsMobileGpu(item.Name) ? "Mobile: Yes" : "Mobile: No";
+            // Laptop detection: machine chassis (GpuInfo.IsLaptop) or the model
+            // name's mobile marker — same rule the version lookups use, so the
+            // badge always matches the package family that will be resolved.
+            MobileText.Text = item.Gpu.IsMobileGpu ? "Mobile: Yes" : "Mobile: No";
 
             var latest = item.Latest;
             BestDriverLabel.Text = latest?.DisplayString ?? $"Game Ready {latest?.Version}";
@@ -84,11 +87,6 @@ namespace KalOS.Views
                 VersionListHint.Visibility = Visibility.Visible;
             }
         }
-
-        private static bool IsMobileGpu(string name) =>
-            name.Contains("Laptop", StringComparison.OrdinalIgnoreCase) ||
-            name.Contains("Mobile", StringComparison.OrdinalIgnoreCase) ||
-            name.Contains("Notebook", StringComparison.OrdinalIgnoreCase);
 
         private async void Browse_Click(object sender, RoutedEventArgs e)
         {

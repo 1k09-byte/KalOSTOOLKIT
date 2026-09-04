@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "modsRepo": {
+    "owner": "ramensoftware",
+    "name": "windhawk-mods",
+    "commit": "782f5af4ee10ffeefc60227ec7bc30c32c884236"
+  },
+  "mods": [
+    {
+      "id": "windows-11-taskbar-styler",
+      "displayName": "Windows 11 Taskbar Styler",
+      "description": "Customize the taskbar with community themes.",
+      "sourceType": "windhawk",
+      "version": "1.8",
+      "theme": "Luminosity_variant_Dock",
+      "targetProcess": "explorer.exe",
+      "enabled": true
+    },
+    {
+      "id": "taskbar-dock-animation",
+      "displayName": "Taskbar Dock Animation",
+      "description": "Animates taskbar icons on hover, like macOS.",
+      "sourceType": "windhawk",
+      "version": "1.9.2",
+      "targetProcess": "explorer.exe",
+      "enabled": true
+    },
+    {
+      "id": "translucent-windows",
+      "displayName": "Translucent Explorer",
+      "description": "Makes File Explorer windows translucent with a dark blur.",
+      "sourceType": "windhawk",
+      "version": "1.8.0",
+      "targetProcess": "explorer.exe",
+      "enabled": true,
+      "settings": {
+        "BackgroundEffects.type": "acrylicblur"
+      }
+    }
+  ]
+}

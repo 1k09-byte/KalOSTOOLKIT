@@ -77,6 +77,20 @@
                         <Button Content="Clear pin" Click="ClearPin_Click"
                                 ToolTipService.ToolTip="Let the process use any core again" />
                     </StackPanel>
+                    <TextBlock Text="Or pick the exact cores and threads it may run on:" FontSize="12" Opacity="0.7" Margin="0,4,0,0" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Select all" Click="CoreSelectAll_Click"
+                                ToolTipService.ToolTip="Allow every core and thread" />
+                        <Button Content="Clear" Click="CoreClearAll_Click"
+                                ToolTipService.ToolTip="Deselect all (rule runs on any core)" />
+                        <TextBlock x:Name="CoreSelectionText" VerticalAlignment="Center" Opacity="0.6" FontSize="11" />
+                    </StackPanel>
+                    <ScrollViewer MaxHeight="150" HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled">
+                        <StackPanel x:Name="CorePickerPanel" Orientation="Horizontal" Spacing="14" />
+                    </ScrollViewer>
+                    <TextBlock Text="P = performance core, E = efficiency core (hybrid CPUs). A selected set pins the rule; 'Dynamic core cap' then operates within that selection."
+                               Opacity="0.6" FontSize="11" TextWrapping="Wrap" />
 
                     <TextBlock Text="Limits — hard ceilings on CPU and copies" FontSize="12" Opacity="0.7" />
                     <Grid ColumnSpacing="10">
@@ -85,8 +99,8 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <NumberBox x:Name="MaxCoresBox" Grid.Column="0" Header="Max cores (0 = no cap)" Minimum="0" Maximum="128"
-                                   ToolTipService.ToolTip="Never let it use more than this many CPU cores. Needs 'Dynamic core cap' checked below."
+                        <NumberBox x:Name="MaxCoresBox" Grid.Column="0" Header="Core cap (0 = no cap)" Minimum="0" Maximum="128"
+                                   ToolTipService.ToolTip="Never let it use more than this many CPU cores. Operates within the selected cores when a pin is set, else system-wide. Needs 'Dynamic core cap' checked below."
                                    Value="{x:Bind ViewModel.EditingRule.MaxCores, Mode=TwoWay}" />
                         <NumberBox x:Name="MaxCpuBox" Grid.Column="1" Header="CPU % ceiling (0 = off)" Minimum="0" Maximum="100"
                                    ToolTipService.ToolTip="Never let it average more than this percent of total CPU. Needs 'Dynamic core cap' checked below."
@@ -94,7 +108,7 @@
                         <TextBox x:Name="MaxInstancesBox" Grid.Column="2" Header="Max copies" PlaceholderText="unlimited"
                                  ToolTipService.ToolTip="Extra copies beyond this are terminated automatically. Leave blank for unlimited." />
                     </Grid>
-                    <TextBlock Text="Note: core/CPU limits only bite when the 'Dynamic core cap' behavior below is checked."
+                    <TextBlock Text="Note: core/CPU limits apply within the picked cores when a pin is set, otherwise system-wide — and only when 'Dynamic core cap' below is checked."
                                Opacity="0.6" FontSize="11" TextWrapping="Wrap" />
 
                     <TextBlock Text="Behavior" FontSize="12" Opacity="0.7" />

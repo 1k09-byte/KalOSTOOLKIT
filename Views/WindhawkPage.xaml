@@ -63,6 +63,8 @@
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                             <Button Content="Backup" Command="{x:Bind ViewModel.BackupCommand}" />
                             <Button Content="Restore" Command="{x:Bind ViewModel.RestoreCommand}" />
+                            <Button Content="Force reload mods" Command="{x:Bind ViewModel.ForceReloadCommand}"
+                                    ToolTipService.ToolTip="Mods installed but not working? Hard-disables every selected mod, restarts the Windhawk engine clean, then re-enables them — the automated version of toggling each mod off and on by hand. Restarts Explorer when a taskbar/shell mod is selected." />
                         </StackPanel>
                     </Grid>
                 </Border>

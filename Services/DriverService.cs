@@ -82,6 +82,31 @@ namespace KalOS.Services
         }
 
         /// <summary>
+        /// AMD-only: resolves the notebook (desktop+notebook "combined" INF)
+        /// Adrenalin package for this GPU — the variant laptop iGPUs/dGPUs need
+        /// when the desktop INF rejects the hardware. Null for non-AMD GPUs.
+        /// </summary>
+        public async Task<DriverInfo?> GetAmdNotebookDriverAsync(
+            GpuInfo gpu, CancellationToken cancellationToken = default)
+        {
+            if (FindProvider(gpu) is not AmdDriverProvider amd) return null;
+            try
+            {
+                return await amd.GetLatestDriverAsync(
+                    gpu, AmdDriverApiService.AmdPackageVariant.Notebook, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _log.Warn($"AMD notebook package lookup failed: {ex.Message}");
+                return AmdDriverApiService.GetCuratedLatest(AmdDriverApiService.AmdPackageVariant.Notebook);
+            }
+        }
+
+        /// <summary>
         /// Detect → query the vendor source → compare versions. Never throws
         /// except for cancellation; every other failure becomes an Error result.
         /// </summary>
