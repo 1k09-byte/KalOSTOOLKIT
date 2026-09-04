@@ -139,10 +139,6 @@
     <Content Include="Assets\windhawk_mods.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <None Remove="THIRD-PARTY-NOTICES.md" />
-    <Content Include="THIRD-PARTY-NOTICES.md">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
     <!-- OS changes manifest: rides inside the update zip so a release can
          change the OS without recompiling the app. Applied from the update log
          popup; every value is backed up first for the existing rollback logic. -->

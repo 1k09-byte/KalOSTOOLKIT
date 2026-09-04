@@ -23,16 +23,13 @@ namespace KalOS
         private static readonly Dictionary<string, Type> PageRegistry = new()
         {
             ["Home"] = typeof(HomePage),
-            ["SystemOverview"] = typeof(SystemOverviewPage),
             ["Browsers"] = typeof(BrowserPage),
             ["DriverStore"] = typeof(DriverStorePage),
             ["GpuDrivers"] = typeof(GpuDriversPage),
             ["AffinityManager"] = typeof(AffinityManagerPage),
             ["ProcessControl"] = typeof(ProcessControlPage),
-            ["Sdio"] = typeof(SdioPage),
             ["Bios"] = typeof(BiosPage),
             ["AdditionalTweaks"] = typeof(AdditionalTweaksPage),
-            ["Personalization"] = typeof(PersonalizationPage),
             ["VisualEffects"] = typeof(VisualEffectsPage),
             ["Windhawk"] = typeof(WindhawkPage),
             ["Settings"] = typeof(SettingsPage),

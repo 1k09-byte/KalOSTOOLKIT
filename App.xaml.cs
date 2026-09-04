@@ -532,8 +532,6 @@ namespace KalOS
             services.AddSingleton<WingetUiViewModel>();
             services.AddSingleton<WindhawkViewModel>();
             services.AddSingleton<GpuDriversViewModel>();
-            services.AddSingleton<SdioManagerService>();
-            services.AddSingleton<SdioViewModel>();
             services.AddSingleton<AdditionalTweaksViewModel>();
             services.AddSingleton<SystemOverviewViewModel>();
             services.AddTransient<BiosViewModel>();

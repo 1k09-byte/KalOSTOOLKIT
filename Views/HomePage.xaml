@@ -32,12 +32,11 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <Button Grid.Row="0" Grid.Column="0" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="ProcessControl">
+                    <Button Grid.Row="0" Grid.Column="0" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="ProcessControl" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" MinHeight="110">
                         <StackPanel Spacing="4">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <FontIcon Glyph="&#xE9D9;" FontSize="18" Foreground="{ThemeResource AccentBrush}" />
@@ -50,7 +49,7 @@
                         </StackPanel>
                     </Button>
 
-                    <Button Grid.Row="0" Grid.Column="1" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="AffinityManager">
+                    <Button Grid.Row="0" Grid.Column="1" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="AffinityManager" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" MinHeight="110">
                         <StackPanel Spacing="4">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <FontIcon Glyph="&#xE950;" FontSize="18" Foreground="{ThemeResource AccentBrush}" />
@@ -63,7 +62,7 @@
                         </StackPanel>
                     </Button>
 
-                    <Button Grid.Row="0" Grid.Column="2" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="GpuDrivers">
+                    <Button Grid.Row="0" Grid.Column="2" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="GpuDrivers" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" MinHeight="110">
                         <StackPanel Spacing="4">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <FontIcon Glyph="&#xE7F4;" FontSize="18" Foreground="{ThemeResource AccentBrush}" />
@@ -76,7 +75,7 @@
                         </StackPanel>
                     </Button>
 
-                    <Button Grid.Row="1" Grid.Column="0" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="Browsers">
+                    <Button Grid.Row="1" Grid.Column="0" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="Browsers" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" MinHeight="110">
                         <StackPanel Spacing="4">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <FontIcon Glyph="&#xE774;" FontSize="18" Foreground="{ThemeResource AccentBrush}" />
@@ -89,33 +88,7 @@
                         </StackPanel>
                     </Button>
 
-                    <Button Grid.Row="1" Grid.Column="1" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="Personalization">
-                        <StackPanel Spacing="4">
-                            <StackPanel Orientation="Horizontal" Spacing="12">
-                                <FontIcon Glyph="&#xE790;" FontSize="18" Foreground="{ThemeResource AccentBrush}" />
-                                <TextBlock Text="Customize Windows" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="14" VerticalAlignment="Center" />
-                            </StackPanel>
-                            <TextBlock Text="Visual effects, transparency, tints, and background images."
-                                       Style="{StaticResource CaptionTextBlockStyle}"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       TextWrapping="Wrap" Margin="30,0,0,0" />
-                        </StackPanel>
-                    </Button>
-
-                    <Button Grid.Row="1" Grid.Column="2" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="SystemOverview">
-                        <StackPanel Spacing="4">
-                            <StackPanel Orientation="Horizontal" Spacing="12">
-                                <FontIcon Glyph="&#xE9D2;" FontSize="18" Foreground="{ThemeResource AccentBrush}" />
-                                <TextBlock Text="System Overview" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="14" VerticalAlignment="Center" />
-                            </StackPanel>
-                            <TextBlock Text="Full sensor dashboard — temps, fans, clocks, voltages."
-                                       Style="{StaticResource CaptionTextBlockStyle}"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       TextWrapping="Wrap" Margin="30,0,0,0" />
-                        </StackPanel>
-                    </Button>
-
-                    <Button Grid.Row="2" Grid.Column="0" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="AdditionalTweaks">
+                    <Button Grid.Row="1" Grid.Column="1" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="AdditionalTweaks" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" MinHeight="110">
                         <StackPanel Spacing="4">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <FontIcon Glyph="&#xE90F;" FontSize="18" Foreground="{ThemeResource AccentBrush}" />
@@ -128,20 +101,7 @@
                         </StackPanel>
                     </Button>
 
-                    <Button Grid.Row="2" Grid.Column="1" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="Sdio">
-                        <StackPanel Spacing="4">
-                            <StackPanel Orientation="Horizontal" Spacing="12">
-                                <FontIcon Glyph="&#xE77B;" FontSize="18" Foreground="{ThemeResource AccentBrush}" />
-                                <TextBlock Text="Other Drivers" Style="{StaticResource BodyStrongTextBlockStyle}" FontSize="14" VerticalAlignment="Center" />
-                            </StackPanel>
-                            <TextBlock Text="Chipset, audio, network — find outdated drivers."
-                                       Style="{StaticResource CaptionTextBlockStyle}"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       TextWrapping="Wrap" Margin="30,0,0,0" />
-                        </StackPanel>
-                    </Button>
-
-                    <Button Grid.Row="2" Grid.Column="2" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="Bios">
+                    <Button Grid.Row="1" Grid.Column="2" Style="{StaticResource CompactActionTileStyle}" Click="NavigateCard_Click" Tag="Bios" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" MinHeight="110">
                         <StackPanel Spacing="4">
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <FontIcon Glyph="&#xE7F8;" FontSize="18" Foreground="{ThemeResource AccentBrush}" />

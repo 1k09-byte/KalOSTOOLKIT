@@ -382,25 +382,6 @@
                     </Grid>
                 </Border>
 
-                <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                        BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
-                        BorderThickness="1" CornerRadius="6" Padding="16">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="40" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <FontIcon Grid.Column="0" Glyph="&#xE8EC;" FontSize="18"
-                                  Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-                        <StackPanel Grid.Column="1" Spacing="3">
-                            <TextBlock Text="Third-party notices" FontWeight="SemiBold" />
-                            <TextBlock Text="Licenses for the open-source components and brand assets KalOS uses."
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                        </StackPanel>
-                        <Button Grid.Column="2" Content="View" Click="ShowNotices_Click" />
-                    </Grid>
-                </Border>
             </StackPanel>
         </Grid>
     </ScrollViewer>

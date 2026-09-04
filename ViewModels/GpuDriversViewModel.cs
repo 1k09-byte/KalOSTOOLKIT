@@ -284,6 +284,12 @@ namespace KalOS.ViewModels
             _packageSlimmer = packageSlimmer;
             _log = log;
 
+            Gpus.CollectionChanged += (_, _) =>
+            {
+                OnPropertyChanged(nameof(HasAmdGpu));
+                OnPropertyChanged(nameof(HasNvidiaGpu));
+            };
+
             // Reclaim space from interrupted driver installs (crashed runs, power
             // loss, or older builds without cleanup). Safe here: no install can
             // be running yet, and the sweep skips recently-modified files anyway.

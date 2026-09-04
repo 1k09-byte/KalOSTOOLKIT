@@ -59,12 +59,6 @@
                         <FontIcon Glyph="&#xE80F;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItemHeader Content="Optimize" />
-                <NavigationViewItem Content="System Overview" Tag="SystemOverview">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE9D2;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
                 <NavigationViewItem Content="Process Control" Tag="ProcessControl">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE9D9;" />
@@ -75,7 +69,6 @@
                         <FontIcon Glyph="&#xE950;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItemHeader Content="Install &amp; Update" />
                 <NavigationViewItem Content="Driver Store" Tag="DriverStore">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE965;" />
@@ -91,12 +84,6 @@
                         <FontIcon Glyph="&#xE7F4;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Content="Other Drivers" Tag="Sdio">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE77B;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItemHeader Content="Tune &amp; Personalize" />
                 <NavigationViewItem Content="BIOS Manager" Tag="Bios">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE7F8;" />
@@ -105,11 +92,6 @@
                 <NavigationViewItem Content="Additional Tweaks" Tag="AdditionalTweaks">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE90F;" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Content="Personalization" Tag="Personalization">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE790;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>
