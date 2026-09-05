@@ -6,17 +6,17 @@
     Default: downloads the newest KaliteKit release (KaliteKit-v{version}-win-x64.zip)
     from GitHub Releases, installs it to %LOCALAPPDATA%\Programs\KaliteKit, and
     launches it. The app now contains the full setup wizard: on FIRST launch
-    it opens as "KaliteKit Setup" (Install KaliteKit, GPU drivers, browsers/software,
-    customize, tweaks & cleanup) and once setup completes it turns into the
-    normal consumer app. Re-run the wizard any time with: KaliteKit.exe --setup
+    it opens as "KaliteKit Setup" (install KaliteKit, GPU drivers, browsers &
+    software, customize) and once setup completes it turns into the normal
+    consumer app. Re-run the wizard any time with: KaliteKit.exe --setup
 
     -SetupWizard: instead install the old standalone KaliteKit Setup wizard exe
     (KaliteKit.Setup.exe) to %LOCALAPPDATA%\Programs\KaliteKitSetup. Not needed for
     normal installs - the app has the wizard built in.
 
-    Both modes run the full dependency checker first: administrator permission,
-    internet connection, and .NET 9 Desktop Runtime (auto-installed when
-    missing) - the KaliteKit app needs that runtime.
+    Both modes run a quick prerequisite check first (administrator permission
+    and an internet connection). The packages are self-contained - the .NET
+    runtime and Windows App SDK are bundled, so nothing extra is installed.
 
 .EXAMPLE
     .\install-kalitekit.ps1                      # install + launch the KaliteKit app
@@ -33,6 +33,7 @@ param(
     [switch]$NoShortcut,
     [switch]$NoTaskbarPin,
     [switch]$Silent,
+    # Back-compat no-op: releases are self-contained, so no .NET runtime is installed.
     [switch]$InstallDotNetRuntime,
     [switch]$SkipDependencyCheck
 )
@@ -44,7 +45,6 @@ $ProgressPreference = "SilentlyContinue"
 $Owner = "1k09-byte"
 $Repo = "KaliteKit"
 $ReleasesLatestUrl = "https://github.com/$Owner/$Repo/releases/latest"
-$DotNetRuntimeUrl = "https://dotnet.microsoft.com/download/dotnet/thank-you/runtime-desktop-9.0.0-windows-x64-installer"
 $SetupDir = (Join-Path $env:LOCALAPPDATA "Programs\KaliteKitSetup")
 
 function Write-Step([string]$msg) {
@@ -88,14 +88,6 @@ function Test-InternetConnection {
     catch { return $false }
 }
 
-function Test-DotNetDesktopRuntime {
-    try {
-        $runtimes = & dotnet --list-runtimes 2>$null
-        return [bool]($runtimes -match "Microsoft\.WindowsDesktop\.App 9\.")
-    }
-    catch { return $false }
-}
-
 function Ensure-RequiredRuntime {
     Write-Step "Checking required dependencies"
 
@@ -109,32 +101,9 @@ function Ensure-RequiredRuntime {
     }
     Write-Host "Dependency check passed: Internet connection is available." -ForegroundColor Green
 
-    if (Test-DotNetDesktopRuntime) {
-        Write-Host "Dependency check passed: .NET Desktop Runtime 9 is installed." -ForegroundColor Green
-        return
-    }
-
-    Write-Host ".NET Desktop Runtime 9 is required and was not found." -ForegroundColor Yellow
-
-    Write-Host "Auto-installing .NET Desktop Runtime 9..." -ForegroundColor Cyan
-
-    $runtimeInstaller = Join-Path $env:TEMP "windowsdesktop-runtime-9-x64.exe"
-    Write-Step "Downloading .NET 9 Desktop Runtime ..."
-    try {
-        Invoke-WebRequest -Uri $DotNetRuntimeUrl -OutFile $runtimeInstaller -UseBasicParsing
-        Write-Step "Installing .NET 9 Desktop Runtime ..."
-        Start-Process -FilePath $runtimeInstaller -ArgumentList "/install", "/quiet", "/norestart" -Wait
-    }
-    catch {
-        Write-ErrorAndExit "Could not install .NET 9 Desktop Runtime: $($_.Exception.Message)"
-    }
-    finally {
-        Remove-Item $runtimeInstaller -Force -ErrorAction SilentlyContinue
-    }
-
-    if (-not (Test-DotNetDesktopRuntime)) {
-        Write-ErrorAndExit "The .NET 9 Desktop Runtime installation did not complete successfully."
-    }
+    # No .NET runtime check: the consumer app zip and the standalone Setup wizard
+    # are both self-contained (the .NET runtime and Windows App SDK ship inside
+    # the package), so there is nothing extra to install.
 }
 
 $interactive = Test-InteractiveConsole
@@ -292,7 +261,7 @@ if (-not $SetupWizard) {
     Write-Host ""
     Write-Host "KaliteKit $version installed successfully!" -ForegroundColor Green
     Write-Host "On first launch the app opens as KaliteKit Setup (install KaliteKit, GPU drivers,"
-    Write-Host "software, tweaks) and turns into the full app when setup finishes."
+    Write-Host "browsers & software, customize) and turns into the full app when setup finishes."
     Write-Host "Launch it from the Start Menu (KaliteKit) or run:"
     Write-Host "    $exePath"
     Write-Host "Re-run setup any time with: KaliteKit.exe --setup"
@@ -349,14 +318,14 @@ else {
         $lnk = $shell.CreateShortcut($lnkPath)
         $lnk.TargetPath = $wizardPath
         $lnk.WorkingDirectory = $SetupDir
-        $lnk.Description = "KaliteKit Setup $version - install KaliteKit, drivers, software and tweaks"
+        $lnk.Description = "KaliteKit Setup $version - install KaliteKit, GPU drivers, browsers & software"
         $lnk.Save()
         Write-Host "Shortcut created: $lnkPath"
     }
 
     Write-Host ""
     Write-Host "KaliteKit Setup $version installed successfully!" -ForegroundColor Green
-    Write-Host "The setup wizard opens next - it installs KaliteKit, GPU drivers, software and tweaks."
+    Write-Host "The setup wizard opens next - it installs KaliteKit, GPU drivers, browsers & software."
     Write-Host "Relaunch it any time from the Start Menu (KaliteKit Setup) or run:"
     Write-Host "    $wizardPath"
 

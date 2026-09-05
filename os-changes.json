@@ -25,6 +25,6 @@
   // Keep "changes" empty until you actually configure something — shipping
   // the placeholder script entry without tweaks makes the app claim this
   // release changes the OS when it doesn't.
-  "version": "1.2.0.1",
+  "version": "1.2.0.2",
   "changes": []
 }
