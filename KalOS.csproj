@@ -133,10 +133,7 @@
     <Content Include="Assets\7zip.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="Assets\windhawk_pins.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Assets\windhawk_mods.json">
+    <Content Include="Assets\windhawk.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <!-- OS changes manifest: rides inside the update zip so a release can

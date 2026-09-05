@@ -94,15 +94,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Windhawk customization assets: read from AppContext.BaseDirectory\Assets
-         by WindhawkManagerService (LoadManifestAsync / LoadInstallerPin). -->
-    <Content Include="..\Assets\windhawk_mods.json">
+    <!-- Windhawk asset: fixed import uses only Assets/windhawk.json -->
+    <Content Include="..\Assets\windhawk.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Link>Assets\windhawk_mods.json</Link>
-    </Content>
-    <Content Include="..\Assets\windhawk_pins.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Link>Assets\windhawk_pins.json</Link>
+      <Link>Assets\windhawk.json</Link>
     </Content>
   </ItemGroup>
 

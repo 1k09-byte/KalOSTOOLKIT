@@ -236,10 +236,8 @@ namespace KalOS.Setup.ViewModels
         public string TweakPersonalizationLabel => "Dark mode & transparency effects";
 
         /// <summary>
-        /// When on, the pipeline installs Windhawk and deploys the curated
-        /// mod set from Assets/windhawk_mods.json (the dark translucent
-        /// dock-style taskbar customization the main app also offers under
-        /// Personalization).
+        /// When on, the pipeline downloads Windhawk from the fixed URL and imports
+        /// <c>Assets/windhawk.json</c> via windhawk-cli.exe.
         /// </summary>
         [ObservableProperty] private bool _installWindhawkCustomization = true;
 

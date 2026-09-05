@@ -1,0 +1,138 @@
+{
+  "format": "windhawk-user-data-v1",
+  "appSettings": {
+    "language": "en",
+    "theme": "dark",
+    "disableUpdateCheck": false,
+    "devModeOptOut": false,
+    "hideTrayIcon": false,
+    "alwaysCompileModsLocally": false,
+    "dontAutoShowToolkit": false,
+    "modTasksDialogDelay": 2000,
+    "loggingVerbosity": 0,
+    "engine": {
+      "loggingVerbosity": 0,
+      "include": [],
+      "exclude": [],
+      "injectIntoCriticalProcesses": false,
+      "injectIntoIncompatiblePrograms": false,
+      "injectIntoGames": false
+    }
+  },
+  "mods": [
+    {
+      "modId": "explorer-context-menu-classic",
+      "version": "1.0.2",
+      "name": "Classic context menu on Windows 11",
+      "settings": {
+        "overrideWithCtrl": 1
+      }
+    },
+    {
+      "modId": "start-menu-size",
+      "version": "1.1",
+      "name": "Start Menu Size",
+      "settings": {
+        "width": 620,
+        "height": 620,
+        "searchWidth": 780,
+        "searchHeight": 0
+      }
+    },
+    {
+      "modId": "taskbar-dock-animation",
+      "version": "1.9.2",
+      "name": "Taskbar Dock Animation",
+      "settings": {
+        "AnimationType": 0,
+        "MaxScale": 130,
+        "EffectRadius": 100,
+        "SpacingFactor": 50,
+        "BounceDelay": 500,
+        "FocusDuration": 150,
+        "MirrorForTopTaskbar": 0,
+        "DisableVerticalBounce": 0,
+        "TaskbarLabelsMode": 0,
+        "ExcludeSystemButtonsMode": 0,
+        "LerpSpeed": 60,
+        "DisableBounce": 0
+      }
+    },
+    {
+      "modId": "translucent-windows",
+      "version": "1.8.0",
+      "name": "Translucent Windows",
+      "settings": {
+        "RenderingMod.ThemeBackground": 1,
+        "RenderingMod.SysColors": 0,
+        "RenderingMod.AccentColorControls": 1,
+        "BackgroundEffects.type": "acrylicblur",
+        "BackgroundEffects.AccentBlurBehind": "3A232323",
+        "FlyoutsEffects": 1,
+        "RuledPrograms[0].target": "mspaint.exe",
+        "RuledPrograms[0].RenderingMod.ThemeBackground": 0,
+        "RuledPrograms[0].RenderingMod.AccentColorControls": 0,
+        "RuledPrograms[0].BackgroundEffects.type": "none",
+        "RuledPrograms[0].BackgroundEffects.AccentBlurBehind": "3A232323"
+      }
+    },
+    {
+      "modId": "windows-11-file-explorer-styler",
+      "version": "1.6",
+      "name": "Windows 11 File Explorer Styler",
+      "settings": {
+        "theme": "Translucent Explorer11",
+        "backgroundTranslucentEffect": "",
+        "backgroundTranslucentEffectRegion": "",
+        "styleConstants[0]": "",
+        "controlStyles[0].target": "",
+        "controlStyles[0].styles[0]": "",
+        "themeResourceVariables[0]": "",
+        "explorerFrameContainerHeight": 0,
+        "xamlDiagnosticsHandling": "alert"
+      }
+    },
+    {
+      "modId": "windows-11-settings-styler",
+      "version": "1.1",
+      "name": "Windows 11 Settings Styler",
+      "settings": {
+        "theme": "Translucent_Settings11",
+        "styleConstants[0]": "",
+        "controlStyles[0].target": "",
+        "controlStyles[0].styles[0]": "",
+        "themeResourceVariables[0]": ""
+      }
+    },
+    {
+      "modId": "windows-11-start-menu-styler",
+      "version": "1.7",
+      "name": "Windows 11 Start Menu Styler",
+      "settings": {
+        "theme": "LiquidGlass2",
+        "disableNewStartMenuLayout": "",
+        "styleConstants[0]": "",
+        "controlStyles[0].target": "",
+        "controlStyles[0].styles[0]": "",
+        "themeResourceVariables[0]": "",
+        "webContentStyles[0].target": "",
+        "webContentStyles[0].styles[0]": "",
+        "webContentCustomJs": ""
+      }
+    },
+    {
+      "modId": "windows-11-taskbar-styler",
+      "version": "1.9",
+      "name": "Windows 11 Taskbar Styler",
+      "settings": {
+        "theme": "Luminosity_variant_Dock",
+        "styleConstants[0]": "",
+        "controlStyles[0].target": "",
+        "controlStyles[0].styles[0]": "",
+        "themeResourceVariables[0]": "",
+        "clickThroughTaskbar": 0,
+        "xamlDiagnosticsHandling": "alert"
+      }
+    }
+  ]
+}
