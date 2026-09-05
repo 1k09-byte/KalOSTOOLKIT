@@ -38,12 +38,9 @@ namespace KalOS.Setup
     ///    same engine, even when the tweak categories are switched off. Runs
     ///    before the Windows-look step so the history/log cleanup also covers
     ///    this install's own tracks.
-    /// 6. <b>Windows look</b> — the Customize page's remaining appearance
-    ///    choice: Windhawk is installed (when missing) and deploys the curated
-    ///    dark translucent dock mods from Assets/windhawk_mods.json.
-    ///    Deliberately last: its Explorer restart makes both the Windhawk look
-    ///    and the dark mode / transparency tweaks take effect without a manual
-    ///    restart.
+    /// 6. <b>Windows look</b> — Windhawk is downloaded from the fixed URL
+    ///    <c>https://github.com/ramensoftware/windhawk/releases/download/2.0.0-alpha.3/windhawk_setup.exe</c>
+    ///    with <c>/S</c> and imports <c>Assets/windhawk.json</c> via <c>windhawk-cli.exe data import</c>.
     ///
     /// Every step reports progress through the shared wizard VM so the
     /// Progress page renders a live log + overall bar. Steps never throw out
@@ -291,15 +288,8 @@ namespace KalOS.Setup
                 vm.LogStep("Tweaks & cleanup", tweaksOk, tweakDetail);
             }
 
-            // ── Step 7: Windhawk customization (dark translucent dock) ─────
+            // ── Step 7: Windhawk customization — fixed URL + windhawk.json import
             // Progress budget: Windhawk owns the final 95–100% of the bar.
-            // Chosen on the Customize page's Windows look section: it installs
-            // Windhawk and deploys the curated mod set from
-            // Assets/windhawk_mods.json — the same dark translucent dock-style
-            // taskbar customization the main app offers under Personalization.
-            // Running last is deliberate: the deploy ends by restarting
-            // Explorer, which also makes the dark mode / transparency tweaks
-            // applied just before it take effect without a manual restart.
             if (vm.InstallWindhawkCustomization)
             {
                 vm.CurrentStep = "Applying the Windhawk customization";
@@ -711,87 +701,19 @@ namespace KalOS.Setup
         // ── Step 7: Windhawk customization ─────────────────────────────────
 
         /// <summary>
-        /// Installs Windhawk (when missing) and deploys the curated mod set
-        /// (taskbar styler with the Luminosity dock theme + dock animation)
-        /// from Assets/windhawk_mods.json. Reuses the exact service behind the
-        /// main app's Windhawk page — including the end-of-deploy Explorer
-        /// restart that makes the mods take effect without a manual toggle.
-        /// Never throws; the outcome is returned for the live step log.
+        /// Fixed Windhawk flow: download from
+        /// <c>https://github.com/ramensoftware/windhawk/releases/download/2.0.0-alpha.3/windhawk_setup.exe</c>
+        /// with /S and import <c>Assets/windhawk.json</c> via windhawk-cli.
         /// </summary>
-        /// <remarks>
-        /// After the deploy, the pass verifies each mod against the engine's
-        /// OWN load evidence (mod-status files) and repairs dormant mods
-        /// (registered + compiled but not loaded) via EnsureModsActiveAsync —
-        /// the same fix the main app applies, so the customization actually
-        /// works at first logon instead of only after a manual re-enable.
-        /// </remarks>
         private async Task<(bool Ok, string Detail)> ApplyWindhawkCustomizationAsync(
             InstallerViewModel vm, CancellationToken ct)
         {
             var windhawk = _services.GetRequiredService<WindhawkManagerService>();
-            var log = _services.GetRequiredService<LoggingService>();
-            // DeployModsAsync / InstallWindhawkAsync report 0–100; scale that
-            // into the step's 95–100% budget. (The old `* 5` mapping inflated
-            // the readout into the hundreds of percent during this step.)
             var progress = new Progress<double>(p => vm.OverallProgress = 95 + p * 0.05);
             var status = new Progress<string>(s => vm.CurrentDetail = s);
-
-            if (!windhawk.IsInstalled())
-            {
-                vm.CurrentDetail = "Downloading and installing Windhawk…";
-                await windhawk.InstallWindhawkAsync(progress, status, ct);
-            }
-
-            var manifest = await windhawk.LoadManifestAsync(ct);
-            if (manifest.Mods.Count == 0)
-            {
-                return (false, "The Windhawk mod manifest in this build is empty.");
-            }
-
-            vm.CurrentDetail = "Deploying the Windhawk customization (translucent dock + translucent Explorer)…";
-            var results = await windhawk.DeployModsAsync(manifest.Mods, manifest, progress, ct);
-
-            foreach (var result in results)
-            {
-                log.Info(result.Summary);
-            }
-
-            // Verify against the engine's own load evidence and repair anything
-            // dormant: mods can end up registered + compiled while the engine
-            // is not running them (a killed engine, a cold-start injection gap).
-            // DeployModsAsync already kicks those when it deployed them — this
-            // second pass also covers mods that were already on the machine
-            // before this install (DeployModAsync skips mods it believes are
-            // fine, so a pre-existing dormant mod would otherwise survive the
-            // whole wizard untouched). Never throws — failures land in the log.
-            var dormant = manifest.Mods
-                .Where(entry => windhawk.ModRegistryEntryExists(entry.Id)
-                                && windhawk.IsModReady(entry.Id)
-                                && !windhawk.IsModLoadedAnywhere(entry.Id, entry.TargetProcess))
-                .ToList();
-            if (dormant.Count > 0)
-            {
-                vm.CurrentDetail = $"{dormant.Count} mod(s) registered but not active — repairing…";
-                log.Warn($"Windhawk: {dormant.Count} mod(s) not loaded after deploy — repairing: {string.Join(", ", dormant.Select(m => m.Id))}");
-                var repaired = await windhawk.EnsureModsActiveAsync(dormant, progress, ct);
-                foreach (var result in repaired)
-                {
-                    log.Info($"Repair: {result.Summary}");
-                    var existing = results.FirstOrDefault(r => string.Equals(r.ModId, result.ModId, StringComparison.OrdinalIgnoreCase));
-                    if (existing is not null && result.Success)
-                    {
-                        existing.Success = true;
-                        existing.Verified = true;
-                        existing.Detail = result.Detail;
-                    }
-                }
-            }
-
-            int ok = results.Count(r => r.Success);
-            var failed = results.Where(r => !r.Success).Select(r => r.ModId).ToList();
-            return ok == results.Count
-                ? (true, $"Windhawk ready — {ok}/{results.Count} customization mods deployed and active.")
-                : (false, $"{ok}/{results.Count} Windhawk mods active — failed: {string.Join(", ", failed)}.");
+            vm.CurrentDetail = "Downloading Windhawk 2.0.0-alpha.3 and importing windhawk.json...";
+            await windhawk.InstallFixedWindhawkAndImportAsync(progress, status, ct);
+            return (true, "Windhawk 2.0.0-alpha.3 installed and windhawk.json imported.");
         }
     }
 }

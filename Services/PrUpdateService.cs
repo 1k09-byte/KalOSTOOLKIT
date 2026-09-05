@@ -478,7 +478,7 @@ public sealed class PrUpdateService
         string logPath = Path.Combine(logDir, "pr-rebuild.log");
         string scriptPath = Path.Combine(logDir, "rebuild-and-relaunch.ps1");
 
-        static string Q(string s) => "'" + s.Replace("'", "''") + "'";
+        static string Q(string? s) => "'" + (s ?? "").Replace("'", "''") + "'";
         File.WriteAllText(scriptPath, $@"
 $ErrorActionPreference = 'Continue'
 $log = {Q(logPath)}
