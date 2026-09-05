@@ -6,15 +6,15 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using KalOS.Models;
-using KalOS.Services;
+using KaliteKit.Models;
+using KaliteKit.Services;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace KalOS.Setup.ViewModels
+namespace KaliteKit.Setup.ViewModels
 {
     /// <summary>
     /// The single wizard state object every page binds to. Holds the user's
-    /// selections (which KalOS version to deploy, which GPU/driver, which
+    /// selections (which KaliteKit version to deploy, which GPU/driver, which
     /// software) and the live progress the Progress page renders.
     /// </summary>
     public partial class InstallerViewModel : ObservableObject
@@ -35,7 +35,7 @@ namespace KalOS.Setup.ViewModels
         /// <summary>
         /// Opt-out for the GPU driver step. When true the wizard skips driver
         /// detection, downloads, and installs entirely — the pipeline only
-        /// deploys KalOS and the selected software.
+        /// deploys KaliteKit and the selected software.
         /// </summary>
         [ObservableProperty] private bool _skipGpuDrivers;
 
@@ -134,112 +134,6 @@ namespace KalOS.Setup.ViewModels
         public IEnumerable<SoftwarePick> AllPicks =>
             BrowserPicks.Concat(AppPicks).Concat(RuntimePicks);
 
-        // ── Tweaks & cleanup (Tweaks page) ────────────────────────────────
-        // Native re-implementation of the privacy.sexy scripts: the catalog is
-        // generated from the .bat files by tools/generate_tweaks.py and every
-        // tweak runs through TweaksService (registry via Microsoft.Win32, files
-        // via System.IO, DISM/schtasks/wevtutil via the built-in tools). All
-        // categories default to ON so a default run matches what the scripts
-        // did; uncheck any bucket to keep that part untouched.
-
-        /// <summary>Master switch on the Tweaks page — when off the privacy /
-        /// cleanup categories below don't run (the Customize page's Windows look
-        /// choices are independent of it).</summary>
-        [ObservableProperty] private bool _applyTweaks = true;
-
-        [ObservableProperty] private bool _tweakApps = true;
-        [ObservableProperty] private bool _tweakFeatures = true;
-        [ObservableProperty] private bool _tweakPrivacy = true;
-        [ObservableProperty] private bool _tweakServices = true;
-        [ObservableProperty] private bool _tweakHistory = true;
-        [ObservableProperty] private bool _tweakLogs = true;
-
-        public string TweakAppsLabel => "Remove preinstalled apps";
-        public string TweakFeaturesLabel => "Disable features & remove capabilities";
-        public string TweakPrivacyLabel => "Privacy & telemetry";
-        public string TweakServicesLabel => "Disable services & scheduled tasks";
-        public string TweakHistoryLabel => "Clear recent history & activity";
-        public string TweakLogsLabel => "Clear logs, temp & shadow copies";
-
-        // A category only shows on the tweaks page once it actually has tweaks,
-        // so the page never lists an empty checkbox group. The whole "What to
-        // apply" card collapses when nothing is configured yet.
-        private bool GroupVisible(params TweakGroup[] groups) =>
-            groups.Any(g => TweaksService.All.Any(t => t.Group == g));
-
-        public bool TweakAppsVisible => GroupVisible(TweakGroup.Apps);
-        public bool TweakFeaturesVisible => GroupVisible(TweakGroup.Features, TweakGroup.Capabilities);
-        public bool TweakPrivacyVisible => GroupVisible(TweakGroup.Privacy);
-        public bool TweakServicesVisible => GroupVisible(TweakGroup.Services, TweakGroup.Tasks);
-        public bool TweakHistoryVisible => GroupVisible(TweakGroup.History);
-        public bool TweakLogsVisible => GroupVisible(TweakGroup.Logs);
-
-        public bool AnyTweakCategoryVisible =>
-            TweakAppsVisible || TweakFeaturesVisible || TweakPrivacyVisible
-            || TweakServicesVisible || TweakHistoryVisible || TweakLogsVisible;
-
-        public bool NoTweakCategoriesVisible => !AnyTweakCategoryVisible;
-
-        public string TweakSubtitle =>
-            "Run your privacy tweaks, app removals and cleanup natively after the install. Every category is on by default — uncheck anything you want to keep.";
-
-        /// <summary>
-        /// The tweak groups the pipeline will run, in a sensible order. The
-        /// six privacy / cleanup categories are gated by the Tweaks page's
-        /// master switch; the dark mode &amp; transparency defaults (a
-        /// Personalization group) are chosen on the Customize page and are
-        /// independent of that switch.
-        /// </summary>
-        public IReadOnlyList<TweakGroup> SelectedTweakGroups
-        {
-            get
-            {
-                var groups = new List<TweakGroup>();
-                if (ApplyTweaks)
-                {
-                    if (TweakApps) groups.Add(TweakGroup.Apps);
-                    if (TweakFeatures)
-                    {
-                        groups.Add(TweakGroup.Features);
-                        groups.Add(TweakGroup.Capabilities);
-                    }
-                    if (TweakPrivacy) groups.Add(TweakGroup.Privacy);
-                    if (TweakServices)
-                    {
-                        groups.Add(TweakGroup.Services);
-                        groups.Add(TweakGroup.Tasks);
-                    }
-                    if (TweakHistory) groups.Add(TweakGroup.History);
-                    if (TweakLogs) groups.Add(TweakGroup.Logs);
-                }
-                if (TweakPersonalization) groups.Add(TweakGroup.Personalization);
-                return groups;
-            }
-        }
-
-        // ── Windows look (Customize page) ─────────────────────────────────
-        // The Customize step's appearance choices for Windows itself. Both are
-        // applied at the very end of the install — deliberately after the
-        // tweaks/cleanup step, because the Windhawk deploy's Explorer restart
-        // makes the whole look (dark mode included) take effect without a
-        // manual reboot.
-
-        /// <summary>
-        /// Dark mode &amp; transparency effects for Windows. Runs through the
-        /// same native tweak engine as the catalog (it is a
-        /// TweakGroup.Personalization group — see TweaksService), but it is
-        /// chosen on the Customize page, and is independent of the Tweaks
-        /// page's master switch since it is a look choice, not a tweak.
-        /// </summary>
-        [ObservableProperty] private bool _tweakPersonalization = true;
-
-        public string TweakPersonalizationLabel => "Dark mode & transparency effects";
-
-        /// <summary>
-        /// When on, the pipeline downloads Windhawk from the fixed URL and imports
-        /// <c>Assets/windhawk.json</c> via windhawk-cli.exe.
-        /// </summary>
-        [ObservableProperty] private bool _installWindhawkCustomization = true;
 
         // ── Customization (Customize page) ────────────────────────────────
 
@@ -401,9 +295,9 @@ namespace KalOS.Setup.ViewModels
             BackgroundTouched = true;
         }
 
-        // ── KalOS release resolution ──────────────────────────────────────
+        // ── KaliteKit release resolution ──────────────────────────────────────
 
-        [ObservableProperty] private string _kalosReleaseInfo = "Resolving latest release…";
+        [ObservableProperty] private string _kaliteKitReleaseInfo = "Resolving latest release…";
         public GitHubReleaseInfo? ResolvedRelease { get; private set; }
 
         // ── Progress (Progress page) ───────────────────────────────────────
@@ -538,13 +432,19 @@ namespace KalOS.Setup.ViewModels
             BrowserPicks.Clear(); AppPicks.Clear(); RuntimePicks.Clear();
             BrowserPicks.AddRange(SoftwareCatalog.Browsers.Select(e => new SoftwarePick { Entry = e }));
             AppPicks.AddRange(SoftwareCatalog.Apps.Select(e => new SoftwarePick { Entry = e }));
-            // Pre-select the common runtimes (latest VC++ x64, .NET 8) so the user
-            // gets a working baseline without expanding every group.
+            // The consumer app's embedded wizard pre-selects the common
+            // runtimes (latest VC++ x64, .NET 8) as a working baseline. The
+            // standalone offline installer leaves everything unchecked so an
+            // unmodified run installs only the bundled KaliteKit and never needs
+            // the network — software is an explicit choice there.
             foreach (var pick in SoftwareCatalog.Runtimes.Select(e => new SoftwarePick { Entry = e }))
             {
-                pick.IsSelected =
-                    pick.Entry.Name == "Visual C++ 2015-2022 (x64)" ||
-                    pick.Entry.Name == ".NET 8.0 Desktop Runtime";
+                if (SetupState.Embedded)
+                {
+                    pick.IsSelected =
+                        pick.Entry.Name == "Visual C++ 2015-2022 (x64)" ||
+                        pick.Entry.Name == ".NET 8.0 Desktop Runtime";
+                }
                 RuntimePicks.Add(pick);
             }
 
@@ -559,9 +459,9 @@ namespace KalOS.Setup.ViewModels
         {
             var client = _services.GetRequiredService<GitHubReleaseClient>();
             ResolvedRelease = await client.GetLatestReleaseAsync(ct);
-            KalosReleaseInfo = ResolvedRelease is null
-                ? "Could not reach GitHub. KalOS install will use the script fallback."
-                : $"KalOS {ResolvedRelease.Version} ({ResolvedRelease.Tag})";
+            KaliteKitReleaseInfo = ResolvedRelease is null
+                ? "Could not reach GitHub. KaliteKit install will use the script fallback."
+                : $"KaliteKit {ResolvedRelease.Version} ({ResolvedRelease.Tag})";
         }
 
         /// <summary>

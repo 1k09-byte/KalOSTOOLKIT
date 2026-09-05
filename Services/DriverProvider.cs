@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using KalOS.Models;
+using KaliteKit.Models;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>
     /// A vendor backend that knows how to find the latest driver for a GPU.

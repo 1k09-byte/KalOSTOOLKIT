@@ -2,7 +2,7 @@
 using System.Diagnostics;
 using System.Threading.Tasks;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     public class ProcessManager
     {

@@ -1,6 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace KalOS.ViewModels;
+namespace KaliteKit.ViewModels;
 
 /// <summary>
 /// One row in the import-preview dialog: the imported value, what the live machine

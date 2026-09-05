@@ -1,10 +1,10 @@
 using System.Linq;
-using KalOS.Setup.ViewModels;
+using KaliteKit.Setup.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 
-namespace KalOS.Setup.Views
+namespace KaliteKit.Setup.Views
 {
     /// <summary>
     /// Step 6 — the final page. Shows the overall result and a per-step list,

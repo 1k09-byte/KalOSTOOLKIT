@@ -2,15 +2,15 @@ using System;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
-using KalOS.Helpers;
+using KaliteKit.Helpers;
 using Microsoft.UI.Dispatching;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>Persisted behavior toggles (app-behavior.json).</summary>
     public sealed class BehaviorConfig
     {
-        /// <summary>When true, closing the window (X) hides KalOS to the system tray instead of exiting.</summary>
+        /// <summary>When true, closing the window (X) hides KaliteKit to the system tray instead of exiting.</summary>
         public bool RunInBackground { get; set; } = TrayIconService.DefaultRunInBackground;
     }
 
@@ -104,7 +104,7 @@ namespace KalOS.Services
         {
             if (_trayAdded) return;
 
-            ShowTrayIcon("KalOS — running in background (double-click to restore)");
+            ShowTrayIcon("KaliteKit — running in background (double-click to restore)");
             ShowWindow(_hwnd, SW_HIDE);
         }
 
@@ -127,7 +127,7 @@ namespace KalOS.Services
             try
             {
                 Directory.CreateDirectory(Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KalOS", "Configs"));
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KaliteKit", "Configs"));
                 await JsonConfigHelper.SaveAsync(ConfigFile, _config);
             }
             catch { /* config write failures must not break the toggle */ }
@@ -174,7 +174,7 @@ namespace KalOS.Services
             {
                 // Explorer restarted → re-add the icon.
                 RemoveTrayIcon();
-                ShowTrayIcon("KalOS — running in background (double-click to restore)");
+                ShowTrayIcon("KaliteKit — running in background (double-click to restore)");
                 return DefWindowProc(hwnd, msg, wParam, lParam);
             }
 
@@ -237,7 +237,7 @@ namespace KalOS.Services
 
             try
             {
-                AppendMenu(menu, MF_STRING, (UIntPtr)MenuCmdOpen, "Open KalOS");
+                AppendMenu(menu, MF_STRING, (UIntPtr)MenuCmdOpen, "Open KaliteKit");
                 AppendMenu(menu, MF_SEPARATOR, UIntPtr.Zero, null);
                 AppendMenu(menu, MF_STRING, (UIntPtr)MenuCmdExit, "Exit");
 

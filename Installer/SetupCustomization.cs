@@ -1,28 +1,28 @@
 using System;
 using System.IO;
 using System.Text.Json;
-using KalOS.Setup.ViewModels;
+using KaliteKit.Setup.ViewModels;
 
-namespace KalOS.Setup
+namespace KaliteKit.Setup
 {
     /// <summary>
     /// Writes the Customize page's choices into the installed consumer app's
-    /// data folder so KalOS opens already personalized:
+    /// data folder so KaliteKit opens already personalized:
     ///
-    ///   %LOCALAPPDATA%\KalOS\Configs\app-backdrop.json → tint color
-    ///   %LOCALAPPDATA%\KalOS\settings.json             → background image
+    ///   %LOCALAPPDATA%\KaliteKit\Configs\app-backdrop.json → tint color
+    ///   %LOCALAPPDATA%\KaliteKit\settings.json             → background image
     ///
     /// Both paths are hard-coded to the consumer app's home. The installer
     /// never compiles with CONSUMER_BUILD, so <c>UpdateService.AppDataFolder</c>
-    /// would resolve to the dev folder (KalOS-Dev) — wrong target here.
+    /// would resolve to the dev folder (KaliteKit-Dev) — wrong target here.
     /// </summary>
     public static class SetupCustomization
     {
-        private static string KalosDataDir =>
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KalOS");
+        private static string KaliteKitDataDir =>
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KaliteKit");
 
-        private static string BackdropConfigPath => Path.Combine(KalosDataDir, "Configs", "app-backdrop.json");
-        private static string SettingsPath => Path.Combine(KalosDataDir, "settings.json");
+        private static string BackdropConfigPath => Path.Combine(KaliteKitDataDir, "Configs", "app-backdrop.json");
+        private static string SettingsPath => Path.Combine(KaliteKitDataDir, "settings.json");
 
         /// <summary>
         /// Applies the tint + background image the user picked. Never throws —
@@ -58,13 +58,13 @@ namespace KalOS.Setup
                         string ext = Path.GetExtension(vm.BackgroundImagePath);
                         if (string.IsNullOrEmpty(ext)) ext = ".png";
 
-                        string bgDir = Path.Combine(KalosDataDir, "Backgrounds");
+                        string bgDir = Path.Combine(KaliteKitDataDir, "Backgrounds");
                         Directory.CreateDirectory(bgDir);
                         string dest = Path.Combine(bgDir, "background" + ext.ToLowerInvariant());
                         File.Copy(vm.BackgroundImagePath, dest, overwrite: true);
 
                         settings.BackgroundImagePath = dest;
-                        actions.Add("background image copied to KalOS's data folder");
+                        actions.Add("background image copied to KaliteKit's data folder");
                     }
                     else
                     {

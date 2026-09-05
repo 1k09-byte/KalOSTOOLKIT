@@ -1,4 +1,4 @@
-namespace KalOS.Setup.ViewModels
+namespace KaliteKit.Setup.ViewModels
 {
     /// <summary>
     /// One completed or failed step in the wizard's install log, shown in the

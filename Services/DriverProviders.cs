@@ -5,9 +5,9 @@ using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using KalOS.Models;
+using KaliteKit.Models;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>
     /// Shared <see cref="HttpClient"/> and small response helpers for the
@@ -22,7 +22,7 @@ namespace KalOS.Services
         {
             var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = true, AutomaticDecompression = System.Net.DecompressionMethods.All });
             client.Timeout = TimeSpan.FromSeconds(20);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("KalOS/1.1 (gpu-driver-check)");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("KaliteKit/1.1 (gpu-driver-check)");
             return client;
         }
 

@@ -1,7 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using System.Collections.ObjectModel;
 
-namespace KalOS.ViewModels
+namespace KaliteKit.ViewModels
 {
     public partial class CpuThreadInfo : ObservableObject
     {

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace KalOS.Models.ProcessControl;
+namespace KaliteKit.Models.ProcessControl;
 
 /// <summary>
 /// Single lookup table mapping internal feature identifiers to display names.

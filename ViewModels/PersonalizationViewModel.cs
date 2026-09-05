@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
-using KalOS.Models;
-using KalOS.Services;
+using KaliteKit.Models;
+using KaliteKit.Services;
 
-namespace KalOS.ViewModels
+namespace KaliteKit.ViewModels
 {
     /// <summary>
     /// Backs the Personalization page's Tint Color section: the preset palette

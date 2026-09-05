@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 using System.Security.Principal;
 using Microsoft.Win32;
 
-namespace KalOS.Services;
+namespace KaliteKit.Services;
 
 /// <summary>
 /// Minimal Windhawk manager — fixed URL + windhawk.json import only.
@@ -88,7 +88,7 @@ public sealed class WindhawkManagerService
         };
         string? jsonSource = jsonCandidates.FirstOrDefault(File.Exists);
         if (jsonSource == null)
-            throw new FileNotFoundException("Assets/windhawk.json not found. Ensure KalOS.csproj includes it as Content.");
+            throw new FileNotFoundException("Assets/windhawk.json not found. Ensure KaliteKit.csproj includes it as Content.");
 
         string tempJsonPath = Path.Combine(Path.GetTempPath(), $"windhawk_{Guid.NewGuid():N}.json");
         try
@@ -272,7 +272,7 @@ public sealed class WindhawkManagerService
     {
         var handler = new HttpClientHandler { AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate };
         var client = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(5) };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("KalOS/1.0 (+windhawk)");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("KaliteKit/1.0 (+windhawk)");
         return client;
     }
 

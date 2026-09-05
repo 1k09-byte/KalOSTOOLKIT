@@ -5,7 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Win32;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>
     /// Multi-package-manager install/uninstall service.

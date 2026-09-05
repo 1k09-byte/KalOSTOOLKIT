@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>
     /// Compares the driver version WMI reports against the marketing version a

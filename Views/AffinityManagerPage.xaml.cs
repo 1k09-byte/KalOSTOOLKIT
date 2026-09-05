@@ -2,10 +2,10 @@
 using System.Collections.Generic;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Extensions.DependencyInjection;
-using KalOS.ViewModels;
+using KaliteKit.ViewModels;
 using Microsoft.UI.Xaml;
 
-namespace KalOS.Views
+namespace KaliteKit.Views
 {
     public sealed partial class AffinityManagerPage : Page
     {

@@ -1,7 +1,7 @@
 ﻿using System;
 using Microsoft.UI.Xaml.Data;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>
     /// Returns the input string if it is not null or whitespace; otherwise returns null.

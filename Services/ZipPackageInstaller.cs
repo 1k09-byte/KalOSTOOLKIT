@@ -6,7 +6,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Threading;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>Outcome of a zip-package install. Errors mean the install did not happen.</summary>
     public sealed record ZipInstallResult(
@@ -18,12 +18,12 @@ namespace KalOS.Services
 
     /// <summary>
     /// Installs a zip payload into a target directory the way
-    /// <c>install-kalos.ps1</c> does, but natively and with hard guards:
+    /// <c>install-kalitekit.ps1</c> does, but natively and with hard guards:
     ///
     /// 1. Extract to a staging folder next to the target (zip-slip guarded).
-    /// 2. Validate the required-file checklist (KalOS.exe, hostfxr, hostpolicy,
+    /// 2. Validate the required-file checklist (KaliteKit.exe, hostfxr, hostpolicy,
     ///    coreclr, HardwareMonitorWorker) — an incomplete package never lands.
-    /// 3. Stop any running KalOS.exe so the wipe-and-copy cannot race a live app.
+    /// 3. Stop any running KaliteKit.exe so the wipe-and-copy cannot race a live app.
     /// 4. Wipe the target, copy the staged tree in, remove staging.
     ///
     /// The app zip carries <c>HardwareMonitorWorker.exe</c> under
@@ -32,20 +32,20 @@ namespace KalOS.Services
     /// </summary>
     public static class ZipPackageInstaller
     {
-        /// <summary>Files that must exist inside the package for it to be a KalOS consumer payload.</summary>
+        /// <summary>Files that must exist inside the package for it to be a KaliteKit consumer payload.</summary>
         public static readonly string[] RequiredFiles =
         {
-            "KalOS.exe",
+            "KaliteKit.exe",
             "hostfxr.dll",
             "hostpolicy.dll",
             "coreclr.dll",
             "HardwareMonitorWorker.exe",
         };
 
-        /// <summary>Default install location, identical to install-kalos.ps1.</summary>
+        /// <summary>Default install location, identical to install-kalitekit.ps1.</summary>
         public static string DefaultInstallDir => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Programs", "KalOS");
+            "Programs", "KaliteKit");
 
         /// <summary>
         /// Full install pipeline. Throws only on programming errors; every
@@ -175,13 +175,13 @@ namespace KalOS.Services
             }
         }
 
-        /// <summary>File version of KalOS.exe in a staged/installed tree; null when unreadable.</summary>
+        /// <summary>File version of KaliteKit.exe in a staged/installed tree; null when unreadable.</summary>
         public static string? TryGetStagedVersion(string rootDir)
         {
             try
             {
                 string? exe = Directory
-                    .EnumerateFiles(rootDir, "KalOS.exe", SearchOption.AllDirectories)
+                    .EnumerateFiles(rootDir, "KaliteKit.exe", SearchOption.AllDirectories)
                     .FirstOrDefault();
                 if (exe is null) return null;
 
@@ -194,12 +194,12 @@ namespace KalOS.Services
             }
         }
 
-        /// <summary>Version of an already-installed KalOS (for the Welcome page); null when absent.</summary>
+        /// <summary>Version of an already-installed KaliteKit (for the Welcome page); null when absent.</summary>
         public static string? GetInstalledVersion(string installDir)
         {
             try
             {
-                string exe = Path.Combine(installDir, "KalOS.exe");
+                string exe = Path.Combine(installDir, "KaliteKit.exe");
                 if (!File.Exists(exe)) return null;
                 var info = FileVersionInfo.GetVersionInfo(exe);
                 return string.IsNullOrWhiteSpace(info.FileVersion) ? null : info.FileVersion;
@@ -211,32 +211,32 @@ namespace KalOS.Services
         }
 
         /// <summary>
-        /// Stops running KalOS instances so the wipe-and-copy cannot race a live
-        /// app (install-kalos.ps1 simply fails in that case; the wizard prefers
+        /// Stops running KaliteKit instances so the wipe-and-copy cannot race a live
+        /// app (install-kalitekit.ps1 simply fails in that case; the wizard prefers
         /// to resolve it). Best-effort, reports what it did.
         /// </summary>
         private static void StopRunningApp(string installDir, List<string> warnings, Action<string>? status)
         {
             try
             {
-                var running = Process.GetProcessesByName("KalOS")
+                var running = Process.GetProcessesByName("KaliteKit")
                     .Where(p => !string.Equals(Environment.ProcessPath, p.MainModule?.FileName, StringComparison.OrdinalIgnoreCase))
                     .ToArray();
 
                 if (running.Length == 0) return;
 
-                status?.Invoke("Stopping the running KalOS app…");
+                status?.Invoke("Stopping the running KaliteKit app…");
                 foreach (Process process in running)
                 {
                     try
                     {
                         process.Kill(entireProcessTree: true);
                         process.WaitForExit(5000);
-                        warnings.Add("A running KalOS instance was stopped to allow the update.");
+                        warnings.Add("A running KaliteKit instance was stopped to allow the update.");
                     }
                     catch (Exception ex)
                     {
-                        warnings.Add($"Could not stop a running KalOS instance: {ex.Message}");
+                        warnings.Add($"Could not stop a running KaliteKit instance: {ex.Message}");
                     }
                     finally
                     {

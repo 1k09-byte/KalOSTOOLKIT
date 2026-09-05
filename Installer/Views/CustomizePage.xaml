@@ -1,10 +1,10 @@
 <local:WizardPage
-    x:Class="KalOS.Setup.Views.CustomizePage"
+    x:Class="KaliteKit.Setup.Views.CustomizePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:KalOS.Setup.Views"
-    xmlns:vm="using:KalOS.Setup.ViewModels"
-    xmlns:models="using:KalOS.Models">
+    xmlns:local="using:KaliteKit.Setup.Views"
+    xmlns:vm="using:KaliteKit.Setup.ViewModels"
+    xmlns:models="using:KaliteKit.Models">
 
     <Page.Resources>
         <Style x:Key="TintItemContainerStyle" TargetType="GridViewItem">
@@ -27,7 +27,7 @@
             <TextBlock Text="CUSTOMIZE" Style="{StaticResource ShellCaption}"/>
             <TextBlock Text="Customize" Style="{StaticResource PageTitle}"/>
             <TextBlock Style="{StaticResource PageSubtitle}"
-                       Text="Pick how your machine looks when the install finishes: KalOS's background image and window tint, plus the Windows appearance (dark mode and a dock-style translucent taskbar) this setup applies for you."/>
+                       Text="Pick how your machine looks when the install finishes: KaliteKit's background image and window tint, plus the Windows appearance (dark mode and a dock-style translucent taskbar) this setup applies for you."/>
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,4,0">
@@ -45,7 +45,7 @@
                             <StackPanel Spacing="3">
                                 <TextBlock Text="Background image" Style="{StaticResource CardHeader}"/>
                                 <TextBlock Style="{StaticResource CardSubtitle}"
-                                           Text="A picture KalOS shows behind its window. The file is copied into KalOS's data folder, so it stays even if you move or delete the original."/>
+                                           Text="A picture KaliteKit shows behind its window. The file is copied into KaliteKit's data folder, so it stays even if you move or delete the original."/>
                                 <TextBlock Text="{x:Bind Wizard.BackgroundImageFileName, Mode=OneWay}"
                                            Style="{StaticResource CaptionText}" Margin="0,6,0,0"
                                            Visibility="{x:Bind Wizard.HasBackgroundImage, Mode=OneWay, Converter={StaticResource BoolToVis}}"/>
@@ -71,7 +71,7 @@
                             <StackPanel Spacing="3">
                                 <TextBlock Text="Window tint" Style="{StaticResource CardHeader}"/>
                                 <TextBlock Style="{StaticResource CardSubtitle}"
-                                           Text="Add tint to KalOS's window, or keep the standard look with Default."/>
+                                           Text="Add tint to KaliteKit's window, or keep the standard look with Default."/>
                             </StackPanel>
                             <Button Grid.Column="1" x:Name="CustomTintButton" Padding="10,6"
                                     Click="CustomTintButton_Click" VerticalAlignment="Center"
@@ -131,29 +131,6 @@
                     </GridView>
                 </StackPanel>
 
-                <!-- Windows look: OS-level appearance, applied at the very end of the install -->
-                <StackPanel Spacing="8">
-                    <TextBlock Text="Windows Look" Style="{StaticResource SectionHeader}"/>
-                    <Border Style="{StaticResource CardStyle}">
-                        <StackPanel Spacing="10">
-                            <CheckBox Content="{x:Bind Wizard.TweakPersonalizationLabel, Mode=OneWay}"
-                                      IsChecked="{x:Bind Wizard.TweakPersonalization, Mode=TwoWay}"/>
-                            <TextBlock Style="{StaticResource CardSubtitle}"
-                                       Text="Switches Windows (apps and system) to dark mode and enables transparency effects so the tint and the translucent dock look right. Applied near the very end of the install — after tweaks &amp; cleanup."/>
-                        </StackPanel>
-                    </Border>
-                    <Border Style="{StaticResource CardStyle}">
-                        <StackPanel Spacing="10">
-                            <CheckBox Content="Apply the Windhawk customization (translucent dock + translucent Explorer)"
-                                      IsChecked="{x:Bind Wizard.InstallWindhawkCustomization, Mode=TwoWay}"/>
-                            <TextBlock Style="{StaticResource CardSubtitle}"
-                                       Text="Installs Windhawk and applies the curated mods (Windows 11 Taskbar Styler with the Luminosity dock theme, dock animation, and translucent File Explorer windows). This downloads Windhawk, and briefly restarts Explorer so the new look takes effect — the same customization the KalOS app offers under Personalization."/>
-                        </StackPanel>
-                    </Border>
-                    <InfoBar IsOpen="True" Severity="Informational" IsClosable="False"
-                             Title="Applied at the very end of the install"
-                             Message="Your Windows look choices run last: dark mode &amp; transparency, then the Windhawk dock — whose final Explorer restart makes the whole look take effect without a manual restart."/>
-                </StackPanel>
             </StackPanel>
         </ScrollViewer>
     </Grid>

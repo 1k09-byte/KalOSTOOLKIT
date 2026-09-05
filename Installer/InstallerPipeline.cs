@@ -5,20 +5,23 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using KalOS.Models;
-using KalOS.Services;
-using KalOS.Setup.ViewModels;
+using KaliteKit.Models;
+using KaliteKit.Services;
+using KaliteKit.Setup.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace KalOS.Setup
+namespace KaliteKit.Setup
 {
     /// <summary>
     /// Orchestrates the full wizard install run, end to end:
     ///
-    /// 1. <b>KalOS consumer deploy</b> — the native path (resolve latest
-    ///    release → download → validate → wipe-and-copy → shortcuts → taskbar
-    ///    pin) with an automatic fallback to <c>install-kalos.ps1</c> when the
-    ///    native deploy cannot reach GitHub or the package fails validation.
+    /// 1. <b>KaliteKit consumer deploy</b> — in the standalone installer, KaliteKit
+    ///    rides INSIDE the exe (embedded payload, see <see cref="BundledPayload"/>)
+    ///    and is installed offline: extract → validate → wipe-and-copy →
+    ///    shortcuts → taskbar pin, no network anywhere. The embedded first-run
+    ///    wizard inside the consumer app keeps the legacy native path (resolve
+    ///    latest release → download → validate → wipe-and-copy) with its
+    ///    <c>install-kalitekit.ps1</c> fallback.
     /// 2. <b>Customization</b> — writes the Customize page's tint + background
     ///    image into the installed app's data folder.
     /// 3. <b>GPU driver update</b> — reuses <see cref="DriverService.UpdateAsync"/>,
@@ -30,17 +33,8 @@ namespace KalOS.Setup
     /// 4. <b>Software install</b> — reuses <see cref="PackageManagerService"/>,
     ///    chaining winget → Chocolatey → Scoop → direct download (mirroring
     ///    <c>BrowserViewModel</c>'s fallback ladder).
-    /// 5. <b>Tweaks &amp; cleanup</b> — runs the native <see cref="TweaksService"/>
-    ///    catalog (generated from the privacy.sexy scripts) for every privacy /
-    ///    cleanup category the user left checked on the Tweaks page. Also
-    ///    applies the dark mode / transparency defaults chosen on the Customize
-    ///    page — they are a Personalization catalog group and ride through the
-    ///    same engine, even when the tweak categories are switched off. Runs
-    ///    before the Windows-look step so the history/log cleanup also covers
-    ///    this install's own tracks.
-    /// 6. <b>Windows look</b> — Windhawk is downloaded from the fixed URL
-    ///    <c>https://github.com/ramensoftware/windhawk/releases/download/2.0.0-alpha.3/windhawk_setup.exe</c>
-    ///    with <c>/S</c> and imports <c>Assets/windhawk.json</c> via <c>windhawk-cli.exe data import</c>.
+    /// 5. <b>Forced privacy extensions</b> on the selected browsers (via browser
+    ///    policy) — the one OS-side policy tweak the installer still applies.
     ///
     /// Every step reports progress through the shared wizard VM so the
     /// Progress page renders a live log + overall bar. Steps never throw out
@@ -57,13 +51,13 @@ namespace KalOS.Setup
         {
             var ct = CancellationToken.None; // the wizard's Cancel closes the process
 
-            // ── Step 1: KalOS consumer deploy ───────────────────────────────
-            // Progress budget: KalOS owns 0–45% (download reports it live).
-            vm.CurrentStep = "Installing KalOS";
-            bool deployOk = await RunStepAsync(vm, "KalOS", () => DeployKalOSAsync(vm, ct));
+            // ── Step 1: KaliteKit consumer deploy ───────────────────────────────
+            // Progress budget: KaliteKit owns 0–45% (download reports it live).
+            vm.CurrentStep = "Installing KaliteKit";
+            bool deployOk = await RunStepAsync(vm, "KaliteKit", () => DeployKaliteKitAsync(vm, ct));
             vm.OverallProgress = 45;
 
-            // ── Step 2: Customization (only makes sense once KalOS landed) ──
+            // ── Step 2: Customization (only makes sense once KaliteKit landed) ──
             // Writes the Customize page's tint + background image into the
             // installed app's data folder so it opens already personalized.
             // Customization only applies when the user actually picked a tint or
@@ -162,182 +156,18 @@ namespace KalOS.Setup
             vm.OverallProgress = 70;
 
             // ── Step 4: Software ───────────────────────────────────────────
-            // Progress budget: software owns 70–95%, split evenly per entry so
+            // Progress budget: software owns 70–90%, split evenly per entry so
             // the bar moves even while a silent install runs.
             var software = vm.SelectedSoftware;
             for (int i = 0; i < software.Count; i++)
             {
                 var entry = software[i];
-                vm.OverallProgress = 70 + (double)i / Math.Max(software.Count, 1) * 18;
+                vm.OverallProgress = 70 + (double)i / Math.Max(software.Count, 1) * 20;
                 vm.CurrentStep = $"Installing {entry.Name}";
                 await RunStepAsync(vm, entry.Name, () => InstallSoftwareAsync(entry, ct, vm));
             }
-            if (software.Count > 0) vm.OverallProgress = 88;
+            if (software.Count > 0) vm.OverallProgress = 90;
 
-            // ── Step 5: Forced privacy extensions on the selected browsers ──
-            // Progress budget: extensions own 88–90%.
-            if (vm.InstallExtensions)
-            {
-                var browsers = vm.SelectedSoftware.Where(e => e.IsBrowser).ToList();
-                for (int i = 0; i < browsers.Count; i++)
-                {
-                    var entry = browsers[i];
-                    vm.OverallProgress = 88 + (double)(i + 1) / Math.Max(browsers.Count, 1) * 2;
-                    vm.CurrentStep = $"Applying extensions to {entry.Name}";
-                    vm.CurrentDetail = "Writing browser extension policies…";
-                    bool ok;
-                    int extensionCount = 0;
-                    try
-                    {
-                        var extensions = BrowserExtensionService.CreateDefaultExtensions();
-                        extensionCount = extensions.Count;
-                        BrowserExtensionService.ApplyExtensions(entry.Name, entry.IsChromium, extensions);
-                        ok = true;
-                    }
-                    catch (Exception ex)
-                    {
-                        ok = false;
-                        vm.CurrentDetail = ex.Message;
-                        // Log the real reason — a silent ✗ in the summary is
-                        // undiagnosable otherwise.
-                        _services.GetRequiredService<LoggingService>()
-                            .Error($"{entry.Name} extensions: {ex}");
-                    }
-                    vm.LogStep($"Extensions: {entry.Name}", ok,
-                        ok
-                            ? $"{extensionCount} privacy extensions force-installed via browser policy."
-                            : "Failed to apply the extension policy.");
-                }
-            }
-
-            if (vm.InstallExtensions) vm.OverallProgress = 90;
-
-            // ── Step 6: Tweaks & cleanup (native) ─────────────────────────
-            // Progress budget: tweaks own 90–95%, one tick per tweak so the
-            // bar moves even while a slow DISM operation runs. The step only
-            // appears when at least one group is selected; an opted-out run
-            // records a neutral skipped entry instead of a success. The Customize
-            // page's dark mode / transparency choice (Personalization group)
-            // rides along here even when the master tweaks switch is off, so it
-            // lands just before the Windhawk step.
-            var tweakGroups = vm.SelectedTweakGroups;
-            var tweakDefs = _services.GetRequiredService<TweaksService>().Catalog
-                .Where(t => tweakGroups.Contains(t.Group)).ToList();
-            if (tweakGroups.Count == 0 || tweakDefs.Count == 0)
-            {
-                vm.LogStep("Tweaks & cleanup", true,
-                    tweakGroups.Count == 0
-                        ? "Skipped — you chose not to run any tweaks."
-                        : "Skipped — the selected categories contain no tweaks yet.",
-                    skipped: true);
-            }
-            else
-            {
-                var tweaks = _services.GetRequiredService<TweaksService>();
-                vm.CurrentStep = "Applying tweaks & cleanup (this can take several minutes)";
-                bool tweaksOk;
-                string tweakDetail;
-                try
-                {
-                    var failures = new List<string>();
-                    var skips = new List<string>();
-                    var (applied, failed) = await tweaks.ApplyAsync(
-                        tweakDefs,
-                        report: s => vm.CurrentDetail = s,
-                        progress: p => vm.OverallProgress = 90 + p * 5, // Windhawk step owns 95–100%
-                        ct,
-                        onFailure: failures.Add,
-                        onSkipped: skips.Add);
-                    tweaksOk = failed == 0;
-                    tweakDetail = $"{applied} tweaks applied"
-                                  + (failed > 0 ? $", {failed} failed." : ".")
-                                  + (skips.Count > 0
-                                      ? $", {skips.Count} skipped (blocked by Windows)."
-                                      : string.Empty);
-                    if (failures.Count > 0)
-                    {
-                        // The finish screen shows this detail — say WHAT failed,
-                        // not just how many.
-                        tweakDetail += $" First failure: {failures[0]}";
-                        foreach (var failure in failures)
-                        {
-                            _services.GetRequiredService<LoggingService>()
-                                .Error($"Tweak failed: {failure}");
-                        }
-                    }
-                    if (skips.Count > 0)
-                    {
-                        tweakDetail += $" Skipped: {skips[0]}";
-                        foreach (var skip in skips)
-                        {
-                            _services.GetRequiredService<LoggingService>()
-                                .Warn($"Tweak skipped: {skip}");
-                        }
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    vm.LogStep("Tweaks & cleanup", false, "Canceled by user.");
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    tweaksOk = false;
-                    tweakDetail = ex.Message;
-                }
-                vm.LogStep("Tweaks & cleanup", tweaksOk, tweakDetail);
-            }
-
-            // ── Step 7: Windhawk customization — fixed URL + windhawk.json import
-            // Progress budget: Windhawk owns the final 95–100% of the bar.
-            if (vm.InstallWindhawkCustomization)
-            {
-                vm.CurrentStep = "Applying the Windhawk customization";
-                bool windhawkOk;
-                string windhawkDetail;
-                try
-                {
-                    (windhawkOk, windhawkDetail) = await ApplyWindhawkCustomizationAsync(vm, ct);
-                }
-                catch (OperationCanceledException)
-                {
-                    vm.LogStep("Windhawk customization", false, "Canceled by user.");
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    windhawkOk = false;
-                    windhawkDetail = ex.Message;
-                }
-                vm.LogStep("Windhawk customization", windhawkOk, windhawkDetail);
-            }
-            else
-            {
-                vm.LogStep("Windhawk customization", true,
-                    "Skipped — you chose not to install the Windhawk customization.", skipped: true);
-            }
-
-            // ── Step 8: Connectivity repair (ALWAYS runs, ALWAYS last) ─────
-            // Progress budget: the final 90–100% tail when Windhawk ran (its
-            // own budget shrinks accordingly), else 95–100%. Deliberately the
-            // last registry writes of the whole install:
-            //   1. Keep-alives re-assert Start=2/3 on everything the debloat
-            //      batches must never take down (Xbox, anti-cheat, audio,
-            //      Bluetooth, Store deps, the Wi-Fi/network keep list) —
-            //      correcting any stale Disabled value from earlier runs.
-            //   2. The KalOS Wi-Fi fix restores the firewall stack (mpssvc,
-            //      mpsdrv, EnableFirewall per profile). Structurally last so
-            //      nothing above it can re-break connectivity — the
-            //      "installer never breaks your Wi-Fi" guarantee.
-            // Every entry only ever re-enables (Start=2/3, EnableFirewall=1);
-            // the plan cannot disable anything, so it is safe even though it
-            // bypasses TweaksService's WifiSafety guard (which exists to
-            // filter the *disable* catalog).
-            {
-                vm.CurrentStep = "Restoring network & connectivity defaults";
-                await RunStepAsync(vm, "Connectivity repair",
-                    () => Task.Run(() => ApplyConnectivityRepair(vm, ct)));
-            }
 
             // ── Finish ──────────────────────────────────────────────────────
             vm.CurrentStep = "Done";
@@ -345,7 +175,7 @@ namespace KalOS.Setup
             vm.OverallProgress = 100;
             vm.InstallSucceeded = deployOk && vm.StepLog.All(s => s.Success);
             vm.FinishSummary = vm.InstallSucceeded
-                ? "KalOS and the selected software were installed successfully."
+                ? "KaliteKit and the selected software were installed successfully."
                 : "Installation completed with some failures — see the log for details.";
 
             vm.CurrentStep = "Finished";
@@ -366,7 +196,7 @@ namespace KalOS.Setup
             try
             {
                 bool ok = await step();
-                vm.LogStep(name, ok, ok ? null : "See the KalOS log for details.");
+                vm.LogStep(name, ok, ok ? null : "See the KaliteKit log for details.");
                 return ok;
             }
             catch (OperationCanceledException)
@@ -381,89 +211,20 @@ namespace KalOS.Setup
             }
         }
 
-        // ── Step 8: connectivity repair (keep-alives + Wi-Fi fix, always last) ──
+        // ── Step 1: KaliteKit deploy (offline payload / GitHub deploy) ─────────
 
-        /// <summary>
-        /// Applies <see cref="ConnectivityRepairPlan.OrderedPlan"/>: every
-        /// keep-alive, then the Wi-Fi fix as the plan's final entries. Writes
-        /// are skipped when the registry already holds the target value (fast
-        /// re-runs), failures are logged per entry without aborting the rest,
-        /// and the summary line states explicitly that the Wi-Fi fix ran
-        /// last. Runs on a worker thread via Task.Run — registry writes only.
-        /// </summary>
-        private bool ApplyConnectivityRepair(InstallerViewModel vm, CancellationToken ct)
+        private async Task<bool> DeployKaliteKitAsync(InstallerViewModel vm, CancellationToken ct)
         {
-            var log = _services.GetRequiredService<LoggingService>();
-            int applied = 0, skipped = 0, failed = 0;
-            string? firstFailure = null;
-
-            foreach (var entry in ConnectivityRepairPlan.OrderedPlan)
+            // Standalone offline installer: KaliteKit is embedded in this exe and
+            // installs with zero network access. The embedded first-run wizard
+            // (inside the consumer app) has no payload and keeps the legacy
+            // GitHub resolve → download → script-fallback path below.
+            if (!SetupState.Embedded)
             {
-                ct.ThrowIfCancellationRequested();
-                try
-                {
-                    if (ApplyRepairEntry(entry))
-                        applied++;
-                    else
-                        skipped++;
-                }
-                catch (Exception ex)
-                {
-                    failed++;
-                    firstFailure ??= $"{entry.Name}: {ex.Message}";
-                    log.Error($"Connectivity repair — {entry.Name}: {ex.Message}");
-                }
+                return await DeployBundledPayloadAsync(vm);
             }
 
-            vm.CurrentDetail = $"{applied} restored, {skipped} already correct"
-                + (failed > 0 ? $", {failed} failed — {firstFailure}" : string.Empty)
-                + ". Wi-Fi fix applied last (firewall service, driver, profiles).";
-            return failed == 0;
-        }
-
-        /// <summary>Apply one plan entry. Returns false when already in the target state.</summary>
-        private static bool ApplyRepairEntry(ConnectivityRepairPlan.PlanEntry entry)
-        {
-            const string ServicesPrefix = @"HKLM\SYSTEM\CurrentControlSet\Services\";
-            string subKey;
-            Microsoft.Win32.RegistryKey root;
-
-            if (entry.Key.StartsWith(ServicesPrefix, StringComparison.OrdinalIgnoreCase))
-            {
-                root = Microsoft.Win32.Registry.LocalMachine;
-                subKey = entry.Key[ServicesPrefix.Length..];
-            }
-            else if (entry.Key.StartsWith("HKLM\\", StringComparison.OrdinalIgnoreCase))
-            {
-                root = Microsoft.Win32.Registry.LocalMachine;
-                subKey = entry.Key[5..];
-            }
-            else if (entry.Key.StartsWith("HKCU\\", StringComparison.OrdinalIgnoreCase))
-            {
-                root = Microsoft.Win32.Registry.CurrentUser;
-                subKey = entry.Key[5..];
-            }
-            else
-            {
-                throw new InvalidOperationException($"Unsupported hive in '{entry.Key}'");
-            }
-
-            using var key = root.OpenSubKey(subKey, writable: true)
-                ?? throw new InvalidOperationException($"Key not found: {entry.Key}");
-
-            var existing = key.GetValue(entry.ValueName);
-            if (existing is int i && int.TryParse(entry.Data, out int target) && i == target)
-                return false; // already correct — skip
-
-            key.SetValue(entry.ValueName, int.Parse(entry.Data), Microsoft.Win32.RegistryValueKind.DWord);
-            return true;
-        }
-
-        // ── Step 1: KalOS deploy (native + script fallback) ───────────────
-
-        private async Task<bool> DeployKalOSAsync(InstallerViewModel vm, CancellationToken ct)
-        {
-            vm.CurrentDetail = "Resolving the latest KalOS release…";
+            vm.CurrentDetail = "Resolving the latest KaliteKit release…";
             await vm.ResolveReleaseAsync(ct);
 
             // Path A — native deploy. Falls through to the script on any failure.
@@ -481,8 +242,74 @@ namespace KalOS.Setup
                 }
             }
 
-            // Path B — script fallback (the original install-kalos.ps1 one-liner).
+            // Path B — script fallback (the original install-kalitekit.ps1 one-liner).
             return await DeployViaScriptAsync(vm);
+        }
+
+        /// <summary>
+        /// Standalone offline deploy: streams the KaliteKit consumer zip that is
+        /// embedded in this exe (<see cref="BundledPayload"/>) to temp, then
+        /// runs the same validate → wipe-and-copy install the native path
+        /// uses. Never touches the network. Re-running on an already-installed
+        /// copy simply reinstalls (ZipPackageInstaller handles the swap), so
+        /// this doubles as an offline repair tool.
+        /// </summary>
+        private async Task<bool> DeployBundledPayloadAsync(InstallerViewModel vm)
+        {
+            var log = _services.GetRequiredService<LoggingService>();
+
+            if (!BundledPayload.HasPayload)
+            {
+                log.Error("This installer build carries no bundled KaliteKit payload "
+                          + "— rebuild it with publish-standalone.ps1.");
+                vm.CurrentDetail =
+                    "No bundled KaliteKit payload in this build — rebuild with publish-standalone.ps1.";
+                return false;
+            }
+
+            try
+            {
+                vm.CurrentStep = "Installing KaliteKit (offline)";
+                vm.CurrentDetail = "Extracting the bundled KaliteKit package…";
+                var progress = new Progress<double>(p =>
+                {
+                    // KaliteKit deploy owns 0–45% of the overall bar.
+                    vm.OverallProgress = p * 0.45;
+                });
+                string zipPath = BundledPayload.ExtractToTemp(progress)
+                    ?? throw new IOException("Could not extract the bundled KaliteKit package.");
+
+                vm.CurrentDetail = "Installing KaliteKit…";
+                var result = ZipPackageInstaller.Install(zipPath, ZipPackageInstaller.DefaultInstallDir,
+                    status => vm.CurrentDetail = status);
+
+                // The temp copy is no longer needed once the package is staged.
+                try { File.Delete(zipPath); } catch { }
+
+                if (!result.Success)
+                {
+                    foreach (var err in result.Errors) log.Error(err);
+                    vm.CurrentDetail = "KaliteKit install failed.";
+                    return false;
+                }
+                foreach (var warn in result.Warnings) log.Warn(warn);
+
+                // Shortcuts + taskbar pin (same as the native deploy path).
+                string exePath = Path.Combine(ZipPackageInstaller.DefaultInstallDir, "KaliteKit.exe");
+                ShellLinkService.CreateAppShortcuts(exePath, ZipPackageInstaller.DefaultInstallDir, "KaliteKit");
+                ShellLinkService.TryPinToTaskbar(exePath);
+
+                log.Success($"KaliteKit {result.InstalledVersion ?? "(bundled)"} installed offline "
+                            + $"to {ZipPackageInstaller.DefaultInstallDir}");
+                vm.CurrentDetail = "KaliteKit installed.";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                log.Error($"Bundled deploy failed: {ex.Message}");
+                vm.CurrentDetail = $"KaliteKit install failed: {ex.Message}";
+                return false;
+            }
         }
 
         private async Task<bool> DeployNativeAsync(GitHubReleaseInfo release, InstallerViewModel vm, CancellationToken ct)
@@ -490,31 +317,31 @@ namespace KalOS.Setup
             var downloader = _services.GetRequiredService<HttpFileDownloader>();
             var log = _services.GetRequiredService<LoggingService>();
 
-            string zipPath = Path.Combine(Path.GetTempPath(), "KalOS-Setup", $"KalOS-{release.Version}.zip");
-            vm.CurrentDetail = "Downloading KalOS…";
+            string zipPath = Path.Combine(Path.GetTempPath(), "KaliteKit-Setup", $"KaliteKit-{release.Version}.zip");
+            vm.CurrentDetail = "Downloading KaliteKit…";
             var progress = new Progress<double>(p =>
             {
-                vm.OverallProgress = p * 0.45; // KalOS deploy = 0–45% of the bar
+                vm.OverallProgress = p * 0.45; // KaliteKit deploy = 0–45% of the bar
             });
             await downloader.DownloadAsync(release.ZipUrl, zipPath, progress, ct, minBytes: 5_000_000);
-            log.Info($"Downloaded KalOS {release.Version} to {zipPath}");
+            log.Info($"Downloaded KaliteKit {release.Version} to {zipPath}");
 
             // Idempotency: when the installed copy already matches the release,
             // there is nothing to copy. (The embedded wizard RUNS from the
             // install dir — re-copying over a live install can only produce
-            // locked-file errors, and ZipPackageInstaller stops other KalOS
+            // locked-file errors, and ZipPackageInstaller stops other KaliteKit
             // instances but cannot stop the very process it runs inside.)
             string? installedVersion =
                 ZipPackageInstaller.GetInstalledVersion(ZipPackageInstaller.DefaultInstallDir);
             if (!string.IsNullOrEmpty(installedVersion) &&
                 string.Equals(installedVersion, release.Version, StringComparison.OrdinalIgnoreCase))
             {
-                log.Info($"KalOS {release.Version} is already installed — nothing to update.");
-                vm.CurrentDetail = "KalOS is already up to date.";
+                log.Info($"KaliteKit {release.Version} is already installed — nothing to update.");
+                vm.CurrentDetail = "KaliteKit is already up to date.";
                 return true;
             }
 
-            vm.CurrentDetail = "Installing KalOS…";
+            vm.CurrentDetail = "Installing KaliteKit…";
             var result = ZipPackageInstaller.Install(zipPath, ZipPackageInstaller.DefaultInstallDir,
                 status => vm.CurrentDetail = status);
 
@@ -526,12 +353,12 @@ namespace KalOS.Setup
             foreach (var warn in result.Warnings) log.Warn(warn);
 
             // Shortcuts + taskbar pin.
-            string exePath = Path.Combine(ZipPackageInstaller.DefaultInstallDir, "KalOS.exe");
-            ShellLinkService.CreateAppShortcuts(exePath, ZipPackageInstaller.DefaultInstallDir, "KalOS");
+            string exePath = Path.Combine(ZipPackageInstaller.DefaultInstallDir, "KaliteKit.exe");
+            ShellLinkService.CreateAppShortcuts(exePath, ZipPackageInstaller.DefaultInstallDir, "KaliteKit");
             ShellLinkService.TryPinToTaskbar(exePath);
 
-            log.Success($"KalOS {release.Version} installed to {ZipPackageInstaller.DefaultInstallDir}");
-            vm.CurrentDetail = "KalOS installed.";
+            log.Success($"KaliteKit {release.Version} installed to {ZipPackageInstaller.DefaultInstallDir}");
+            vm.CurrentDetail = "KaliteKit installed.";
             return true;
         }
 
@@ -542,7 +369,7 @@ namespace KalOS.Setup
         /// </summary>
         private async Task<bool> DeployViaScriptAsync(InstallerViewModel vm)
         {
-            vm.CurrentDetail = "Running the KalOS install script…";
+            vm.CurrentDetail = "Running the KaliteKit install script…";
             try
             {
                 var psi = new ProcessStartInfo
@@ -551,7 +378,7 @@ namespace KalOS.Setup
                     // The script's default mode installs the app directly (the
                     // wizard is embedded in the app now), so a plain invocation
                     // is exactly the fallback deploy we want.
-                    Arguments = "-ExecutionPolicy Bypass -NoProfile -Command \"& ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/1k09-byte/KalOSTOOLKIT/main/install-kalos.ps1')))\"",
+                    Arguments = "-ExecutionPolicy Bypass -NoProfile -Command \"& ([scriptblock]::Create((irm 'https://raw.githubusercontent.com/1k09-byte/KaliteKit/main/install-kalitekit.ps1')))\"",
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     RedirectStandardOutput = true,
@@ -598,7 +425,7 @@ namespace KalOS.Setup
             var progress = new Progress<DriverUpdateProgress>(p =>
             {
                 vm.CurrentDetail = p.Message;
-                // KalOS deploy took 45%, the driver takes the next 25%.
+                // KaliteKit deploy took 45%, the driver takes the next 25%.
                 vm.OverallProgress = 45 + p.Percent * 0.25;
             });
             // NVIDIA/AMD: honor the strip/keep checklists from the Drivers page
@@ -647,7 +474,7 @@ namespace KalOS.Setup
         {
             var log = _services.GetRequiredService<LoggingService>();
             string ext = entry.InstallerKind == CatalogInstallerKind.Msi ? ".msi" : ".exe";
-            string path = Path.Combine(Path.GetTempPath(), $"KalOS-Setup\\{entry.Name.Replace(' ', '_')}{ext}");
+            string path = Path.Combine(Path.GetTempPath(), $"KaliteKit-Setup\\{entry.Name.Replace(' ', '_')}{ext}");
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
             try
@@ -698,22 +525,5 @@ namespace KalOS.Setup
             }
         }
 
-        // ── Step 7: Windhawk customization ─────────────────────────────────
-
-        /// <summary>
-        /// Fixed Windhawk flow: download from
-        /// <c>https://github.com/ramensoftware/windhawk/releases/download/2.0.0-alpha.3/windhawk_setup.exe</c>
-        /// with /S and import <c>Assets/windhawk.json</c> via windhawk-cli.
-        /// </summary>
-        private async Task<(bool Ok, string Detail)> ApplyWindhawkCustomizationAsync(
-            InstallerViewModel vm, CancellationToken ct)
-        {
-            var windhawk = _services.GetRequiredService<WindhawkManagerService>();
-            var progress = new Progress<double>(p => vm.OverallProgress = 95 + p * 0.05);
-            var status = new Progress<string>(s => vm.CurrentDetail = s);
-            vm.CurrentDetail = "Downloading Windhawk 2.0.0-alpha.3 and importing windhawk.json...";
-            await windhawk.InstallFixedWindhawkAndImportAsync(progress, status, ct);
-            return (true, "Windhawk 2.0.0-alpha.3 installed and windhawk.json imported.");
-        }
     }
 }

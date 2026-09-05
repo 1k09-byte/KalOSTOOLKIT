@@ -1,6 +1,6 @@
-using KalOS.Services;
+using KaliteKit.Services;
 
-namespace KalOS.Tests.Services;
+namespace KaliteKit.Tests.Services;
 
 /// <summary>
 /// Pure tests for BrowserExtensionService — the shared catalog and the

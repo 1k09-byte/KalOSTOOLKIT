@@ -6,7 +6,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Win32;
 
-namespace KalOS.Services;
+namespace KaliteKit.Services;
 
 /// <summary>One user-configured startup command (a hidden shell command run at login).</summary>
 public sealed record StartupTask(string Command, bool Enabled = true);
@@ -39,7 +39,7 @@ public sealed class StartupTasksService
         Path.Combine(UpdateService.AppDataFolder, "startup.json");
 
     /// <summary>Registry value name used in the HKCU Run key (shown in Task Manager's Startup tab).</summary>
-    public const string RunKeyValueName = "KalOS";
+    public const string RunKeyValueName = "KaliteKit";
 
     public StartupTasksService(LoggingService log)
     {
@@ -93,7 +93,7 @@ public sealed class StartupTasksService
         catch { return false; }
     }
 
-    /// <summary>Writes (or updates) the HKCU Run entry: "KalOS.exe" --startup.</summary>
+    /// <summary>Writes (or updates) the HKCU Run entry: "KaliteKit.exe" --startup.</summary>
     public static void EnableAutostart()
     {
         try

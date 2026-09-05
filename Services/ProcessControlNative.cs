@@ -6,9 +6,9 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
-using KalOS.Models.ProcessControl;
+using KaliteKit.Models.ProcessControl;
 
-namespace KalOS.Services;
+namespace KaliteKit.Services;
 
 /// <summary>
 /// Thin, isolated P/Invoke layer for per-process scheduling control and

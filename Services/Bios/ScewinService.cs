@@ -6,7 +6,7 @@ using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace KalOS.Services.Bios;
+namespace KaliteKit.Services.Bios;
 
 /// <summary>
 /// Known SCEWIN failure codes mapped from stderr/exit-code patterns.
@@ -48,7 +48,7 @@ public sealed class ScewinService
     // turned every backup attempt into a DirectoryNotFoundException.
     private static readonly string BackupDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "KalOS", "BiosBackups");
+        "KaliteKit", "BiosBackups");
 
     private static readonly string[] SearchPaths = new[]
     {
@@ -219,7 +219,7 @@ public sealed class ScewinService
         {
             return new ScewinResult(false, "", ex.Message, -1,
                 ScewinErrorCode.NotElevated,
-                "SCEWIN requires administrator privileges. Relaunch KalOS as admin.");
+                "SCEWIN requires administrator privileges. Relaunch KaliteKit as admin.");
         }
         catch (Exception ex)
         {
@@ -235,12 +235,12 @@ public sealed class ScewinService
         if (!IsBinaryConfigured)
             return new ScewinResult(false, "", "SCEWIN_64.exe path not configured.", -1,
                 ScewinErrorCode.BinaryNotFound,
-                "SCEWIN_64.exe was not found. Place it (with amifldrv64.sys and amigendrv64.sys) in a Tools folder next to KalOS.exe — e.g. Tools\\SCEWIN_64.exe — then restart the app.");
+                "SCEWIN_64.exe was not found. Place it (with amifldrv64.sys and amigendrv64.sys) in a Tools folder next to KaliteKit.exe — e.g. Tools\\SCEWIN_64.exe — then restart the app.");
 
         if (!IsElevated)
             return new ScewinResult(false, "", "Not elevated.", -1,
                 ScewinErrorCode.NotElevated,
-                "KalOS must be running as Administrator to use SCEWIN.");
+                "KaliteKit must be running as Administrator to use SCEWIN.");
 
         return null;
     }
@@ -268,7 +268,7 @@ public sealed class ScewinService
         ScewinErrorCode.None => "Operation completed successfully.",
         ScewinErrorCode.BinaryNotFound => "SCEWIN_64.exe was not found at the configured path.",
         ScewinErrorCode.DriverMissing => "AMI driver files (amifldrv64.sys / amigendrv64.sys) are missing. Place them in the same folder as SCEWIN_64.exe.",
-        ScewinErrorCode.NotElevated => "Administrator privileges are required. Relaunch KalOS as admin.",
+        ScewinErrorCode.NotElevated => "Administrator privileges are required. Relaunch KaliteKit as admin.",
         ScewinErrorCode.BiosIncompatible => "This BIOS is not compatible with the supplied SCEWIN binary. You may need a version matched to your motherboard vendor.",
         ScewinErrorCode.NvramWriteProtected => "NVRAM write-protection is enabled. Disable it in BIOS setup before importing settings.",
         ScewinErrorCode.HiiDatabaseFailure => "Failed to retrieve the HII database from the firmware. The AMI driver may not be loaded or the BIOS may be locked.",

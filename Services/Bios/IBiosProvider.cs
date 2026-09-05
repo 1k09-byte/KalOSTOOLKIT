@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using KalOS.Models.Bios;
+using KaliteKit.Models.Bios;
 
-namespace KalOS.Services.Bios;
+namespace KaliteKit.Services.Bios;
 
 /// <summary>
 /// Abstraction over one OEM's BIOS/UEFI configuration backend. The WinUI view

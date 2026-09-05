@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
-  <assemblyIdentity version="1.0.0.0" name="KalOS.Setup.app"/>
+  <assemblyIdentity version="1.0.0.0" name="KaliteKit.Setup.app"/>
 
   <!-- The wizard runs winget, Chocolatey, driver installers, and writes to
-       %LOCALAPPDATA%\Programs\KalOS — all of which need administrator rights.
+       %LOCALAPPDATA%\Programs\KaliteKit — all of which need administrator rights.
        Asking once at launch is far less disruptive than a UAC prompt per
        driver/software install step. -->
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">

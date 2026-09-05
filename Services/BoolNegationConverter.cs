@@ -1,7 +1,7 @@
 ﻿using System;
 using Microsoft.UI.Xaml.Data;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     public class BoolNegationConverter : IValueConverter
     {

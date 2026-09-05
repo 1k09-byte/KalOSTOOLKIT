@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>
     /// Streams a driver package to disk with progress + cancellation and a
@@ -26,7 +26,7 @@ namespace KalOS.Services
         {
             var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = true });
             client.Timeout = TimeSpan.FromMinutes(30);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("KalOS/1.1 (driver-download)");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("KaliteKit/1.1 (driver-download)");
             return client;
         }
 

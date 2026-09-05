@@ -1,4 +1,4 @@
-﻿namespace KalOS.Models
+﻿namespace KaliteKit.Models
 {
     public class InstallResult
     {

@@ -1,8 +1,8 @@
-namespace KalOS.Models
+namespace KaliteKit.Models
 {
     /// <summary>
     /// WinUI-free description of a force-installable browser extension. Shared
-    /// by the main KalOS app and the KalOS Setup wizard so the extension
+    /// by the main KaliteKit app and the KaliteKit Setup wizard so the extension
     /// catalog and the policy application are defined in exactly one place.
     /// The app's presentation-side <c>ExtensionItem</c> (with its IsSelected
     /// toggle) maps to this DTO when calling the service.

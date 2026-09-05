@@ -2,11 +2,11 @@ using System;
 using System.Diagnostics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using KalOS.Services;
-using KalOS.ViewModels;
+using KaliteKit.Services;
+using KaliteKit.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace KalOS.Views
+namespace KaliteKit.Views
 {
     public sealed partial class HomePage : Page
     {

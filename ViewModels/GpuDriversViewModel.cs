@@ -7,10 +7,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using KalOS.Models;
-using KalOS.Services;
+using KaliteKit.Models;
+using KaliteKit.Services;
 
-namespace KalOS.ViewModels
+namespace KaliteKit.ViewModels
 {
     /// <summary>
     /// One GPU row: the hardware as WMI reported it plus the bindable state for
@@ -621,7 +621,7 @@ namespace KalOS.ViewModels
             {
                 string workDir = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "KalOS", "drivers");
+                    "KaliteKit", "drivers");
                 Directory.CreateDirectory(workDir);
                 string filename = "amd-driver-" + item.Latest.Version + ".exe";
                 try
@@ -904,7 +904,7 @@ namespace KalOS.ViewModels
 
             string workDir = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "KalOS", "drivers");
+                "KaliteKit", "drivers");
             string exePath = Path.Combine(workDir, $"amd-driver-{item.Latest.Version}.exe");
             string extractDir = Path.Combine(workDir, "extracted");
 

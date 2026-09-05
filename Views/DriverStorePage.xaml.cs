@@ -2,16 +2,16 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using KalOS.Models;
-using KalOS.Services;
-using KalOS.ViewModels;
+using KaliteKit.Models;
+using KaliteKit.Services;
+using KaliteKit.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Storage;
 using Windows.Storage.Pickers;
 
-namespace KalOS.Views
+namespace KaliteKit.Views
 {
     /// <summary>
     /// Driver Store Manager page. The VIEW owns every confirmation dialog —

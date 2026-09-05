@@ -1,8 +1,8 @@
 using System.IO;
 using System.IO.Compression;
-using KalOS.Services;
+using KaliteKit.Services;
 
-namespace KalOS.Tests.Services;
+namespace KaliteKit.Tests.Services;
 
 /// <summary>
 /// Backend contract tests for <see cref="ZipPackageInstaller"/>: staging
@@ -17,7 +17,7 @@ public class ZipPackageInstallerTests : IDisposable
 
     public ZipPackageInstallerTests()
     {
-        _root = Path.Combine(Path.GetTempPath(), "kalos-ziptest-" + Guid.NewGuid().ToString("N"));
+        _root = Path.Combine(Path.GetTempPath(), "kalitekit-ziptest-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_root);
     }
 
@@ -26,7 +26,7 @@ public class ZipPackageInstallerTests : IDisposable
         try { Directory.Delete(_root, recursive: true); } catch { }
     }
 
-    /// <summary>Builds a KalOS-shaped package zip with the required files (worker under Tools\).</summary>
+    /// <summary>Builds a KaliteKit-shaped package zip with the required files (worker under Tools\).</summary>
     private static string BuildZip(string path, Action<ZipArchive>? extra = null, bool complete = true)
     {
         using var fs = new FileStream(path, FileMode.Create, FileAccess.Write);
@@ -41,7 +41,7 @@ public class ZipPackageInstallerTests : IDisposable
 
         if (complete)
         {
-            AddFile("KalOS.exe");
+            AddFile("KaliteKit.exe");
             AddFile("hostfxr.dll");
             AddFile("hostpolicy.dll");
             AddFile("coreclr.dll");
@@ -63,7 +63,7 @@ public class ZipPackageInstallerTests : IDisposable
 
         ZipPackageInstaller.ExtractToStaging(zip, staging);
 
-        Assert.True(File.Exists(Path.Combine(staging, "KalOS.exe")));
+        Assert.True(File.Exists(Path.Combine(staging, "KaliteKit.exe")));
         Assert.True(File.Exists(Path.Combine(staging, "coreclr.dll")));
         Assert.True(File.Exists(Path.Combine(staging, "Tools", "HardwareMonitorWorker.exe")));
         Assert.True(Directory.Exists(Path.Combine(staging, "Tools")));
@@ -74,7 +74,7 @@ public class ZipPackageInstallerTests : IDisposable
     {
         string zip = BuildZip(Path.Combine(_root, "pkg-mac.zip"), extra: zip =>
         {
-            var junk = zip.CreateEntry("__MACOSX/._KalOS.exe");
+            var junk = zip.CreateEntry("__MACOSX/._KaliteKit.exe");
             using var w = new StreamWriter(junk.Open());
             w.Write("junk");
         });
@@ -83,7 +83,7 @@ public class ZipPackageInstallerTests : IDisposable
         ZipPackageInstaller.ExtractToStaging(zip, staging);
 
         Assert.False(Directory.Exists(Path.Combine(staging, "__MACOSX")));
-        Assert.True(File.Exists(Path.Combine(staging, "KalOS.exe")));
+        Assert.True(File.Exists(Path.Combine(staging, "KaliteKit.exe")));
     }
 
     [Fact]
@@ -120,7 +120,7 @@ public class ZipPackageInstallerTests : IDisposable
     {
         string staging = Path.Combine(_root, "staging-partial");
         Directory.CreateDirectory(staging);
-        File.WriteAllText(Path.Combine(staging, "KalOS.exe"), "MZ");
+        File.WriteAllText(Path.Combine(staging, "KaliteKit.exe"), "MZ");
         // hostfxr / hostpolicy / coreclr / HardwareMonitorWorker are missing.
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
@@ -143,7 +143,7 @@ public class ZipPackageInstallerTests : IDisposable
 
         Assert.True(result.Success);
         Assert.Empty(result.Errors);
-        Assert.True(File.Exists(Path.Combine(installDir, "KalOS.exe")));
+        Assert.True(File.Exists(Path.Combine(installDir, "KaliteKit.exe")));
         Assert.True(File.Exists(Path.Combine(installDir, "Tools", "HardwareMonitorWorker.exe")));
         // Staging folder must be gone after a successful install.
         Assert.Empty(Directory.GetDirectories(_root, "install.staging-*"));

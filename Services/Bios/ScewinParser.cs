@@ -4,9 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using KalOS.Models.Bios;
+using KaliteKit.Models.Bios;
 
-namespace KalOS.Services.Bios;
+namespace KaliteKit.Services.Bios;
 
 /// <summary>
 /// Parses and serializes AMI SCEWIN export files. The format is a sequence

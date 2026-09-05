@@ -5,9 +5,9 @@ using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using KalOS.Helpers;
+using KaliteKit.Helpers;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>
     /// Downloads and executes the official AMD Auto-Detect and Install tool directly from AMD servers.
@@ -24,7 +24,7 @@ namespace KalOS.Services
 
         private static readonly string TargetDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "KalOS", "drivers");
+            "KaliteKit", "drivers");
 
         private static readonly string TargetExePath = Path.Combine(TargetDir, "AMD-AutoDetect-Installer.exe");
 

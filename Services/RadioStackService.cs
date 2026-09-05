@@ -4,10 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using KalOS.Helpers;
+using KaliteKit.Helpers;
 using Windows.Devices.Radios;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>
     /// Deep radio control. Unlike the soft on/off from

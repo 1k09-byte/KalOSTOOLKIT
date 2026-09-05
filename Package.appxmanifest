@@ -7,15 +7,15 @@
   IgnorableNamespaces="uap rescap">
 
   <Identity
-    Name="KalOSToolkit"
-    Publisher="CN=KalOS"
+    Name="KaliteKit"
+    Publisher="CN=KaliteKit"
     Version="1.0.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="9db45545-23e1-4c85-99d4-8d2a0366534b" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
   <Properties>
-    <DisplayName>KalOS</DisplayName>
-    <PublisherDisplayName>KalOS</PublisherDisplayName>
+    <DisplayName>KaliteKit</DisplayName>
+    <PublisherDisplayName>KaliteKit</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
@@ -33,7 +33,7 @@
       Executable="$targetnametoken$.exe"
       EntryPoint="$targetentrypoint$">
       <uap:VisualElements
-        DisplayName="KalOS"
+        DisplayName="KaliteKit"
         Description="Automate driver installation, browser setup, system tweaks, and bloatware removal"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"

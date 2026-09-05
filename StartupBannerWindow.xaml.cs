@@ -1,6 +1,6 @@
 using System;
 using System.Numerics;
-using KalOS.Services;
+using KaliteKit.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI;
 using Microsoft.UI.Composition;
@@ -13,7 +13,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Graphics;
 using WinUIEx;
 
-namespace KalOS;
+namespace KaliteKit;
 
 /// <summary>
 /// Borderless notification banner that drops down from the top-right corner of
@@ -137,13 +137,13 @@ public sealed partial class StartupBannerWindow : WindowEx
         {
             TaskProgress.IsIndeterminate = true;
             StatusText.Text = "Checking for updates…";
-            DetailText.Text = "Looking for a newer KalOS version";
+            DetailText.Text = "Looking for a newer KaliteKit version";
             DetailText.Visibility = Visibility.Visible;
 
             var info = await _updateService.CheckForUpdatesAsync();
             if (info != null)
             {
-                StatusText.Text = $"KalOS {info.Version} is available.";
+                StatusText.Text = $"KaliteKit {info.Version} is available.";
                 DetailText.Text = "Open the tool to update.";
                 _autoHideTimer.Stop();
                 // Update notice: hold 3 seconds so it's readable, then the
@@ -221,7 +221,7 @@ public sealed partial class StartupBannerWindow : WindowEx
         SlideIn();
 
         _previewItems.Clear();
-        if (_settings.CheckUpdatesAtStartup) _previewItems.Add("Check for KalOS updates");
+        if (_settings.CheckUpdatesAtStartup) _previewItems.Add("Check for KaliteKit updates");
         _previewItems.Add("Scan then clean temp and junk files");
         foreach (var t in _settings.Tasks)
         {
@@ -262,9 +262,9 @@ public sealed partial class StartupBannerWindow : WindowEx
         }
 
         var item = _previewItems[_previewIndex++];
-        if (item.Equals("Check for KalOS updates", StringComparison.OrdinalIgnoreCase))
+        if (item.Equals("Check for KaliteKit updates", StringComparison.OrdinalIgnoreCase))
         {
-            StatusText.Text = "Checks for KalOS updates";
+            StatusText.Text = "Checks for KaliteKit updates";
             DetailText.Text = "Step " + _previewIndex + " of " + _previewItems.Count + ": " + item;
         }
         else if (item.Equals("Scan then clean temp and junk files", StringComparison.OrdinalIgnoreCase))
@@ -276,7 +276,7 @@ public sealed partial class StartupBannerWindow : WindowEx
         {
             StatusText.Text = "Running: ";
         }
-        if (!item.Equals("Check for KalOS updates", StringComparison.OrdinalIgnoreCase))
+        if (!item.Equals("Check for KaliteKit updates", StringComparison.OrdinalIgnoreCase))
         {
             DetailText.Text = item;
         }

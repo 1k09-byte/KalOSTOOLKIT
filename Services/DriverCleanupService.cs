@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     public partial class DriverCleanupOptions : ObservableObject
     {
@@ -54,7 +54,7 @@ namespace KalOS.Services
 
         private static readonly string AmdCleanupUtilityLocalPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "KalOS", "tools", "amdcleanuputility.exe");
+            "KaliteKit", "tools", "amdcleanuputility.exe");
 
         public DriverCleanupService(LoggingService log, ProcessManager processManager, DriverDownloadService downloadService)
         {
@@ -110,7 +110,7 @@ namespace KalOS.Services
                     NextStep("Creating System Restore Point");
                     await _processManager.RunWithOutputAndErrorAsync(
                         "powershell",
-                        "-NoProfile -Command \"Checkpoint-Computer -Description 'KalOS GPU Cleanup' -RestorePointType 'MODIFY_SETTINGS'\"",
+                        "-NoProfile -Command \"Checkpoint-Computer -Description 'KaliteKit GPU Cleanup' -RestorePointType 'MODIFY_SETTINGS'\"",
                         TimeSpan.FromMinutes(2));
                 }
 
@@ -232,7 +232,7 @@ namespace KalOS.Services
 
         /// <summary>
         /// Native, clean in-app AMD Driver, AppX, Services, DriverStore, and Cache Uninstaller (DDU-like).
-        /// Runs entirely inside KalOS with live status reports and 0 clunky popups.
+        /// Runs entirely inside KaliteKit with live status reports and 0 clunky popups.
         /// </summary>
         public async Task<bool> RunNativeAmdCleanupAsync(IProgress<string>? status = null, CancellationToken cancellationToken = default)
         {
@@ -305,7 +305,7 @@ namespace KalOS.Services
         /// Ensures the official AMD Cleanup Utility is available and launches it
         /// visibly. Prefers the user's own copy in Downloads, then a previously
         /// downloaded app copy, otherwise downloads it directly from AMD with proper referer.
-        /// Returns true when it was launched. KalOS runs elevated, so the child inherits admin.
+        /// Returns true when it was launched. KaliteKit runs elevated, so the child inherits admin.
         /// </summary>
         public async Task<bool> LaunchAmdCleanupUtilityAsync(IProgress<string>? status = null, CancellationToken cancellationToken = default)
         {

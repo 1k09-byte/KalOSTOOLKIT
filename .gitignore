@@ -4,8 +4,8 @@ obj/
 *.dll
 *.pdb
 *.exe
-**/KalOSTOOLKITobjverify*/
-.kalos-pr-merge-backups/
+**/KaliteKitobjverify*/
+.kalitekit-pr-merge-backups/
 
 # Test outputs
 tests/bin/

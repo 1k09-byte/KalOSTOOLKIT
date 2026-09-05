@@ -3,14 +3,14 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.Extensions.DependencyInjection;
-using KalOS.Services;
-using KalOS.ViewModels;
-using KalOS.Views;
+using KaliteKit.Services;
+using KaliteKit.ViewModels;
+using KaliteKit.Views;
 using System.Linq;
 using System.Collections.Generic;
 using WinUIEx;
 
-namespace KalOS
+namespace KaliteKit
 {
     /// <summary>
     /// The main application window containing the navigation shell.
@@ -61,8 +61,8 @@ namespace KalOS
             ExtendsContentIntoTitleBar = true;
             SetTitleBar(AppTitleBar);
 
-            AppTitleBar.Title = "KalOS";
-            Title = "KalOS";
+            AppTitleBar.Title = "KaliteKit";
+            Title = "KaliteKit";
 
             _themeService = App.Services.GetRequiredService<ThemeService>();
             _backdropService = App.Services.GetRequiredService<BackdropService>();
@@ -370,7 +370,7 @@ namespace KalOS
         {
             try
             {
-                var settings = KalOS.Services.UpdateService.LoadSettings();
+                var settings = KaliteKit.Services.UpdateService.LoadSettings();
                 if (string.IsNullOrEmpty(settings.BackgroundImagePath) || !System.IO.File.Exists(settings.BackgroundImagePath))
                 {
                     BackgroundImage.Visibility = Visibility.Collapsed;

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>
     /// Session-scoped in-memory log (what the UI binds to) plus persistence.
@@ -16,7 +16,7 @@ namespace KalOS.Services
     {
         private static readonly string LogDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "KalOS", "Logs");
+            "KaliteKit", "Logs");
 
         private readonly LogService? _fileLog;
         private readonly List<Models.CleanupLog> _logs = new();
@@ -27,7 +27,7 @@ namespace KalOS.Services
         // Lazily-created fallback file logger for callers that construct this
         // service without DI (tests, tools, the Setup wizard's composition
         // root). Previously this fell back through App.Services, which made
-        // this file uncompilable outside the WinUI app — the KalOS Setup
+        // this file uncompilable outside the WinUI app — the KaliteKit Setup
         // installer source-shares it, so the fallback must stay App-free.
         private static LogService? _fallbackFileLog;
 

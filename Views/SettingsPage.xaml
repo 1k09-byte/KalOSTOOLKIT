@@ -1,12 +1,12 @@
 <Page
-    x:Class="KalOS.Views.SettingsPage"
+    x:Class="KaliteKit.Views.SettingsPage"
     x:Name="PageRoot"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:vm="using:KalOS.ViewModels"
-    xmlns:models="using:KalOS.Models"
+    xmlns:vm="using:KaliteKit.ViewModels"
+    xmlns:models="using:KaliteKit.Models"
     mc:Ignorable="d"
     NavigationCacheMode="Enabled">
 
@@ -290,7 +290,7 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Spacing="3">
                                 <TextBlock Text="Check for updates at startup" FontWeight="SemiBold" />
-                                <TextBlock Text="The login banner also looks for a newer KalOS version and shows it."
+                                <TextBlock Text="The login banner also looks for a newer KaliteKit version and shows it."
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                             </StackPanel>
                             <ToggleSwitch Grid.Column="1"
@@ -319,7 +319,7 @@
                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                         <StackPanel Grid.Column="1" Spacing="3">
                             <TextBlock Text="App updates" FontWeight="SemiBold" />
-                            <TextBlock Text="KalOS checks GitHub Releases and updates itself in place when a new version is published."
+                            <TextBlock Text="KaliteKit checks GitHub Releases and updates itself in place when a new version is published."
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
 
                             <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">

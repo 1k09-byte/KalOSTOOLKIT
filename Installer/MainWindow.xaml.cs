@@ -4,9 +4,9 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
-using KalOS.Setup.Views;
+using KaliteKit.Setup.Views;
 
-namespace KalOS.Setup
+namespace KaliteKit.Setup
 {
     /// <summary>
     /// The installer shell window. Standard WinUI 3 layout: an extended
@@ -27,7 +27,6 @@ namespace KalOS.Setup
             typeof(DriversPage),
             typeof(SoftwarePage),
             typeof(CustomizePage),
-            typeof(TweaksPage),
             typeof(ProgressPage),
             typeof(FinishPage),
         };
@@ -41,7 +40,7 @@ namespace KalOS.Setup
         public MainWindow()
         {
             InitializeComponent();
-            string shellName = SetupState.Embedded ? "KalOS Setup" : "KalOS Installer";
+            string shellName = SetupState.Embedded ? "KaliteKit Setup" : "KaliteKit Installer";
             Title = $"{shellName} v{App.AppVersion}";
             TitleBarText.Text = $"{shellName} v{App.AppVersion}";
 

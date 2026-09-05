@@ -1,7 +1,7 @@
 ﻿using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media;
 
-namespace KalOS.Services;
+namespace KaliteKit.Services;
 
 public class BoolToBrushConverter : IValueConverter
 {

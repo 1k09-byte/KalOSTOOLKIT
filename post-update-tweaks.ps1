@@ -1,5 +1,5 @@
 # post-update-tweaks.ps1
-# Ships inside the KalOS update zip (next to KalOS.exe) and is executed by the
+# Ships inside the KaliteKit update zip (next to KaliteKit.exe) and is executed by the
 # app's "Apply changes" button, per os-changes.json. Runs elevated (the app is
 # requireAdministrator), silently (no console), and its exit code decides
 # success/failure in the apply log.

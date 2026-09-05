@@ -1,8 +1,8 @@
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
-using KalOS.Services;
+using KaliteKit.Services;
 
-namespace KalOS.ViewModels;
+namespace KaliteKit.ViewModels;
 
 /// <summary>Status-only VM — Windhawk is installed via the installer pipeline.</summary>
 public partial class WindhawkViewModel : ObservableObject

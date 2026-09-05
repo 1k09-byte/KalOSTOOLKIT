@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
-using KalOS.Services;
+using KaliteKit.Services;
 
-namespace KalOS.Tests.Services;
+namespace KaliteKit.Tests.Services;
 
 public class HardwareMonitorServiceTests
 {

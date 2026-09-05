@@ -8,11 +8,11 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using KalOS.Helpers;
-using KalOS.Models.ProcessControl;
+using KaliteKit.Helpers;
+using KaliteKit.Models.ProcessControl;
 using Microsoft.Win32;
 
-namespace KalOS.Services;
+namespace KaliteKit.Services;
 
 /// <summary>
 /// The Process Control engine: persistent per-process scheduling rules
@@ -82,14 +82,14 @@ public sealed class ProcessControlService : IDisposable
     public static string BoostSavePath => Path.Combine(DataFolder, "boost-saved.json");
 
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string RulesRunKeyValueName = "KalOSProcessRules";
+    private const string RulesRunKeyValueName = "KaliteKitProcessRules";
 
     // ── Engine ownership (UI app vs hidden --rules session) ─────────────
     // Exactly one process may enforce rules at a time. The UI takes the
     // engine mutex on launch (nudging the background session to exit) and
     // hands it back by spawning a fresh --rules process on close.
-    public const string EngineMutexName = @"Local\KalOS.ProcessControlEngine";
-    public const string EngineStopEventName = @"Local\KalOS.ProcessControlEngineStop";
+    public const string EngineMutexName = @"Local\KaliteKit.ProcessControlEngine";
+    public const string EngineStopEventName = @"Local\KaliteKit.ProcessControlEngineStop";
 
     private static Mutex? _engineMutex;
 

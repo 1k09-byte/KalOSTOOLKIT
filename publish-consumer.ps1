@@ -1,7 +1,7 @@
-# Builds the consumer (distributable) build of KalOS and packages it as
-#   dist\KalOS-v{version}-win-x64.zip
+# Builds the consumer (distributable) build of KaliteKit and packages it as
+#   dist\KaliteKit-v{version}-win-x64.zip
 # Attach that zip to the matching GitHub release (e.g. tag v1.0.0.4) and
-# every installed copy of KalOS will auto-update to it. The setup wizard is
+# every installed copy of KaliteKit will auto-update to it. The setup wizard is
 # compiled into the app, so this one zip is the whole release payload.
 #
 # Usage:  powershell -ExecutionPolicy Bypass -File publish-consumer.ps1
@@ -13,23 +13,23 @@ param(
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
-Write-Host "Building KalOS ($Config, $Platform)..."
+Write-Host "Building KaliteKit ($Config, $Platform)..."
 # CONSUMER_BUILD gates the update feature: only the distributed build checks
 # for updates — the dev toolkit never nags about new versions.
-dotnet build KalOS.csproj -c $Config -p:Platform=$Platform -p:RuntimeIdentifier=win-x64 -p:DefineConstants=CONSUMER_BUILD
+dotnet build KaliteKit.csproj -c $Config -p:Platform=$Platform -p:RuntimeIdentifier=win-x64 -p:DefineConstants=CONSUMER_BUILD
 if ($LASTEXITCODE -ne 0) { throw "Build failed with exit code $LASTEXITCODE" }
 
-# TFM folder name must match the <TargetFramework> in KalOS.csproj — it changes
+# TFM folder name must match the <TargetFramework> in KaliteKit.csproj — it changes
 # on runtime upgrades (currently net10.0-windows10.0.26100).
-$tfm = [regex]::Match((Get-Content (Join-Path $PSScriptRoot "KalOS.csproj") -Raw), '<TargetFramework>([^<]+)</TargetFramework>').Groups[1].Value
+$tfm = [regex]::Match((Get-Content (Join-Path $PSScriptRoot "KaliteKit.csproj") -Raw), '<TargetFramework>([^<]+)</TargetFramework>').Groups[1].Value
 $out = Join-Path $PSScriptRoot "bin\$Platform\$Config\$tfm\win-x64"
-if (-not (Test-Path (Join-Path $out "KalOS.exe"))) { throw "Output not found: $out" }
+if (-not (Test-Path (Join-Path $out "KaliteKit.exe"))) { throw "Output not found: $out" }
 
 # Strip debug symbols to slim the package.
 Get-ChildItem -Path $out -Recurse -Filter *.pdb -ErrorAction SilentlyContinue | Remove-Item -Force
 
 # OS-changes payload: os-changes.json + every .ps1 it references must sit next to
-# KalOS.exe inside the zip, or the consumer app's "Apply changes" button has
+# KaliteKit.exe inside the zip, or the consumer app's "Apply changes" button has
 # nothing to run. Copy from the repo root (source of truth) if the build didn't.
 $osChanges = Join-Path $PSScriptRoot "os-changes.json"
 if (Test-Path $osChanges) {
@@ -49,21 +49,21 @@ if (Test-Path $osChanges) {
 }
 
 # Version comes from the csproj so the zip name always matches the release tag.
-$csproj = Get-Content (Join-Path $PSScriptRoot "KalOS.csproj") -Raw
+$csproj = Get-Content (Join-Path $PSScriptRoot "KaliteKit.csproj") -Raw
 $match = [regex]::Match($csproj, '<Version>([^<]+)</Version>')
-if (-not $match.Success) { throw "Could not read <Version> from KalOS.csproj" }
+if (-not $match.Success) { throw "Could not read <Version> from KaliteKit.csproj" }
 $version = $match.Groups[1].Value
 
 $dist = Join-Path $PSScriptRoot "dist"
 New-Item -ItemType Directory -Path $dist -Force | Out-Null
 # Keep only this version's package — stale zips from older builds can linger
 # and get swept onto a release by a broad upload glob.
-Get-ChildItem -Path $dist -Filter "KalOS*.zip" -ErrorAction SilentlyContinue | Remove-Item -Force
-$zip = Join-Path $dist "KalOS-v$version-win-x64.zip"
+Get-ChildItem -Path $dist -Filter "KaliteKit*.zip" -ErrorAction SilentlyContinue | Remove-Item -Force
+$zip = Join-Path $dist "KaliteKit-v$version-win-x64.zip"
 
 Write-Host "Packaging $zip ..."
 Compress-Archive -Path (Join-Path $out "*") -DestinationPath $zip -CompressionLevel Optimal
 
 Write-Host ""
 Write-Host "Consumer package ready: $zip"
-Write-Host "Next: attach this zip to the GitHub release tagged v$version on 1k09-byte/KalOSTOOLKIT."
+Write-Host "Next: attach this zip to the GitHub release tagged v$version on 1k09-byte/KaliteKit."

@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
-using KalOS.Services;
+using KaliteKit.Services;
 
-namespace KalOS.ViewModels
+namespace KaliteKit.ViewModels
 {
     /// <summary>
     /// Backs the "Startup" section of the Settings page. In the consumer build

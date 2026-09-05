@@ -10,7 +10,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace KalOS.Services;
+namespace KaliteKit.Services;
 
 /// <summary>Information about a release that should replace the running build.</summary>
 public sealed record UpdateInfo(Version Version, string Tag, string ZipAssetUrl, string PageUrl, string ReleaseNotes, bool IsRollback = false);
@@ -39,7 +39,7 @@ public sealed class UpdateSettings
 }
 
 /// <summary>
-/// Self-updater for the distributed (consumer) build of KalOS. Checks the
+/// Self-updater for the distributed (consumer) build of KaliteKit. Checks the
 /// project's GitHub Releases for a newer version, downloads the packaged zip
 /// asset, and applies it in place: the app spawns a hidden PowerShell helper
 /// that waits for it to exit, swaps the files, and relaunches the new build.
@@ -47,7 +47,7 @@ public sealed class UpdateSettings
 public sealed class UpdateService
 {
     public const string DefaultOwner = "1k09-byte";
-    public const string DefaultRepo = "KalOSTOOLKIT";
+    public const string DefaultRepo = "KaliteKit";
 
     /// <summary>
     /// Fires when the app must forcefully roll back (e.g. current tag was removed).
@@ -61,11 +61,11 @@ public sealed class UpdateService
     {
         _log = log;
         _http = new HttpClient();
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("KalOS-Updater/1.0");
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd("KaliteKit-Updater/1.0");
         _http.Timeout = TimeSpan.FromSeconds(45);
     }
 
-    /// <summary>The version of the running build (from the KalOS assembly).</summary>
+    /// <summary>The version of the running build (from the KaliteKit assembly).</summary>
     public static Version CurrentVersion =>
         typeof(UpdateService).Assembly.GetName().Version ?? new Version(0, 0, 0);
 
@@ -78,9 +78,9 @@ public sealed class UpdateService
     /// </summary>
     public static string AppDataFolder =>
 #if CONSUMER_BUILD
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KalOS");
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KaliteKit");
 #else
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KalOS-Dev");
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KaliteKit-Dev");
 #endif
 
     public static string UpdatesFolder => Path.Combine(AppDataFolder, "updates");
@@ -158,10 +158,10 @@ public sealed class UpdateService
     {
         var list = assets.ToList();
         var preferred = list.FirstOrDefault(a =>
-            a.Name.Equals($"KalOS-v{version}-win-x64.zip", StringComparison.OrdinalIgnoreCase));
+            a.Name.Equals($"KaliteKit-v{version}-win-x64.zip", StringComparison.OrdinalIgnoreCase));
         if (preferred != null) return preferred.BrowserDownloadUrl;
         var any = list.FirstOrDefault(a =>
-            a.Name.StartsWith("KalOS", StringComparison.OrdinalIgnoreCase) &&
+            a.Name.StartsWith("KaliteKit", StringComparison.OrdinalIgnoreCase) &&
             a.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) &&
             // Never pick the Setup wizard payload — a release carrying both
             // would otherwise make the app download the installer instead of
@@ -258,7 +258,7 @@ public sealed class UpdateService
         try
         {
             using var client = new HttpClient();
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("KalOS-Updater/1.0");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("KaliteKit-Updater/1.0");
             client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
             client.Timeout = TimeSpan.FromSeconds(20);
             string json = await client.GetStringAsync(
@@ -299,8 +299,8 @@ public sealed class UpdateService
                 var location = resp.Headers.Location?.ToString();
                 if (!string.IsNullOrEmpty(location))
                 {
-                    // location will be like: https://github.com/1k09-byte/KalOSTOOLKIT/releases/tag/v1.0.0.1
-                    // or relative: /1k09-byte/KalOSTOOLKIT/releases/tag/v1.0.0.1
+                    // location will be like: https://github.com/1k09-byte/KaliteKit/releases/tag/v1.0.0.1
+                    // or relative: /1k09-byte/KaliteKit/releases/tag/v1.0.0.1
                     var match = System.Text.RegularExpressions.Regex.Match(location, @"/tag/v?([^/]+)/?$");
                     if (match.Success)
                     {
@@ -308,19 +308,19 @@ public sealed class UpdateService
                         if (TryParseReleaseVersion(tag, out var latest) && latest != CurrentVersion)
                         {
                             // Resolve the release's real zip asset — releases carry
-                            // KalOS-v{version}-win-x64.zip, not the legacy KalOS.zip
+                            // KaliteKit-v{version}-win-x64.zip, not the legacy KaliteKit.zip
                             // this method used to hardcode (which 404'd and made every
                             // update download fail). Falls back to the versioned name
                             // when the assets fragment can't be fetched.
                             var zipUrl = await ResolveZipAssetUrlAsync(tag, cancellationToken)
-                                ?? $"https://github.com/{DefaultOwner}/{DefaultRepo}/releases/download/{tag}/KalOS-v{latest}-win-x64.zip";
+                                ?? $"https://github.com/{DefaultOwner}/{DefaultRepo}/releases/download/{tag}/KaliteKit-v{latest}-win-x64.zip";
                             var pageUrl = $"https://github.com/{DefaultOwner}/{DefaultRepo}/releases/tag/{tag}";
                             var notes = $"New version {tag} is available.\n\n{pageUrl}";
                             // Try to fetch the real release body so the update log shows actual notes, not just a link
                             try
                             {
                                 using var apiClient = new HttpClient();
-                                apiClient.DefaultRequestHeaders.UserAgent.ParseAdd("KalOS-Updater/1.0");
+                                apiClient.DefaultRequestHeaders.UserAgent.ParseAdd("KaliteKit-Updater/1.0");
                                 apiClient.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
                                 string? bodyStr = null;
                                 foreach (var tryTag in new[] { tag, tag.TrimStart('v', 'V') })
@@ -384,7 +384,7 @@ public sealed class UpdateService
         {
             using var client = new HttpClient();
             client.Timeout = TimeSpan.FromSeconds(15);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("KalOS-Updater/1.0");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("KaliteKit-Updater/1.0");
             string html = await client.GetStringAsync(
                 $"https://github.com/{DefaultOwner}/{DefaultRepo}/releases/expanded_assets/{tag}", cancellationToken);
             return GitHubReleaseClient.SelectZipAssetUrl(html, tag);
@@ -415,7 +415,7 @@ public sealed class UpdateService
         try
         {
             Directory.CreateDirectory(UpdatesFolder);
-            string zipPath = Path.Combine(UpdatesFolder, $"KalOS-{info.Version}.zip");
+            string zipPath = Path.Combine(UpdatesFolder, $"KaliteKit-{info.Version}.zip");
 
             // Stream the download to disk and report progress (0..1) so the UI
             // can show a live progress bar. The caller marshals the callback to
@@ -441,17 +441,17 @@ public sealed class UpdateService
             if (Directory.Exists(extractDir)) Directory.Delete(extractDir, recursive: true);
             ZipFile.ExtractToDirectory(zipPath, extractDir);
 
-            // Sanity checks: the package must contain KalOS at its version.
-            // In a framework-dependent build KalOS.exe is a native apphost
+            // Sanity checks: the package must contain KaliteKit at its version.
+            // In a framework-dependent build KaliteKit.exe is a native apphost
             // launcher without CLR metadata, so read the version from the
-            // managed KalOS.dll (fall back to the exe for single-file builds).
-            string newExe = Path.Combine(extractDir, "KalOS.exe");
+            // managed KaliteKit.dll (fall back to the exe for single-file builds).
+            string newExe = Path.Combine(extractDir, "KaliteKit.exe");
             if (!File.Exists(newExe))
             {
-                _log.Error($"Update package is missing KalOS.exe: {zipPath}");
+                _log.Error($"Update package is missing KaliteKit.exe: {zipPath}");
                 return false;
             }
-            string assemblyPath = Path.Combine(extractDir, "KalOS.dll");
+            string assemblyPath = Path.Combine(extractDir, "KaliteKit.dll");
             if (!File.Exists(assemblyPath)) assemblyPath = newExe;
             Version newVersion;
             try
@@ -491,7 +491,7 @@ public sealed class UpdateService
 
     /// <summary>
     /// The hidden helper script: waits for the app to exit, copies the new
-    /// build over the old one, relaunches KalOS, and cleans up the temp files.
+    /// build over the old one, relaunches KaliteKit, and cleans up the temp files.
     /// </summary>
     internal static string BuildApplyScript(int oldProcessId, string srcDir, string dstDir, string zipPath, string logPath)
     {
@@ -502,7 +502,7 @@ try {{
     $old = Get-Process -Id {oldProcessId} -ErrorAction SilentlyContinue
     if ($old) {{ $old.WaitForExit() }}
     Copy-Item -Path (Join-Path {Q(srcDir)} '*') -Destination {Q(dstDir)} -Recurse -Force
-    Start-Process -FilePath (Join-Path {Q(dstDir)} 'KalOS.exe') -WorkingDirectory {Q(dstDir)}
+    Start-Process -FilePath (Join-Path {Q(dstDir)} 'KaliteKit.exe') -WorkingDirectory {Q(dstDir)}
     Remove-Item -Path {Q(srcDir)} -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -Path {Q(zipPath)} -Force -ErrorAction SilentlyContinue
     Set-Content -Path {Q(logPath)} -Value ('[OK] Update applied at ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))

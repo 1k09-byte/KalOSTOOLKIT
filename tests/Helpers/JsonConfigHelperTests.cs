@@ -1,7 +1,7 @@
-﻿using KalOS.Helpers;
+﻿using KaliteKit.Helpers;
 using Xunit;
 
-namespace KalOS.Tests.Helpers;
+namespace KaliteKit.Tests.Helpers;
 
 public class JsonConfigHelperTests
 {
@@ -24,7 +24,7 @@ public class JsonConfigHelperTests
         Assert.Equal(config.Name, loaded.Name);
         Assert.Equal(config.Value, loaded.Value);
 
-        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KalOS", "Configs", fileName);
+        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KaliteKit", "Configs", fileName);
         if (File.Exists(path)) File.Delete(path);
     }
 
@@ -46,7 +46,7 @@ public class JsonConfigHelperTests
     public void LoadSync_InvalidJson_ReturnsNull()
     {
         var fileName = $"invalid_{Guid.NewGuid()}.json";
-        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KalOS", "Configs");
+        var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KaliteKit", "Configs");
         Directory.CreateDirectory(dir);
         var path = Path.Combine(dir, fileName);
         File.WriteAllText(path, "not valid json{{{");

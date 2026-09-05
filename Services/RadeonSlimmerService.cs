@@ -6,11 +6,11 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>
     /// Downloads and launches GSDragoon's Radeon Software Slimmer (GPL-3.0,
-    /// third-party) at runtime — the binary is never bundled into KalOS.
+    /// third-party) at runtime — the binary is never bundled into KaliteKit.
     /// Slimming is driven in the tool's own GUI: "Pre Install" to slim the
     /// Adrenalin installer before installing, "Post Install" to trim the
     /// installed Radeon Software. Exposure is interactive by design.
@@ -25,7 +25,7 @@ namespace KalOS.Services
         {
             var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = true });
             client.Timeout = TimeSpan.FromMinutes(10);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("KalOS/1.1 (radeon-slimmer)");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("KaliteKit/1.1 (radeon-slimmer)");
             return client;
         }
 
@@ -37,7 +37,7 @@ namespace KalOS.Services
 
         private static readonly string SlimmerDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "KalOS", "tools", "radeon-slimmer");
+            "KaliteKit", "tools", "radeon-slimmer");
 
         private const string SlimmerExeName = "RadeonSoftwareSlimmer.exe";
 
@@ -95,7 +95,7 @@ namespace KalOS.Services
 
         /// <summary>
         /// Launches the extracted Slimmer so the user can slim interactively.
-        /// KalOS runs elevated, so the child inherits the admin token.
+        /// KaliteKit runs elevated, so the child inherits the admin token.
         /// </summary>
         public bool Launch(string? exePath, LoggingService log, string? installerPath = null)
         {

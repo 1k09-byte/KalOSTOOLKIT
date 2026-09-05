@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace KalOS.Models.Bios;
+namespace KaliteKit.Models.Bios;
 
 /// <summary>
 /// The storage formats a specific BIOS setting exposes. Drives which editor

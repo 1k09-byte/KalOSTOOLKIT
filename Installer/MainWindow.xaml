@@ -1,5 +1,5 @@
 <Window
-    x:Class="KalOS.Setup.MainWindow"
+    x:Class="KaliteKit.Setup.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
@@ -45,11 +45,6 @@
                             <FontIcon Glyph="&#xE790;"/>
                         </NavigationViewItem.Icon>
                     </NavigationViewItem>
-                    <NavigationViewItem Content="Tweaks &amp; Cleanup" Tag="4">
-                        <NavigationViewItem.Icon>
-                            <FontIcon Glyph="&#xE72D;"/>
-                        </NavigationViewItem.Icon>
-                    </NavigationViewItem>
                 </NavigationView.MenuItems>
 
                 <!-- Pinned install entry — styled like a nav page row, still a Button -->
@@ -60,7 +55,7 @@
                             <StackPanel Orientation="Horizontal" Spacing="12">
                                 <FontIcon Glyph="&#xE896;" FontSize="16"
                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                <TextBlock Text="Install KalOS" FontSize="13"
+                                <TextBlock Text="Install KaliteKit" FontSize="13"
                                            Foreground="{ThemeResource TextFillColorPrimaryBrush}"/>
                             </StackPanel>
                         </Button>

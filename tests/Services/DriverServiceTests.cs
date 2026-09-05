@@ -3,10 +3,10 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using KalOS.Models;
-using KalOS.Services;
+using KaliteKit.Models;
+using KaliteKit.Services;
 
-namespace KalOS.Tests.Services;
+namespace KaliteKit.Tests.Services;
 
 /// <summary>
 /// Backend contract tests for the driver stack: version comparison across
@@ -371,7 +371,7 @@ public class DriverServiceTests
     [Fact]
     public void CleanStaleDownloads_RemovesOldLeftoversFromInterruptedInstalls()
     {
-        var workDir = Path.Combine(Path.GetTempPath(), "kalos-sweep-" + Guid.NewGuid().ToString("N"));
+        var workDir = Path.Combine(Path.GetTempPath(), "kalitekit-sweep-" + Guid.NewGuid().ToString("N"));
         try
         {
             Directory.CreateDirectory(workDir);
@@ -404,7 +404,7 @@ public class DriverServiceTests
     [Fact]
     public void CleanStaleDownloads_KeepsFreshFiles_SoInFlightInstallsAreSafe()
     {
-        var workDir = Path.Combine(Path.GetTempPath(), "kalos-sweep-" + Guid.NewGuid().ToString("N"));
+        var workDir = Path.Combine(Path.GetTempPath(), "kalitekit-sweep-" + Guid.NewGuid().ToString("N"));
         try
         {
             Directory.CreateDirectory(workDir);

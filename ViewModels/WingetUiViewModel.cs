@@ -3,9 +3,9 @@ using System.IO;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using KalOS.Services;
+using KaliteKit.Services;
 
-namespace KalOS.ViewModels;
+namespace KaliteKit.ViewModels;
 
 /// <summary>
 /// Installs UniGetUI (formerly WingetUI) — the GUI for winget/choco/scoop —

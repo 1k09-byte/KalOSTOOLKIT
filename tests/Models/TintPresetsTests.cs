@@ -1,7 +1,7 @@
-using KalOS.Models;
+using KaliteKit.Models;
 using Windows.UI;
 
-namespace KalOS.Tests.Models;
+namespace KaliteKit.Tests.Models;
 
 public class TintPresetsTests
 {

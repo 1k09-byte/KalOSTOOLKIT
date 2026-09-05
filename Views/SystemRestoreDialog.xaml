@@ -1,10 +1,10 @@
 <ContentDialog
-    x:Class="KalOS.Views.SystemRestoreDialog"
+    x:Class="KaliteKit.Views.SystemRestoreDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:viewModels="using:KalOS.ViewModels"
+    xmlns:viewModels="using:KaliteKit.ViewModels"
     mc:Ignorable="d"
     Title="System Restore Manager"
     PrimaryButtonText="Close"
@@ -30,7 +30,7 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" Spacing="4">
                     <TextBlock Text="New restore point" FontWeight="SemiBold"/>
-                    <TextBox x:Name="NewDescriptionBox" PlaceholderText="e.g. Before KalOS tweaks — 28 Aug" Text="KalOS App Restore Point"/>
+                    <TextBox x:Name="NewDescriptionBox" PlaceholderText="e.g. Before KaliteKit tweaks — 28 Aug" Text="KaliteKit App Restore Point"/>
                     <TextBlock Text="Requires admin + System Restore enabled for C:" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                 </StackPanel>
                 <Button Grid.Column="1" Content="Create" Click="Create_Click" VerticalAlignment="Bottom" Style="{StaticResource AccentButtonStyle}"/>

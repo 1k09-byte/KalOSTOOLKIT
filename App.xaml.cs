@@ -8,17 +8,17 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Settings;
-using KalOS.Services;
-using KalOS.ViewModels;
+using KaliteKit.Services;
+using KaliteKit.ViewModels;
 
-namespace KalOS
+namespace KaliteKit
 {
     /// <summary>
     /// Provides application-specific behavior to supplement the default Application class.
     /// </summary>
     public partial class App : Application
     {
-        private const string SingleInstanceMutexName = @"Local\KalOS.SingleInstance";
+        private const string SingleInstanceMutexName = @"Local\KaliteKit.SingleInstance";
 
         private const int SW_RESTORE = 9;
 
@@ -64,7 +64,7 @@ namespace KalOS
 
         /// <summary>Display name, version, OS, and architecture of this build — used by startup/crash diagnostics.</summary>
         public static string BuildInfo =>
-            $"KalOS {AppVersion} | {RuntimeInformation.OSDescription} | {RuntimeInformation.ProcessArchitecture} | user {Environment.UserName}";
+            $"KaliteKit {AppVersion} | {RuntimeInformation.OSDescription} | {RuntimeInformation.ProcessArchitecture} | user {Environment.UserName}";
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern bool SetProcessDpiAwarenessContext(IntPtr dpiFlag);
@@ -148,7 +148,7 @@ namespace KalOS
                 // Walk the stack (heuristic): read the CONTEXT's RSP/RIP from
                 // EXCEPTION_POINTERS and scan the stack for return addresses
                 // that land inside a loaded module. Crude, but it reveals the
-                // call chain (e.g. XAML teardown ← KalOS code) without a debugger.
+                // call chain (e.g. XAML teardown ← KaliteKit code) without a debugger.
                 // AMD64 CONTEXT: ContextRecord@8, Rip@0xF8, Rsp@0x98.
                 var chain = new System.Text.StringBuilder();
                 try
@@ -217,14 +217,14 @@ namespace KalOS
             {
                 string dir = System.IO.Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "KalOS", "CrashLogs");
+                    "KaliteKit", "CrashLogs");
                 Directory.CreateDirectory(dir);
 
                 // WER LocalDumps — Windows writes a dump on any crash of this exe.
                 try
                 {
                     using var baseKey = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(
-                        @"SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\KalOS.exe");
+                        @"SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\KaliteKit.exe");
                     if (baseKey is not null)
                     {
                         baseKey.SetValue("DumpFolder", dir);
@@ -491,10 +491,10 @@ namespace KalOS
             services.AddSingleton<ProcessControlService>();
 
             // ── BIOS management ─────────────────────────────────────────────
-            services.AddSingleton<KalOS.Services.Bios.IWmiClient, KalOS.Services.Bios.SystemManagementWmiClient>();
-            services.AddSingleton<KalOS.Services.Bios.ScewinService>();
-            services.AddSingleton<KalOS.Services.Bios.BiosProviderFactory>();
-            services.AddSingleton<KalOS.Services.Bios.BiosUpdateService>();
+            services.AddSingleton<KaliteKit.Services.Bios.IWmiClient, KaliteKit.Services.Bios.SystemManagementWmiClient>();
+            services.AddSingleton<KaliteKit.Services.Bios.ScewinService>();
+            services.AddSingleton<KaliteKit.Services.Bios.BiosProviderFactory>();
+            services.AddSingleton<KaliteKit.Services.Bios.BiosUpdateService>();
 
             // ── GPU driver stack ────────────────────────────────────────
             services.AddSingleton<GpuDetectionService>();
@@ -511,14 +511,13 @@ namespace KalOS
             services.AddSingleton<CoreSpreadingService>();
 
             // ── Setup wizard (first-run install experience) ──────────────────
-            // The wizard UI is compiled into this app (see KalOS.csproj's
+            // The wizard UI is compiled into this app (see KaliteKit.csproj's
             // Installer/** includes); these are the pieces its pipeline needs
             // that the consumer pages don't already register.
-            services.AddSingleton<TweaksService>();
             services.AddSingleton<GitHubReleaseClient>();
             services.AddSingleton<HttpFileDownloader>();
-            services.AddSingleton<KalOS.Setup.InstallerPipeline>();
-            services.AddSingleton<KalOS.Setup.ViewModels.InstallerViewModel>();
+            services.AddSingleton<KaliteKit.Setup.InstallerPipeline>();
+            services.AddSingleton<KaliteKit.Setup.ViewModels.InstallerViewModel>();
 
 
             // ── ViewModels ─────────────────────────────────────────────
@@ -592,10 +591,10 @@ namespace KalOS
             if (!haveInstance)
             {
                 // If the running copy is hidden in the tray, wake it instead of
-                // exiting silently — the user launched KalOS expecting a window.
+                // exiting silently — the user launched KaliteKit expecting a window.
                 try
                 {
-                    var existing = System.Diagnostics.Process.GetProcessesByName("KalOS");
+                    var existing = System.Diagnostics.Process.GetProcessesByName("KaliteKit");
                     foreach (var p in existing)
                     {
                         if (p.Id == Environment.ProcessId) continue;
@@ -650,7 +649,7 @@ namespace KalOS
             ProcessControlService.EnableRulesAutostart();
 #endif
 
-            // Launched at Windows login (HKCU Run key writes "KalOS.exe --startup").
+            // Launched at Windows login (HKCU Run key writes "KaliteKit.exe --startup").
             // Skip the main window entirely: show only the drop-down banner that
             // runs the user's startup command list and checks for toolkit updates.
             if (Array.IndexOf(cmdArgs, "--startup") >= 0 || Array.IndexOf(cmdArgs, "-startup") >= 0)
@@ -661,12 +660,12 @@ namespace KalOS
 
 #if CONSUMER_BUILD
             // One big app (consumer build only): a fresh install opens straight
-            // into the embedded setup wizard (Install KalOS → drivers → software
+            // into the embedded setup wizard (Install KaliteKit → drivers → software
             // → tweaks); the moment the wizard's pipeline completes, the marker
             // flips and the same process swaps into the full consumer app.
             // --setup forces the wizard again on an already-set-up machine.
             bool forceSetup = Array.IndexOf(cmdArgs, "--setup") >= 0 || Array.IndexOf(cmdArgs, "-setup") >= 0;
-            if (!forceSetup && KalOS.Setup.SetupState.IsSetupComplete)
+            if (!forceSetup && KaliteKit.Setup.SetupState.IsSetupComplete)
             {
                 _window = new MainWindow();
                 _window.Activate();
@@ -702,11 +701,11 @@ namespace KalOS
         /// </summary>
         private void LaunchSetupWizard()
         {
-            KalOS.Setup.SetupState.Embedded = true;
-            KalOS.Setup.App.InitializeWizard();
+            KaliteKit.Setup.SetupState.Embedded = true;
+            KaliteKit.Setup.App.InitializeWizard();
 
-            var wizard = new KalOS.Setup.MainWindow();
-            KalOS.Setup.App.MainWindow = wizard;
+            var wizard = new KaliteKit.Setup.MainWindow();
+            KaliteKit.Setup.App.MainWindow = wizard;
             _window = wizard;
 
             // Shared between both close paths so whichever fires first wins.
@@ -714,7 +713,7 @@ namespace KalOS
 
             void SwapToConsumer()
             {
-                if (swapped || !KalOS.Setup.SetupState.IsSetupComplete) return;
+                if (swapped || !KaliteKit.Setup.SetupState.IsSetupComplete) return;
                 swapped = true;
 
                 // Open the consumer shell FIRST so the app never drops to zero
@@ -734,7 +733,7 @@ namespace KalOS
 
             // Path 1 — the Finish page's Close/exit (Window.Close() bypasses
             // AppWindow.Closing, so the host must be handed it explicitly).
-            KalOS.Setup.SetupState.EmbeddedCloseHandler = SwapToConsumer;
+            KaliteKit.Setup.SetupState.EmbeddedCloseHandler = SwapToConsumer;
 
             // Path 2 — the title-bar ✕ / Alt+F4 after a completed setup.
             try
@@ -747,7 +746,7 @@ namespace KalOS
                     // Dismiss dialogs before teardown — a ContentDialog open at
                     // window close crashes native XAML teardown (0xc0000005).
                     App.HideOpenDialogs();
-                    if (swapped || !KalOS.Setup.SetupState.IsSetupComplete) return;
+                    if (swapped || !KaliteKit.Setup.SetupState.IsSetupComplete) return;
                     // Cancel this close, then run the swap on the dispatcher —
                     // calling wizard.Close() from inside a pending Closing event
                     // would re-enter the handler mid-close.
@@ -832,7 +831,7 @@ namespace KalOS
                     // the user closed the main window.
                     long exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64();
                     SetWindowLongPtr(hwnd, GWL_EXSTYLE, new IntPtr(exStyle | WS_EX_TOOLWINDOW));
-                    appWindow.Title = "KalOS Rules Engine";
+                    appWindow.Title = "KaliteKit Rules Engine";
 
                     appWindow.MoveAndResize(new Windows.Graphics.RectInt32(-32000, -32000, 1, 1));
                 }
@@ -902,7 +901,7 @@ namespace KalOS
                 {
                     new TextBlock
                     {
-                        Text = "This version of KalOS has been removed from GitHub because it is unstable. A rollback to the previous stable version is required. The app will close and install it now.",
+                        Text = "This version of KaliteKit has been removed from GitHub because it is unstable. A rollback to the previous stable version is required. The app will close and install it now.",
                         TextWrapping = TextWrapping.Wrap, MaxWidth = 440
                     },
                     progressBar, progressText
@@ -911,7 +910,7 @@ namespace KalOS
 
             var dialog = new ContentDialog
             {
-                Title = "KalOS version removed",
+                Title = "KaliteKit version removed",
                 Content = panel,
                 PrimaryButtonText = "Roll back now",
                 DefaultButton = ContentDialogButton.Primary,
@@ -1007,7 +1006,7 @@ namespace KalOS
             var body = new StackPanel { Spacing = 8 };
             body.Children.Add(new TextBlock
             {
-                Text = $"KalOS was updated to {rec.Version} on {rec.AppliedAt:g}.",
+                Text = $"KaliteKit was updated to {rec.Version} on {rec.AppliedAt:g}.",
                 TextWrapping = TextWrapping.Wrap,
             });
             body.Children.Add(new TextBlock
@@ -1037,7 +1036,7 @@ namespace KalOS
 
             var dialog = new ContentDialog
             {
-                Title = $"Update log — KalOS {rec.Version}",
+                Title = $"Update log — KaliteKit {rec.Version}",
                 Content = body,
                 PrimaryButtonText = needsApply ? "Apply changes" : "View apply log",
                 SecondaryButtonText = needsApply ? "View apply log" : string.Empty,
@@ -1177,8 +1176,8 @@ namespace KalOS
                     Content = new TextBlock
                     {
                         Text = rollback
-                            ? $"KalOS {AppVersion} is newer than the published version {version}. This build is unstable and must be rolled back. The app will restart automatically after the rollback."
-                            : $"KalOS {version} is ready to download and install.\n\nYour app will restart automatically after the update finishes.",
+                            ? $"KaliteKit {AppVersion} is newer than the published version {version}. This build is unstable and must be rolled back. The app will restart automatically after the rollback."
+                            : $"KaliteKit {version} is ready to download and install.\n\nYour app will restart automatically after the update finishes.",
                         TextWrapping = TextWrapping.Wrap,
                         MaxWidth = 420
                     },
@@ -1313,7 +1312,7 @@ namespace KalOS
 
                 var dialog = new ContentDialog
                 {
-                    Title = "KalOS ran into a problem",
+                    Title = "KaliteKit ran into a problem",
                     Content = new TextBlock
                     {
                         Text = $"Something unexpected happened and the app may be unstable. Restarting fresh is recommended.\n\nDetails: {exception.Message}",
@@ -1356,7 +1355,7 @@ namespace KalOS
         {
             try
             {
-                var crashDir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KalOS", "CrashLogs");
+                var crashDir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KaliteKit", "CrashLogs");
                 Directory.CreateDirectory(crashDir);
                 var logPath = System.IO.Path.Combine(crashDir, $"crash_{DateTime.Now:yyyyMMdd_HHmmss}.txt");
                 // ToString() includes inner exceptions, which matters for

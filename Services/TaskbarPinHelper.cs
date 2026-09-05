@@ -2,7 +2,7 @@
 using System.IO;
 using System.Threading;
 
-namespace KalOS.Services;
+namespace KaliteKit.Services;
 
 /// <summary>
 /// Pins an application to the Windows taskbar without any NuGet dependency.

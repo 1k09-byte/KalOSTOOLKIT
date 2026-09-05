@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace KalOS.Models
+namespace KaliteKit.Models
 {
     /// <summary>A graphics adapter and its installed driver, as reported by WMI.</summary>
     public sealed class GpuInfo

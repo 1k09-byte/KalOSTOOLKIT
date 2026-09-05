@@ -77,7 +77,7 @@ jobs:
           if (-not [string]::IsNullOrWhiteSpace($botToken) -and -not [string]::IsNullOrWhiteSpace($channelId) -and $tag) {
             Write-Host "Trying bot search in channel $channelId for tag $tag"
             try {
-              $headers = @{ Authorization = "Bot $botToken"; "User-Agent" = "KalOS-cleanup" }
+              $headers = @{ Authorization = "Bot $botToken"; "User-Agent" = "KaliteKit-cleanup" }
               $msgs = Invoke-RestMethod -Uri "https://discord.com/api/v10/channels/$channelId/messages?limit=100" -Headers $headers -ErrorAction Stop
               $found = 0
               foreach ($m in $msgs) {
@@ -116,7 +116,7 @@ jobs:
             if ([string]::IsNullOrWhiteSpace($title)) { $title = $tag }
             if ([string]::IsNullOrWhiteSpace($title)) { $title = "release" }
             $payload = @{
-              username = "KalOS Releases"
+              username = "KaliteKit Releases"
               content = ":wastebasket: Release $tag was deleted — the previous announcement for $title has been removed. (Original Discord message could not be auto-deleted; please delete it manually if still visible. Add DISCORD_BOT_TOKEN + DISCORD_CHANNEL_ID secrets to enable auto-delete for old messages.)"
             } | ConvertTo-Json -Depth 3
             try {

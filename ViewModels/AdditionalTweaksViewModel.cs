@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
-using KalOS.Helpers;
-using KalOS.Services;
+using KaliteKit.Helpers;
+using KaliteKit.Services;
 using Microsoft.UI.Dispatching;
 using Microsoft.Win32;
 using Windows.Devices.Radios;
 
-namespace KalOS.ViewModels
+namespace KaliteKit.ViewModels
 {
     /// <summary>
     /// Registry values written to HKCU\System\GameConfigStore for the game

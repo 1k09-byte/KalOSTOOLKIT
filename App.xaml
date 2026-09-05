@@ -1,9 +1,9 @@
 ﻿<Application
-    x:Class="KalOS.App"
+    x:Class="KaliteKit.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:KalOS"
-    xmlns:services="using:KalOS.Services">
+    xmlns:local="using:KaliteKit"
+    xmlns:services="using:KaliteKit.Services">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>

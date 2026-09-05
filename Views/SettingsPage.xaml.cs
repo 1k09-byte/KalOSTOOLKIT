@@ -3,16 +3,16 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
-using KalOS.Models;
+using KaliteKit.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
-using KalOS.Services;
-using KalOS.ViewModels;
+using KaliteKit.Services;
+using KaliteKit.ViewModels;
 
-namespace KalOS.Views
+namespace KaliteKit.Views
 {
     /// <summary>
     /// Settings page allowing the user to configure app theme, backdrop, and license info.
@@ -196,7 +196,7 @@ namespace KalOS.Views
             }
         }
 
-        /// <summary>Opens the KalOS log folder in Explorer (explicit opt-in).</summary>
+        /// <summary>Opens the KaliteKit log folder in Explorer (explicit opt-in).</summary>
         private static void OpenLogsFolder()
         {
             try
@@ -212,7 +212,7 @@ namespace KalOS.Views
         }
 
         /// <summary>
-        /// Shows every published KalOS version with its date and release notes,
+        /// Shows every published KaliteKit version with its date and release notes,
         /// the running build marked "current", and a link out to GitHub.
         /// </summary>
         private async void ShowReleaseHistory_Click(object sender, RoutedEventArgs e)

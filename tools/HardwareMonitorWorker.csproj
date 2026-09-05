@@ -12,4 +12,6 @@
     <Compile Include="HardwareMonitorWorker.cs" />
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
   </ItemGroup>
+  <!-- Ship the referenced NuGet package's license text with the worker output. -->
+  <Import Project="..\Licenses.targets" />
 </Project>

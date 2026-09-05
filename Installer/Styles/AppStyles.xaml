@@ -1,7 +1,7 @@
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:converters="using:KalOS.Setup.Converters">
+    xmlns:converters="using:KaliteKit.Setup.Converters">
 
     <!-- ═══════════════════════════════════════════════════════════
          Semantic color layer — mirrors the main app's Brushes.xaml.

@@ -1,6 +1,6 @@
 using Microsoft.UI.Xaml.Controls;
 
-namespace KalOS.Setup.Views
+namespace KaliteKit.Setup.Views
 {
     /// <summary>
     /// Base for every wizard page. A page overrides <see cref="CanProceed"/>

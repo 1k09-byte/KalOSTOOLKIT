@@ -5,9 +5,9 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using KalOS.Models;
+using KaliteKit.Models;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>
     /// The single driver façade the UI talks to. Routes a GPU to its vendor
@@ -24,7 +24,7 @@ namespace KalOS.Services
 
         private static readonly string DefaultWorkDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "KalOS", "drivers");
+            "KaliteKit", "drivers");
 
         private readonly string _workDir;
 

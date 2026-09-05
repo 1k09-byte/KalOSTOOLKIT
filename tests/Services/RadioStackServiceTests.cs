@@ -1,6 +1,6 @@
-using KalOS.Services;
+using KaliteKit.Services;
 
-namespace KalOS.Tests.Services;
+namespace KaliteKit.Tests.Services;
 
 /// <summary>
 /// Guards the service/driver tables and registry mapping used by the deep

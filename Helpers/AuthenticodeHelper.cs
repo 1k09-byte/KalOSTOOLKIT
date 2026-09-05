@@ -3,7 +3,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography.X509Certificates;
 
-namespace KalOS.Helpers
+namespace KaliteKit.Helpers
 {
     /// <summary>
     /// Authenticode digital signature verification helper.

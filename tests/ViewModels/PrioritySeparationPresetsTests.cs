@@ -1,7 +1,7 @@
 using System.Linq;
-using KalOS.ViewModels;
+using KaliteKit.ViewModels;
 
-namespace KalOS.Tests.ViewModels;
+namespace KaliteKit.Tests.ViewModels;
 
 /// <summary>
 /// Guards the Win32PrioritySeparation preset table shown in the Additional

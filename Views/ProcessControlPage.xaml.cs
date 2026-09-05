@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using KalOS.Models.ProcessControl;
-using KalOS.Services;
-using KalOS.ViewModels;
+using KaliteKit.Models.ProcessControl;
+using KaliteKit.Services;
+using KaliteKit.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI;
 using Microsoft.UI.Xaml;
@@ -14,7 +14,7 @@ using Windows.UI;
 using Microsoft.UI.Xaml.Shapes;
 using Windows.Foundation;
 
-namespace KalOS.Views;
+namespace KaliteKit.Views;
 
 public sealed partial class ProcessControlPage : Page
 {
@@ -408,7 +408,7 @@ public sealed partial class ProcessControlPage : Page
 
     /// <summary>
     /// Hands rule enforcement back to a fresh background session before the
-    /// UI exits: releases the engine mutex, spawns KalOS.exe --rules, and the
+    /// UI exits: releases the engine mutex, spawns KaliteKit.exe --rules, and the
     /// background process owns the engine from then on (no enforcement gap).
     /// </summary>
     public static void HandEngineToBackgroundSession()

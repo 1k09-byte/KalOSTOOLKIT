@@ -1,8 +1,8 @@
 <local:WizardPage
-    x:Class="KalOS.Setup.Views.WelcomePage"
+    x:Class="KaliteKit.Setup.Views.WelcomePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:KalOS.Setup.Views">
+    xmlns:local="using:KaliteKit.Setup.Views">
 
     <Grid Background="Transparent">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -10,10 +10,10 @@
 
                 <!-- Header -->
                 <StackPanel Spacing="6">
-                    <TextBlock Text="KALOS SETUP" Style="{StaticResource ShellCaption}"/>
-                    <TextBlock Text="KalOS Installer" Style="{StaticResource ShellTitle}"/>
+                    <TextBlock Text="KALITEKIT SETUP" Style="{StaticResource ShellCaption}"/>
+                    <TextBlock Text="KaliteKit Installer" Style="{StaticResource ShellTitle}"/>
                     <TextBlock Style="{StaticResource PageSubtitle}" Margin="0,6,0,0"
-                               Text="The one-shot setup: deploy KalOS, update your GPU driver, and install your browsers and software."/>
+                               Text="The one-shot setup: deploy KaliteKit, update your GPU driver, and install your browsers and software."/>
                 </StackPanel>
 
                 <!-- Link cards -->
@@ -27,7 +27,7 @@
 
                     <!-- Card 1: User guide -->
                     <Button Grid.Column="0" Height="158" Style="{StaticResource HomeCardButton}"
-                            Click="Card_Click" Tag="https://github.com/1k09-byte/KalOSTOOLKIT">
+                            Click="Card_Click" Tag="https://github.com/1k09-byte/KaliteKit">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -36,8 +36,8 @@
                             </Grid.RowDefinitions>
                             <FontIcon Glyph="&#xE9F9;" FontSize="18" Foreground="{ThemeResource AccentBrush}"/>
                             <StackPanel Grid.Row="1" Spacing="3" Margin="0,10,0,0">
-                                <TextBlock Text="KalOS User Guide" FontSize="14" FontWeight="SemiBold"/>
-                                <TextBlock Text="Instructions on how to get the most out of KalOS."
+                                <TextBlock Text="KaliteKit User Guide" FontSize="14" FontWeight="SemiBold"/>
+                                <TextBlock Text="Instructions on how to get the most out of KaliteKit."
                                            Style="{StaticResource CardSubtitle}"/>
                             </StackPanel>
                             <FontIcon Grid.Row="2" Glyph="&#xE72E;" FontSize="12"
@@ -48,7 +48,7 @@
 
                     <!-- Card 2: Contribution guide -->
                     <Button Grid.Column="1" Height="158" Style="{StaticResource HomeCardButton}"
-                            Click="Card_Click" Tag="https://github.com/1k09-byte/KalOSTOOLKIT/issues">
+                            Click="Card_Click" Tag="https://github.com/1k09-byte/KaliteKit/issues">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -60,8 +60,8 @@
                                           Fill="#E6E6E6"/>
                             </Viewbox>
                             <StackPanel Grid.Row="1" Spacing="3" Margin="0,10,0,0">
-                                <TextBlock Text="KalOS Contribution Guide" FontSize="14" FontWeight="SemiBold"/>
-                                <TextBlock Text="Contribute to become a part of the KalOS project."
+                                <TextBlock Text="KaliteKit Contribution Guide" FontSize="14" FontWeight="SemiBold"/>
+                                <TextBlock Text="Contribute to become a part of the KaliteKit project."
                                            Style="{StaticResource CardSubtitle}"/>
                             </StackPanel>
                             <FontIcon Grid.Row="2" Glyph="&#xE72E;" FontSize="12"
@@ -84,7 +84,7 @@
                                           Fill="#5865F2"/>
                             </Viewbox>
                             <StackPanel Grid.Row="1" Spacing="3" Margin="0,10,0,0">
-                                <TextBlock Text="KalOS Discord Server" FontSize="14" FontWeight="SemiBold"/>
+                                <TextBlock Text="KaliteKit Discord Server" FontSize="14" FontWeight="SemiBold"/>
                                 <TextBlock Text="Join the community to report issues, get support or suggest new features."
                                            Style="{StaticResource CardSubtitle}"/>
                             </StackPanel>
@@ -96,7 +96,7 @@
 
                     <!-- Card 4: Release notes -->
                     <Button Grid.Column="3" Height="158" Style="{StaticResource HomeCardButton}"
-                            Click="Card_Click" Tag="https://github.com/1k09-byte/KalOSTOOLKIT/releases/latest">
+                            Click="Card_Click" Tag="https://github.com/1k09-byte/KaliteKit/releases/latest">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -106,7 +106,7 @@
                             <FontIcon Glyph="&#xE896;" FontSize="18" Foreground="{ThemeResource AccentBrush}"/>
                             <StackPanel Grid.Row="1" Spacing="3" Margin="0,10,0,0">
                                 <TextBlock Text="Release Notes" FontSize="14" FontWeight="SemiBold"/>
-                                <TextBlock Text="See what's new in the latest KalOS release."
+                                <TextBlock Text="See what's new in the latest KaliteKit release."
                                            Style="{StaticResource CardSubtitle}"/>
                             </StackPanel>
                             <FontIcon Grid.Row="2" Glyph="&#xE72E;" FontSize="12"

@@ -5,7 +5,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     // ═══════════════════════════════════════════════════════════════════
     //  Native DriverStore interop — ISOLATION BOUNDARY (spec section 3)

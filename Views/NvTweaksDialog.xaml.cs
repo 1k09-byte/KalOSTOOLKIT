@@ -1,7 +1,7 @@
-using KalOS.Services;
+using KaliteKit.Services;
 using Microsoft.UI.Xaml.Controls;
 
-namespace KalOS.Views
+namespace KaliteKit.Views
 {
     /// <summary>
     /// Second step of the NVIDIA install flow: optional post-install tweaks,

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace KalOS.Models
+namespace KaliteKit.Models
 {
     /// <summary>A single session log entry the UI binds to (see <see cref="Services.LoggingService"/>).</summary>
     public class CleanupLog

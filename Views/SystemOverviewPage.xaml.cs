@@ -1,11 +1,11 @@
 using System.Threading.Tasks;
-using KalOS.ViewModels;
+using KaliteKit.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 
-namespace KalOS.Views;
+namespace KaliteKit.Views;
 
 public sealed partial class SystemOverviewPage : Page
 {

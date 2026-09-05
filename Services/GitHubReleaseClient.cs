@@ -5,9 +5,9 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
-    /// <summary>A resolved KalOS release: tag, parsed version, and the zip payload URL.</summary>
+    /// <summary>A resolved KaliteKit release: tag, parsed version, and the zip payload URL.</summary>
     public sealed record GitHubReleaseInfo(string Tag, string Version, string ZipUrl, string? Notes)
     {
         /// <summary>Human-facing release page, derived from the tag.</summary>
@@ -15,21 +15,21 @@ namespace KalOS.Services
     }
 
     /// <summary>
-    /// Resolves the newest KalOS consumer release on GitHub without hitting the
+    /// Resolves the newest KaliteKit consumer release on GitHub without hitting the
     /// REST API rate limits: it reads the <c>/releases/latest</c> redirect for
     /// the tag (the same technique <see cref="UpdateService"/> and
-    /// <c>install-kalos.ps1</c> use) and then scrapes the release's
+    /// <c>install-kalitekit.ps1</c> use) and then scrapes the release's
     /// <c>expanded_assets</c> fragment for the actual zip payload, so whichever
     /// zip name the release attaches works.
     ///
     /// Important: a release may carry BOTH the app zip and the new
-    /// <c>KalOS-Setup-*.zip</c> wizard payload. <see cref="SelectZipAssetUrl"/>
+    /// <c>KaliteKit-Setup-*.zip</c> wizard payload. <see cref="SelectZipAssetUrl"/>
     /// always prefers the app zip so the installer never downloads itself.
     /// </summary>
     public sealed class GitHubReleaseClient
     {
         public const string Owner = "1k09-byte";
-        public const string Repo = "KalOSTOOLKIT";
+        public const string Repo = "KaliteKit";
 
         private static readonly HttpClient Client = CreateClient();
 
@@ -37,7 +37,7 @@ namespace KalOS.Services
         {
             var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false });
             client.Timeout = TimeSpan.FromSeconds(20);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("KalOS-Setup/1.0 (release-resolver)");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("KaliteKit-Setup/1.0 (release-resolver)");
             return client;
         }
 
@@ -55,10 +55,10 @@ namespace KalOS.Services
             string? zipUrl = await ResolveZipAssetUrlAsync(tag, cancellationToken).ConfigureAwait(false);
 
             // Last resort, mirrors UpdateService: construct the canonical asset
-            // name. Releases ship KalOS-v{version}-win-x64.zip, not the legacy
-            // KalOS.zip (which 404s). The download step will surface a 404 if it
+            // name. Releases ship KaliteKit-v{version}-win-x64.zip, not the legacy
+            // KaliteKit.zip (which 404s). The download step will surface a 404 if it
             // truly is absent.
-            zipUrl ??= $"https://github.com/{Owner}/{Repo}/releases/download/{tag}/KalOS-v{version}-win-x64.zip";
+            zipUrl ??= $"https://github.com/{Owner}/{Repo}/releases/download/{tag}/KaliteKit-v{version}-win-x64.zip";
 
             return new GitHubReleaseInfo(tag, version, zipUrl, Notes: null);
         }
@@ -120,9 +120,9 @@ namespace KalOS.Services
         }
 
         /// <summary>
-        /// Picks the KalOS <b>app</b> zip from an expanded-assets HTML fragment.
-        /// Preference order: the versioned <c>KalOS-v{version}-win-x64.zip</c>,
-        /// then a plain <c>KalOS.zip</c>, then any other zip that is not the
+        /// Picks the KaliteKit <b>app</b> zip from an expanded-assets HTML fragment.
+        /// Preference order: the versioned <c>KaliteKit-v{version}-win-x64.zip</c>,
+        /// then a plain <c>KaliteKit.zip</c>, then any other zip that is not the
         /// Setup wizard payload (so a release carrying both never makes the
         /// installer download itself). Extracted for tests.
         /// </summary>
@@ -140,8 +140,8 @@ namespace KalOS.Services
                                    || u.Contains("installer", StringComparison.OrdinalIgnoreCase);
 
             string? relative =
-                urls.FirstOrDefault(u => u.Contains($"KalOS-v{version}-win-x64.zip", StringComparison.OrdinalIgnoreCase))
-             ?? urls.FirstOrDefault(u => u.EndsWith("/KalOS.zip", StringComparison.OrdinalIgnoreCase))
+                urls.FirstOrDefault(u => u.Contains($"KaliteKit-v{version}-win-x64.zip", StringComparison.OrdinalIgnoreCase))
+             ?? urls.FirstOrDefault(u => u.EndsWith("/KaliteKit.zip", StringComparison.OrdinalIgnoreCase))
              ?? urls.FirstOrDefault(u => !isSetup(u));
 
             return relative is { } u ? absolute(u) : null;
@@ -154,7 +154,7 @@ namespace KalOS.Services
             {
                 using var api = new HttpClient();
                 api.Timeout = TimeSpan.FromSeconds(15);
-                api.DefaultRequestHeaders.UserAgent.ParseAdd("KalOS-Setup/1.0");
+                api.DefaultRequestHeaders.UserAgent.ParseAdd("KaliteKit-Setup/1.0");
                 api.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
 
                 string json = await api.GetStringAsync(

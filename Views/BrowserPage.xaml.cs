@@ -2,9 +2,9 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Microsoft.Extensions.DependencyInjection;
-using KalOS.ViewModels;
+using KaliteKit.ViewModels;
 
-namespace KalOS.Views
+namespace KaliteKit.Views
 {
     public sealed partial class BrowserPage : Page
     {

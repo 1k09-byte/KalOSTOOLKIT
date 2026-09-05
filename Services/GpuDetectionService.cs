@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Management;
 using System.Threading.Tasks;
-using KalOS.Models;
+using KaliteKit.Models;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>
     /// SMBIOS chassis types that mean the machine is a portable (laptop,

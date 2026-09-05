@@ -10,10 +10,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Dispatching;
 using Microsoft.Win32;
 using FluentIcons.Common;
-using KalOS.Models;
-using KalOS.Services;
+using KaliteKit.Models;
+using KaliteKit.Services;
 
-namespace KalOS.ViewModels
+namespace KaliteKit.ViewModels
 {
     public partial class BrowserViewModel : ObservableObject
     {
@@ -61,7 +61,7 @@ namespace KalOS.ViewModels
         public BrowserViewModel()
         {
             // The catalog (Models/SoftwareCatalog) is the single source of truth for
-            // what KalOS can install — it is shared with the KalOS Setup wizard.
+            // what KaliteKit can install — it is shared with the KaliteKit Setup wizard.
             // This VM only maps entries onto UI items: icons, browser data paths,
             // and the forced-extension list stay presentation-side.
             Browsers = new ObservableCollection<BrowserItem>(SoftwareCatalog.Browsers.Select(BuildBrowserItem));

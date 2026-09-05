@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using KalOS.Services;
+using KaliteKit.Services;
 using Microsoft.UI.Xaml;
 
-namespace KalOS.ViewModels
+namespace KaliteKit.ViewModels
 {
     public partial class SettingsViewModel : ObservableObject
     {
@@ -54,7 +54,7 @@ namespace KalOS.ViewModels
         /// <summary>Raised when an automatic (startup) check finds a newer version, so the app can show a dialog.</summary>
         public event Action<Version>? UpdateAvailable;
 
-        public string CurrentVersionText => $"You're on KalOS {UpdateService.CurrentVersion}";
+        public string CurrentVersionText => $"You're on KaliteKit {UpdateService.CurrentVersion}";
 
         /// <summary>True while a check runs but nothing is downloading (drives the progress spinner).</summary>
         public bool IsCheckingVisible => IsCheckingForUpdates && !IsDownloading;
@@ -277,7 +277,7 @@ namespace KalOS.ViewModels
                     _pendingUpdate = info;
                     OnPropertyChanged(nameof(PendingUpdateIsRollback));
                     HasUpdate = true;
-                    UpdateStatusText = $"KalOS {info.Version} is available.";
+                    UpdateStatusText = $"KaliteKit {info.Version} is available.";
                     if (raiseEvent && !info.IsRollback) UpdateAvailable?.Invoke(info.Version);
                 }
                 LastCheckedText = $"Last checked {DateTime.Now:HH:mm}";
@@ -303,7 +303,7 @@ namespace KalOS.ViewModels
             IsCheckingForUpdates = true;
             IsDownloading = true;
             DownloadProgress = 0;
-            UpdateStatusText = $"Downloading KalOS {_pendingUpdate.Version}…";
+            UpdateStatusText = $"Downloading KaliteKit {_pendingUpdate.Version}…";
             try
             {
                 // Progress<T> marshals callbacks back to the UI thread, which

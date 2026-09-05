@@ -1,7 +1,7 @@
 ﻿using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 
-namespace KalOS.Models;
+namespace KaliteKit.Models;
 
 public partial class LogEntry : ObservableObject
 {

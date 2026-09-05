@@ -7,10 +7,10 @@ using System.Management;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using KalOS.Services;
+using KaliteKit.Services;
 using Microsoft.Win32;
 
-namespace KalOS.ViewModels
+namespace KaliteKit.ViewModels
 {
     public partial class AffinityManagerViewModel : ObservableObject
     {
@@ -262,7 +262,7 @@ if (category == "Network Interface Controllers") item.MaxMsiLimit = "32";
 
                         // Topology summary card: CPU name + P/E/CCD/SMT breakdown.
                         TopologySummary = CpuTopologySummary.Build(
-                            KalOS.Helpers.TopologyHelper.GetCpuModelName(), SystemCores);
+                            KaliteKit.Helpers.TopologyHelper.GetCpuModelName(), SystemCores);
                         OnPropertyChanged(nameof(CpuCoreCount));
 
                         // Respect the active search/filter instead of always showing everything.
@@ -365,7 +365,7 @@ if (category == "Network Interface Controllers") item.MaxMsiLimit = "32";
             var cores = new List<CpuCoreInfo>();
             try
             {
-                var topology = KalOS.Helpers.TopologyHelper.GetSystemTopology();
+                var topology = KaliteKit.Helpers.TopologyHelper.GetSystemTopology();
                 
                 var physicalGroups = topology.GroupBy(t => t.PhysicalCoreId).OrderBy(g => g.Key).ToList();
                 
@@ -927,7 +927,7 @@ if (category == "Network Interface Controllers") item.MaxMsiLimit = "32";
 
                 try
                 {
-                    uint totalLogical = KalOS.Helpers.TopologyHelper.GetActiveProcessorCount(0xffff);
+                    uint totalLogical = KaliteKit.Helpers.TopologyHelper.GetActiveProcessorCount(0xffff);
                     if (totalLogical > 64)
                     {
                         var disp = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
@@ -946,7 +946,7 @@ if (category == "Network Interface Controllers") item.MaxMsiLimit = "32";
                 // CPU 0 is only ever an absolute last resort, and on 2-4 core systems
                 // targets degrade gracefully (network shares the XHCI core before it
                 // would ever share the audio core) so Optimize never fails outright.
-                var plan = KalOS.Helpers.AffinityAllocationPlan.Build(cores);
+                var plan = KaliteKit.Helpers.AffinityAllocationPlan.Build(cores);
                 ulong audioMask   = plan.AudioMask;
                 ulong xhciMask    = plan.XhciMask;
                 ulong networkMask = plan.NetworkMask;

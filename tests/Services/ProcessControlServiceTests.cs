@@ -1,10 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
-using KalOS.Models.ProcessControl;
-using KalOS.Services;
+using KaliteKit.Models.ProcessControl;
+using KaliteKit.Services;
 
-namespace KalOS.Tests.Services;
+namespace KaliteKit.Tests.Services;
 
 public class ProcessControlServiceTests
 {
@@ -376,14 +376,14 @@ public class ProcessControlServiceTests
         try
         {
             System.Threading.Thread.Sleep(500); // let it spin a little
-            Assert.True(KalOS.Services.ProcessControlNative.SuspendProcess(victim!.Id), "SuspendProcess returned false");
+            Assert.True(KaliteKit.Services.ProcessControlNative.SuspendProcess(victim!.Id), "SuspendProcess returned false");
 
             var before = victim.TotalProcessorTime;
             System.Threading.Thread.Sleep(1200);
             victim.Refresh();
             var drift = victim.TotalProcessorTime - before;
 
-            KalOS.Services.ProcessControlNative.ResumeProcess(victim.Id);
+            KaliteKit.Services.ProcessControlNative.ResumeProcess(victim.Id);
 
             // A suspended process accumulates ~0 CPU; an unsuspended busy one
             // accumulates hundreds of ms per second.

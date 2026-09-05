@@ -1,14 +1,14 @@
 using System;
 using System.Threading.Tasks;
-using KalOS.Models;
-using KalOS.Services;
-using KalOS.ViewModels;
+using KaliteKit.Models;
+using KaliteKit.Services;
+using KaliteKit.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 
-namespace KalOS.Views;
+namespace KaliteKit.Views;
 
 /// <summary>
 /// GPU Drivers page. Pure view: binds to <see cref="GpuDriversViewModel"/>,
@@ -42,7 +42,7 @@ public sealed partial class GpuDriversPage : Page
         {
             if (item.Latest is null) return;
 
-            // ── NVIDIA: KalOS's own install dialog ───────────────────────
+            // ── NVIDIA: KaliteKit's own install dialog ───────────────────────
             // Mirrors NVCleanstall's "Select Driver Version To Install" screen
             // (best driver / driver files on disk) plus the component checklist,
             // all in-app — then runs the built-in silent pipeline.

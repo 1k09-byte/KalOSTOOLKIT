@@ -1,8 +1,8 @@
 using System.Linq;
-using KalOS.Models;
-using KalOS.ViewModels;
+using KaliteKit.Models;
+using KaliteKit.ViewModels;
 
-namespace KalOS.Tests.Services;
+namespace KaliteKit.Tests.Services;
 
 /// <summary>
 /// Regression test for the Phase 1a refactor: <see cref="BrowserViewModel"/>
@@ -10,7 +10,7 @@ namespace KalOS.Tests.Services;
 /// a UI item with the same identity fields (name, IDs, fallback URL, installer
 /// kind). If the catalog grows a new item that the VM forgets to map, or a
 /// field is dropped in the mapping, this test fails — the Browsers &amp; Software
-/// page and the KalOS Setup wizard share the same catalog, so the two must stay
+/// page and the KaliteKit Setup wizard share the same catalog, so the two must stay
 /// in lockstep.
 /// </summary>
 public class BrowserViewModelCatalogTests

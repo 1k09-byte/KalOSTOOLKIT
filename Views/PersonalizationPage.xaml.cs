@@ -1,14 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using KalOS.ViewModels;
+using KaliteKit.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Windows.UI;
 
-namespace KalOS.Views;
+namespace KaliteKit.Views;
 
 public sealed partial class PersonalizationPage : Page
 {

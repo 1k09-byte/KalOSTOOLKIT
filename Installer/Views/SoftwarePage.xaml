@@ -1,9 +1,9 @@
 <local:WizardPage
-    x:Class="KalOS.Setup.Views.SoftwarePage"
+    x:Class="KaliteKit.Setup.Views.SoftwarePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:KalOS.Setup.Views"
-    xmlns:vm="using:KalOS.Setup.ViewModels">
+    xmlns:local="using:KaliteKit.Setup.Views"
+    xmlns:vm="using:KaliteKit.Setup.ViewModels">
 
     <Grid Style="{StaticResource WizardPageRoot}">
         <Grid.RowDefinitions>
@@ -14,7 +14,7 @@
         <StackPanel Grid.Row="0" Spacing="4">
             <TextBlock Text="BROWSERS &amp; SOFTWARE" Style="{StaticResource ShellCaption}"/>
             <TextBlock Text="Browsers &amp; Software" Style="{StaticResource PageTitle}"/>
-            <TextBlock Style="{StaticResource PageSubtitle}" Text="Choose what to install alongside KalOS. Everything uses winget, then falls back to direct download."/>
+            <TextBlock Style="{StaticResource PageSubtitle}" Text="Choose what to install alongside KaliteKit. Everything uses winget, then falls back to direct download."/>
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="0,0,4,0">

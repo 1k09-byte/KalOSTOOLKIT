@@ -1,7 +1,7 @@
-using KalOS.Setup.ViewModels;
+using KaliteKit.Setup.ViewModels;
 using Microsoft.UI.Xaml.Controls;
 
-namespace KalOS.Setup.Views
+namespace KaliteKit.Setup.Views
 {
     /// <summary>
     /// Step 3 — the software checklist. The catalog (Models/SoftwareCatalog)
@@ -33,7 +33,7 @@ namespace KalOS.Setup.Views
             RefreshNav();
         }
 
-        // Next is always enabled — installing nothing but KalOS is valid.
+        // Next is always enabled — installing nothing but KaliteKit is valid.
         public override bool CanProceed => true;
 
         public override bool OnAdvance()

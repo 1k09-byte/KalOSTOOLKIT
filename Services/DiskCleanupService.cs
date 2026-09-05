@@ -5,7 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>A temp-file bucket with its current reclaimed size in bytes.</summary>
     public sealed class CleanupCategory

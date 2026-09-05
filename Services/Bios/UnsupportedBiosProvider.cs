@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using KalOS.Models.Bios;
+using KaliteKit.Models.Bios;
 
-namespace KalOS.Services.Bios;
+namespace KaliteKit.Services.Bios;
 
 /// <summary>
 /// Fallback provider for machines where no supported vendor WMI BIOSS backend

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace KalOS.Services.Bios;
+namespace KaliteKit.Services.Bios;
 
 /// <summary>
 /// One row of a WMI query result, with case-insensitive property lookup.

@@ -1,9 +1,9 @@
 using System;
-using KalOS.ViewModels;
+using KaliteKit.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
-namespace KalOS.Views;
+namespace KaliteKit.Views;
 
 public sealed partial class SystemRestoreModal : UserControl
 {
@@ -36,7 +36,7 @@ public sealed partial class SystemRestoreModal : UserControl
     private async void Create_Click(object sender, RoutedEventArgs e)
     {
         var desc = NewDescriptionBox.Text?.Trim();
-        if (string.IsNullOrWhiteSpace(desc)) desc = "KalOS App Restore Point";
+        if (string.IsNullOrWhiteSpace(desc)) desc = "KaliteKit App Restore Point";
         await ViewModel.CreateRestorePointWithDescriptionAsync(desc);
     }
 

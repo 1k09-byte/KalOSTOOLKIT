@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <winuiex:WindowEx
-    x:Class="KalOS.StartupBannerWindow"
+    x:Class="KaliteKit.StartupBannerWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:winuiex="using:WinUIEx"
@@ -36,7 +36,7 @@
 
                         <!-- Text: app name + status -->
                         <StackPanel Grid.Column="0" Spacing="5" VerticalAlignment="Center">
-                            <TextBlock Text="KalOS"
+                            <TextBlock Text="KaliteKit"
                                        FontFamily="{ThemeResource ContentControlThemeFontFamily}"
                                        FontWeight="Bold" FontSize="15"
                                        Foreground="{ThemeResource TextFillColorPrimaryBrush}" />

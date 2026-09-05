@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace KalOS.Models
+namespace KaliteKit.Models
 {
     /// <summary>Which installer group an item belongs to (drives UI grouping in both UIs).</summary>
     public enum SoftwareGroup
@@ -20,10 +20,10 @@ namespace KalOS.Models
     }
 
     /// <summary>
-    /// One installable item of the KalOS software catalog — pure data, no UI
+    /// One installable item of the KaliteKit software catalog — pure data, no UI
     /// types. The Browsers &amp; Software page maps each entry onto an
     /// <c>InstallableItem</c> (icons, extensions, data paths live there); the
-    /// KalOS Setup wizard consumes the entries directly.
+    /// KaliteKit Setup wizard consumes the entries directly.
     /// </summary>
     public sealed record CatalogEntry
     {
@@ -49,7 +49,7 @@ namespace KalOS.Models
     }
 
     /// <summary>
-    /// The single source of truth for every item KalOS can install through
+    /// The single source of truth for every item KaliteKit can install through
     /// package managers or direct downloads. Kept in sync with the README's
     /// "Browsers &amp; Software" feature list.
     /// </summary>

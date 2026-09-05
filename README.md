@@ -1,8 +1,8 @@
-﻿# KalOS
+﻿# KaliteKit
 
 A native Windows 11 post-install utility built with **WinUI 3** (Windows App SDK 2.2.0) and **.NET 9**. Automates driver installation, browser & software setup, CPU/device affinity tuning, and personalization after a fresh Windows install.
 
-Publisher: **KalOS** · 
+Publisher: **KaliteKit** · 
 
 ## Features
 
@@ -15,37 +15,43 @@ Publisher: **KalOS** ·
 
 ## Install
 
-KalOS is **one app that is also its own installer**: the command line installs the app itself, and on first launch the app opens as the **KalOS Setup** wizard (install KalOS, GPU drivers, browsers & software, customize, tweaks & cleanup). When setup completes, the same window turns into the full consumer app. Re-run setup any time with `KalOS.exe --setup`.
+KaliteKit is **one app that is also its own installer**: the command line installs the app itself, and on first launch the app opens as the **KaliteKit Setup** wizard (install KaliteKit, GPU drivers, browsers & software, customize, tweaks & cleanup). When setup completes, the same window turns into the full consumer app. Re-run setup any time with `KaliteKit.exe --setup`.
 
 ```powershell
-powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/1k09-byte/KalOSTOOLKIT/main/install-kalos.ps1 | iex"
+powershell -ExecutionPolicy Bypass -c "irm https://raw.githubusercontent.com/1k09-byte/KaliteKit/main/install-kalitekit.ps1 | iex"
 ```
 
-The `install-kalos.ps1` script runs the full **dependency checker** first — administrator permission, internet connection, and the **.NET 9 Desktop Runtime**, which is downloaded and installed automatically when missing (the KalOS app needs it). It then fetches the newest `KalOS-v{version}-win-x64.zip` from GitHub Releases, installs the app to `%LOCALAPPDATA%\Programs\KalOS`, creates shortcuts, and launches it — first launch runs the built-in setup wizard.
+The `install-kalitekit.ps1` script runs the full **dependency checker** first — administrator permission, internet connection, and the **.NET 9 Desktop Runtime**, which is downloaded and installed automatically when missing (the KaliteKit app needs it). It then fetches the newest `KaliteKit-v{version}-win-x64.zip` from GitHub Releases, installs the app to `%LOCALAPPDATA%\Programs\KaliteKit`, creates shortcuts, and launches it — first launch runs the built-in setup wizard.
 
-Prefer downloading manually? Grab `KalOS-v{version}-win-x64.zip` from the [Releases](https://github.com/1k09-byte/KalOSTOOLKIT/releases) page, extract it anywhere, and run `KalOS.exe` — it is self-contained and includes the Windows App SDK runtime and hardware-monitor worker dependencies.
+Prefer downloading manually? Grab `KaliteKit-v{version}-win-x64.zip` from the [Releases](https://github.com/1k09-byte/KaliteKit/releases) page, extract it anywhere, and run `KaliteKit.exe` — it is self-contained and includes the Windows App SDK runtime and hardware-monitor worker dependencies.
 
-To completely remove the app, run the `uninstall-kalos.ps1` script. This dedicated uninstaller safely terminates any running instances, removes the installation folder, deletes all shortcuts, and wipes the deployment clean.
+To completely remove the app, run the `uninstall-kalitekit.ps1` script. This dedicated uninstaller safely terminates any running instances, removes the installation folder, deletes all shortcuts, and wipes the deployment clean.
 
-## KalOS Setup wizard
+## KaliteKit Setup wizard
 
-The setup wizard is **compiled into the main app** (`Installer/` sources are included by `KalOS.csproj`; a shared `SetupState` marker decides whether the app boots into the wizard or the consumer shell). It walks a fresh Windows install through the whole KalOS stack in one run:
+The setup wizard is **compiled into the main app** (`Installer/` sources are included by `KaliteKit.csproj`; a shared `SetupState` marker decides whether the app boots into the wizard or the consumer shell). It walks a fresh Windows install through the whole KaliteKit stack in one run:
 
-1. **Welcome** — resolves the latest KalOS release and reports any existing install.
+1. **Welcome** — resolves the latest KaliteKit release and reports any existing install.
 2. **GPU Driver** — detects adapters, offers a silent NVIDIA/AMD driver update (Intel opens the vendor page).
 3. **Browsers & Software** — the same shared catalog the in-app page uses, with winget → Chocolatey → Scoop → direct-download fallbacks.
 4. **Customize** — tint + background image for the installed app.
-5. **Tweaks & Cleanup** — native privacy.sexy catalog, every category on by default.
-6. **Progress** — live step log + overall bar.
-7. **Finish** — per-step result list; closing swaps into the consumer app.
+5. **Progress** — live step log + overall bar.
+6. **Finish** — per-step result list; closing swaps into the consumer app.
 
-The wizard deploys KalOS **natively** (download → validate → wipe-and-copy → shortcuts → taskbar pin) with an automatic fallback to `install-kalos.ps1` (which now installs the app directly) when GitHub is unreachable or the package fails validation. It source-shares the WinUI-free backend (driver stack, package managers, the install services) with the main app, so there is exactly one implementation of everything.
+The wizard deploys KaliteKit **natively** (download → validate → wipe-and-copy → shortcuts → taskbar pin) with an automatic fallback to `install-kalitekit.ps1` (which now installs the app directly) when GitHub is unreachable or the package fails validation. It source-shares the WinUI-free backend (driver stack, package managers, the install services) with the main app, so there is exactly one implementation of everything.
 
-The standalone wizard exe (`Installer/KalOS.Installer.csproj`) still builds for advanced use; normal releases don't ship it. Build and package the release payload:
+The standalone wizard exe (`Installer/KaliteKit.Installer.csproj`) still builds for advanced use; normal releases don't ship it. It can also be published as a **single offline installer exe** — the KaliteKit consumer payload is embedded inside it, so it deploys KaliteKit with no internet connection (no GitHub lookup, no download, no install script; GPU-driver and software steps remain optional, and only run for what you explicitly select). The output is literally one file, nothing else:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File publish-standalone.ps1
+# → dist\KaliteKit.Setup.exe   (one self-contained file - installs KaliteKit offline)
+```
+
+Build and package the regular release payload:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File publish-consumer.ps1
-# → dist\KalOS-v{version}-win-x64.zip    (the app - setup wizard included; the only release asset)
+# → dist\KaliteKit-v{version}-win-x64.zip    (the app - setup wizard included; the only release asset)
 ```
 
 ## Tech stack
@@ -66,8 +72,8 @@ powershell -ExecutionPolicy Bypass -File publish-consumer.ps1
 ## Notes
 
 - Requires administrator privileges for registry writes, package removal, and service management.
-- Crash logs: `%LOCALAPPDATA%\KalOS\CrashLogs\` (last 5 kept).
-- License: KalOS is MIT — see `LICENSE.md`. Third-party components have their own terms (`THIRD-PARTY-NOTICES.md`).
+- Crash logs: `%LOCALAPPDATA%\KaliteKit\CrashLogs\` (last 5 kept).
+- License: KaliteKit is MIT — see `LICENSE.md`. Third-party components have their own terms (`THIRD-PARTY-NOTICES.md`).
 - See `THIRD-PARTY-NOTICES.md` for dependency and asset licensing.
 
 ## Process Control
@@ -92,8 +98,8 @@ The **Process Control** page (nav: 🎚️) gives Process Lasso–class control 
 - **Processor Groups** — CPU Sets work across groups, so >64-logical-CPU systems are handled correctly.
 - **Export/Import** — full rule bundles as portable JSON.
 
-**Elevation.** KalOS runs elevated (`requireAdministrator` in `app.manifest`), so all scheduling calls work without a helper process.
+**Elevation.** KaliteKit runs elevated (`requireAdministrator` in `app.manifest`), so all scheduling calls work without a helper process.
 
-**Background persistence.** Rules enforce while KalOS is open, and — with the hidden `--rules` login session — from login onward even when the window is closed. The consumer build registers `KalOS.exe --rules` in the HKCU Run key automatically; the Engine tab shows the status and has a register/repair button. `--rules` runs a 1×1 off-screen window and the same engine; it is the only always-on part of the app (no tray icon, no service).
+**Background persistence.** Rules enforce while KaliteKit is open, and — with the hidden `--rules` login session — from login onward even when the window is closed. The consumer build registers `KaliteKit.exe --rules` in the HKCU Run key automatically; the Engine tab shows the status and has a register/repair button. `--rules` runs a 1×1 off-screen window and the same engine; it is the only always-on part of the app (no tray icon, no service).
 
-**Storage.** Rules and the action log live in `%LOCALAPPDATA%\KalOS\process-control\` (`rules.json`, `actions.json`, `boost-saved.json`).
+**Storage.** Rules and the action log live in `%LOCALAPPDATA%\KaliteKit\process-control\` (`rules.json`, `actions.json`, `boost-saved.json`).

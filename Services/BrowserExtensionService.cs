@@ -4,13 +4,13 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using Microsoft.Win32;
-using KalOS.Models;
+using KaliteKit.Models;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>
-    /// WinUI-free forced-extension logic, shared by the main KalOS app and the
-    /// KalOS Setup wizard. Chromium-family browsers get an
+    /// WinUI-free forced-extension logic, shared by the main KaliteKit app and the
+    /// KaliteKit Setup wizard. Chromium-family browsers get an
     /// <c>ExtensionInstallForcelist</c> registry policy; Firefox-family
     /// browsers get a <c>distribution/policies.json</c> plus an
     /// <c>ExtensionSettings</c> registry policy (and both are cleared again on
@@ -18,7 +18,7 @@ namespace KalOS.Services
     /// </summary>
     public static class BrowserExtensionService
     {
-        /// <summary>The privacy extensions force-installed for every browser KalOS sets up.</summary>
+        /// <summary>The privacy extensions force-installed for every browser KaliteKit sets up.</summary>
         public static List<BrowserExtension> CreateDefaultExtensions() => new()
         {
             new BrowserExtension

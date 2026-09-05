@@ -1,6 +1,6 @@
 using System.Threading.Tasks;
 
-namespace KalOS.Services.Bios;
+namespace KaliteKit.Services.Bios;
 
 /// <summary>
 /// File-picker seam so the BIOS view model can run Export/Import as MVVM commands

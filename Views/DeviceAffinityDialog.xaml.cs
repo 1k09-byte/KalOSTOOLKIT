@@ -1,8 +1,8 @@
 ﻿using Microsoft.UI.Xaml.Controls;
-using KalOS.ViewModels;
+using KaliteKit.ViewModels;
 using System.Collections.Generic;
 
-namespace KalOS.Views
+namespace KaliteKit.Views
 {
     public sealed partial class DeviceAffinityDialog : ContentDialog
     {

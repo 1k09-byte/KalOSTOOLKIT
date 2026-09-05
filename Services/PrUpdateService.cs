@@ -8,7 +8,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace KalOS.Services;
+namespace KaliteKit.Services;
 
 // ── Data model ───────────────────────────────────────────────────────────────
 
@@ -101,7 +101,7 @@ public sealed class PrUpdateService
     {
         _log = log;
         _http = new HttpClient();
-        _http.DefaultRequestHeaders.UserAgent.ParseAdd("KalOS-PrUpdater/1.0");
+        _http.DefaultRequestHeaders.UserAgent.ParseAdd("KaliteKit-PrUpdater/1.0");
         _http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
         _http.Timeout = TimeSpan.FromSeconds(20);
     }
@@ -249,7 +249,7 @@ public sealed class PrUpdateService
     /// <see cref="RepoRoot"/>) so it never pollutes git status, and holds one
     /// timestamped backup per merge for one-click undo.
     /// </summary>
-    public static string MergeBackupRoot => Path.Combine(RepoRoot ?? AppContext.BaseDirectory, ".kalos-pr-merge-backups");
+    public static string MergeBackupRoot => Path.Combine(RepoRoot ?? AppContext.BaseDirectory, ".kalitekit-pr-merge-backups");
 
     /// <summary>Path of a merge's backup manifest, or null when that merge never happened.</summary>
     public static string? MergeBackupPath(string headSha) =>
@@ -467,7 +467,7 @@ public sealed class PrUpdateService
     /// <summary>
     /// Writes the rebuild-and-reopen helper script and launches it. The hidden
     /// PowerShell waits for this app to exit, runs dotnet build on the repo,
-    /// and — only when the build succeeds — starts the freshly built KalOS.exe.
+    /// and — only when the build succeeds — starts the freshly built KaliteKit.exe.
     /// Returns the log path so the UI can point at it when the build fails.
     /// Only ever invoked from the explicit "Rebuild &amp; reopen" button.
     /// </summary>
@@ -487,20 +487,20 @@ try {{
   if ($old) {{ $old.WaitForExit() }}
   Set-Location -Path {Q(RepoRoot!)}
   ('Rebuild started ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')) | Set-Content $log
-  dotnet build KalOS.csproj -p:Platform=x64 -p:RuntimeIdentifier=win-x64 *>> $log
+  dotnet build KaliteKit.csproj -p:Platform=x64 -p:RuntimeIdentifier=win-x64 *>> $log
   if ($LASTEXITCODE -ne 0) {{
     ('BUILD FAILED (exit ' + $LASTEXITCODE + ')') | Add-Content $log
     exit 1
   }}
   'BUILD OK' | Add-Content $log
-  $exe = Get-ChildItem -Path {Q(RepoRoot!)} -Filter KalOS.exe -Recurse -ErrorAction SilentlyContinue |
+  $exe = Get-ChildItem -Path {Q(RepoRoot!)} -Filter KaliteKit.exe -Recurse -ErrorAction SilentlyContinue |
          Where-Object {{ $_.FullName -like '*\bin\x64\*' }} |
          Sort-Object LastWriteTime -Descending | Select-Object -First 1
   if ($exe) {{
     Start-Process -FilePath $exe.FullName -WorkingDirectory $exe.DirectoryName
     ('Relaunched ' + $exe.FullName) | Add-Content $log
   }} else {{
-    'KalOS.exe not found after build' | Add-Content $log
+    'KaliteKit.exe not found after build' | Add-Content $log
     exit 1
   }}
 }} catch {{

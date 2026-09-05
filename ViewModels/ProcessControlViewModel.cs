@@ -4,14 +4,14 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
-using KalOS.Models.ProcessControl;
-using KalOS.Services;
+using KaliteKit.Models.ProcessControl;
+using KaliteKit.Services;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
 
-namespace KalOS.ViewModels;
+namespace KaliteKit.ViewModels;
 
 /// <summary>One row in the live process list.</summary>
 public partial class ProcessItem : ObservableObject
@@ -69,7 +69,7 @@ public partial class ProcessControlViewModel : ObservableObject
     private bool _disposed;
 
     /// <summary>
-    /// When ON, closing the window (X) hides KalOS to the system tray
+    /// When ON, closing the window (X) hides KaliteKit to the system tray
     /// instead of exiting — rules keep applying and the tray icon restores
     /// the window. Persisted in app-behavior.json.
     /// </summary>
@@ -169,14 +169,14 @@ public partial class ProcessControlViewModel : ObservableObject
     public bool PresetAvailable(CoreIsolationPreset preset) => _service.PresetCpuSetIds(preset) != null;
 
     /// <summary>CPU topology for the rule editor's core/thread picker (cached by the service).</summary>
-    public KalOS.Models.ProcessControl.CpuTopologyInfo GetTopology() => _service.GetTopology();
+    public KaliteKit.Models.ProcessControl.CpuTopologyInfo GetTopology() => _service.GetTopology();
 
     /// <summary>Refreshes the login-autostart status line (called on page load and after repair).</summary>
     public void RefreshRulesAutostart()
     {
         RulesAutostartText = ProcessControlService.IsRulesAutostartRegistered()
             ? "Sticky rules also enforce from login in a hidden background session (--rules). Autostart: registered."
-            : "Sticky rules enforce while KalOS is open. Register the hidden login session below for always-on enforcement.";
+            : "Sticky rules enforce while KaliteKit is open. Register the hidden login session below for always-on enforcement.";
     }
 
     /// <summary>Applies the editor's numeric fields (instance index, max instances) to the rule being edited.</summary>
@@ -530,7 +530,7 @@ public partial class ProcessControlViewModel : ObservableObject
 
     public async Task ExportRulesAsync()
     {
-        var file = await PickSaveFileAsync("kalos-rules.json");
+        var file = await PickSaveFileAsync("kalitekit-rules.json");
         if (file == null) return;
         await System.IO.File.WriteAllTextAsync(file.Path, _service.ExportRulesJson());
         StatusText = $"Rules exported to {file.Path}.";
@@ -547,7 +547,7 @@ public partial class ProcessControlViewModel : ObservableObject
 
     public async Task ExportActionsAsync()
     {
-        var file = await PickSaveFileAsync("kalos-action-log.json");
+        var file = await PickSaveFileAsync("kalitekit-action-log.json");
         if (file == null) return;
         await System.IO.File.WriteAllTextAsync(file.Path, _service.ExportActionsJson());
         StatusText = $"Action log exported to {file.Path}.";

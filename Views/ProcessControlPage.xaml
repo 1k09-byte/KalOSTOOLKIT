@@ -1,11 +1,11 @@
 <Page
-    x:Class="KalOS.Views.ProcessControlPage"
+    x:Class="KaliteKit.Views.ProcessControlPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:vm="using:KalOS.ViewModels"
-    xmlns:models="using:KalOS.Models.ProcessControl"
+    xmlns:vm="using:KaliteKit.ViewModels"
+    xmlns:models="using:KaliteKit.Models.ProcessControl"
     mc:Ignorable="d"
     Background="Transparent">
 
@@ -179,7 +179,7 @@
                           ToolTipService.ToolTip="Gives every CPU core a small always-on speed boost: disables core parking (idle cores wake instantly instead of taking a moment to spin up) and forces the max processor frequency. Uses a little more idle power; turning it off restores your previous power settings exactly." />
             <ToggleSwitch Grid.Column="3" Header="Run in background" IsOn="{x:Bind ViewModel.RunInBackground, Mode=TwoWay}"
                           Toggled="RunInBackground_Toggled" MinWidth="140"
-                          ToolTipService.ToolTip="When ON, pressing X hides KalOS to the system tray instead of closing it — rules keep applying and you restore it by double-clicking the tray icon. When OFF, X exits the app normally." />
+                          ToolTipService.ToolTip="When ON, pressing X hides KaliteKit to the system tray instead of closing it — rules keep applying and you restore it by double-clicking the tray icon. When OFF, X exits the app normally." />
             <Button Grid.Column="4" Content="Restore all managed" VerticalAlignment="Center" Click="RestoreAll_Click"
                     ToolTipService.ToolTip="Undo every rule on every running process — one-click safety net" />
         </Grid>

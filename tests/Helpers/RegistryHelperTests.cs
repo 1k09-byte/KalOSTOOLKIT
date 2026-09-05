@@ -1,12 +1,12 @@
-﻿using KalOS.Helpers;
+﻿using KaliteKit.Helpers;
 using Microsoft.Win32;
 using Xunit;
 
-namespace KalOS.Tests.Helpers;
+namespace KaliteKit.Tests.Helpers;
 
 public class RegistryHelperTests
 {
-    private const string TestBasePath = @"HKEY_CURRENT_USER\Software\KalOS\Tests";
+    private const string TestBasePath = @"HKEY_CURRENT_USER\Software\KaliteKit\Tests";
 
     [Fact]
     public void SetAndGetRegistryValue_StringValue_RoundTrips()
@@ -39,7 +39,7 @@ public class RegistryHelperTests
     [Fact]
     public void GetRegistryValue_NonExistentKey_ReturnsNull()
     {
-        var result = RegistryHelper.GetRegistryValue(@"HKEY_CURRENT_USER\Software\KalOS\NonExistentKey12345", "Value");
+        var result = RegistryHelper.GetRegistryValue(@"HKEY_CURRENT_USER\Software\KaliteKit\NonExistentKey12345", "Value");
         Assert.Null(result);
     }
 
@@ -61,16 +61,16 @@ public class RegistryHelperTests
     [Fact]
     public void SetAndGetRegistryValue_WritesToTheGivenKey_NotItsParent()
     {
-        const string path = @"HKEY_CURRENT_USER\Software\KalOS\TestsNested";
+        const string path = @"HKEY_CURRENT_USER\Software\KaliteKit\TestsNested";
         const string valueName = "NestedValue";
         const string expected = "nested";
 
         RegistryHelper.SetRegistryValue(path, valueName, expected, RegistryValueKind.String);
 
         // The value must live on the key named in the path, not on its parent.
-        using var key = Registry.CurrentUser.OpenSubKey(@"Software\KalOS\TestsNested");
+        using var key = Registry.CurrentUser.OpenSubKey(@"Software\KaliteKit\TestsNested");
         Assert.Equal(expected, key?.GetValue(valueName));
-        using var parent = Registry.CurrentUser.OpenSubKey(@"Software\KalOS");
+        using var parent = Registry.CurrentUser.OpenSubKey(@"Software\KaliteKit");
         Assert.Null(parent?.GetValue(valueName));
 
         // And the helper's own read must find it too.
@@ -89,7 +89,7 @@ public class RegistryHelperTests
     [Fact]
     public void OpenBaseKey_HKCU_AliasWorks()
     {
-        const string path = @"HKCU\Software\KalOS\TestsAlias";
+        const string path = @"HKCU\Software\KaliteKit\TestsAlias";
         const string valueName = "AliasTest";
         const string expected = "AliasWorks";
 

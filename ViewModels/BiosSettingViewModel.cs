@@ -4,9 +4,9 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using KalOS.Models.Bios;
+using KaliteKit.Models.Bios;
 
-namespace KalOS.ViewModels;
+namespace KaliteKit.ViewModels;
 
 /// <summary>
 /// One row in the BIOS settings list. Wraps a <see cref="BiosSetting"/> and

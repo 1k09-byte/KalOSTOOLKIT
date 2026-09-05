@@ -8,10 +8,10 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
-using KalOS.Models;
-using KalOS.Services;
+using KaliteKit.Models;
+using KaliteKit.Services;
 
-namespace KalOS.ViewModels
+namespace KaliteKit.ViewModels
 {
     /// <summary>Bindable row wrapper for the driver list.</summary>
     public partial class DriverPackageRow : ObservableObject
@@ -383,7 +383,7 @@ namespace KalOS.ViewModels
             {
                 IsBusy = true;
                 BusyText = "Creating a System Restore point…";
-                bool ok = await _restorePoints.CreateAsync("KalOS Driver Store cleanup");
+                bool ok = await _restorePoints.CreateAsync("KaliteKit Driver Store cleanup");
                 IsBusy = false;
                 BusyText = string.Empty;
                 if (!ok)
@@ -407,7 +407,7 @@ namespace KalOS.ViewModels
         {
             if (createRestorePoint)
             {
-                bool ok = await _restorePoints.CreateAsync("KalOS force driver removal");
+                bool ok = await _restorePoints.CreateAsync("KaliteKit force driver removal");
                 if (!ok)
                 {
                     ErrorOccurred?.Invoke(this, "A System Restore point could NOT be created — force delete was NOT started.");

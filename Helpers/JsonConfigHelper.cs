@@ -3,12 +3,12 @@ using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace KalOS.Helpers;
+namespace KaliteKit.Helpers;
 
 public static class JsonConfigHelper
 {
     private static string ConfigDirectory =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KalOS", "Configs");
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KaliteKit", "Configs");
 
     public static async Task SaveAsync<T>(string fileName, T data)
     {

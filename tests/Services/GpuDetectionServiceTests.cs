@@ -1,7 +1,7 @@
-using KalOS.Models;
-using KalOS.Services;
+using KaliteKit.Models;
+using KaliteKit.Services;
 
-namespace KalOS.Tests.Services;
+namespace KaliteKit.Tests.Services;
 
 /// <summary>
 /// Pure-helper tests for GpuDetectionService: the generic-name detection,
@@ -166,10 +166,10 @@ public class GpuDetectionServiceTests
     [Fact]
     public void PortableChassis_CoversLaptopAndTabletTypes()
     {
-        Assert.Contains(9, KalOS.Services.PortableChassis.Types);   // Laptop
-        Assert.Contains(10, KalOS.Services.PortableChassis.Types);  // Notebook
-        Assert.Contains(31, KalOS.Services.PortableChassis.Types);  // Convertible
-        Assert.Contains(32, KalOS.Services.PortableChassis.Types);  // Detachable
-        Assert.DoesNotContain(3, KalOS.Services.PortableChassis.Types); // Desktop
+        Assert.Contains(9, KaliteKit.Services.PortableChassis.Types);   // Laptop
+        Assert.Contains(10, KaliteKit.Services.PortableChassis.Types);  // Notebook
+        Assert.Contains(31, KaliteKit.Services.PortableChassis.Types);  // Convertible
+        Assert.Contains(32, KaliteKit.Services.PortableChassis.Types);  // Detachable
+        Assert.DoesNotContain(3, KaliteKit.Services.PortableChassis.Types); // Desktop
     }
 }

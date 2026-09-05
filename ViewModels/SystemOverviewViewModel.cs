@@ -8,9 +8,9 @@ using System.Diagnostics;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using KalOS.Services;
+using KaliteKit.Services;
 
-namespace KalOS.ViewModels;
+namespace KaliteKit.ViewModels;
 
 public partial class SystemOverviewViewModel : ObservableObject
 {

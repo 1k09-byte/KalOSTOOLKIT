@@ -4,7 +4,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>
     /// Streams a file (zip payloads, runtime installers, scripts) to disk with
@@ -22,7 +22,7 @@ namespace KalOS.Services
         {
             var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = true });
             client.Timeout = TimeSpan.FromMinutes(30);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("KalOS-Setup/1.0 (package-download)");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("KaliteKit-Setup/1.0 (package-download)");
             return client;
         }
 

@@ -4,7 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 
-namespace KalOS.Views;
+namespace KaliteKit.Views;
 
 public sealed partial class MetricRing : UserControl, INotifyPropertyChanged
 {

@@ -8,7 +8,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.Win32;
 
-namespace KalOS.Views
+namespace KaliteKit.Views
 {
     public sealed partial class VisualEffectsPage : Page
     {

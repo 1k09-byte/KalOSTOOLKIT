@@ -1,10 +1,10 @@
 using System;
 using System.IO;
 
-namespace KalOS.Setup
+namespace KaliteKit.Setup
 {
     /// <summary>
-    /// Tracks whether the one-time KalOS setup (the wizard) has run on this
+    /// Tracks whether the one-time KaliteKit setup (the wizard) has run on this
     /// machine. When the wizard is embedded in the main app, the app opens
     /// straight into the setup wizard until the install pipeline completes;
     /// the marker file is what flips it into the consumer app afterwards.
@@ -13,8 +13,8 @@ namespace KalOS.Setup
     public static class SetupState
     {
         /// <summary>True when the wizard window is hosted inside the main app
-        /// instead of running as the standalone KalOS.Setup.exe. Used only to
-        /// pick a friendlier window title ("KalOS Setup" vs "KalOS Installer").</summary>
+        /// instead of running as the standalone KaliteKit.Setup.exe. Used only to
+        /// pick a friendlier window title ("KaliteKit Setup" vs "KaliteKit Installer").</summary>
         public static bool Embedded { get; set; }
 
         /// <summary>
@@ -28,7 +28,7 @@ namespace KalOS.Setup
 
         public static string MarkerPath => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "KalOS", "setup.complete");
+            "KaliteKit", "setup.complete");
 
         public static bool IsSetupComplete
         {
@@ -42,7 +42,7 @@ namespace KalOS.Setup
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(MarkerPath)!);
                 File.WriteAllText(MarkerPath,
-                    $"KalOS setup completed {DateTime.Now:yyyy-MM-dd HH:mm:ss}\n");
+                    $"KaliteKit setup completed {DateTime.Now:yyyy-MM-dd HH:mm:ss}\n");
             }
             catch
             {

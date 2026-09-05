@@ -1,7 +1,7 @@
 using System.Linq;
-using KalOS.ViewModels;
+using KaliteKit.ViewModels;
 
-namespace KalOS.Tests.ViewModels;
+namespace KaliteKit.Tests.ViewModels;
 
 /// <summary>
 /// Guards the GameConfigStore values the fullscreen toggle writes — they must

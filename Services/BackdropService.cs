@@ -1,11 +1,11 @@
 ﻿using System;
-using KalOS.Helpers;
+using KaliteKit.Helpers;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Xaml;
 using WinRT;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>
     /// Supported backdrop types for the application window.
@@ -162,7 +162,7 @@ namespace KalOS.Services
 
             try
             {
-                var tint = KalOS.Models.TintPresets.ParseHex(CurrentTint);
+                var tint = KaliteKit.Models.TintPresets.ParseHex(CurrentTint);
 
                 ISystemBackdropControllerWithTargets controller = backdrop switch
                 {

@@ -1,11 +1,11 @@
 using System;
 using System.Diagnostics;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>
     /// Shortcut creation and taskbar pinning through Windows Shell COM — the
-    /// native equivalent of what <c>install-kalos.ps1</c> does with
+    /// native equivalent of what <c>install-kalitekit.ps1</c> does with
     /// <c>WScript.Shell</c> and shell verbs. All operations are best-effort:
     /// a failure returns false instead of throwing, because a missing
     /// shortcut must never fail an otherwise-successful install.
@@ -23,7 +23,7 @@ namespace KalOS.Services
         public static bool CreateAppShortcuts(string targetPath, string workingDir, string description)
         {
             bool any = false;
-            any |= TryCreateShortcut(System.IO.Path.Combine(StartMenuDir, "KalOS.lnk"), targetPath, workingDir, description);
+            any |= TryCreateShortcut(System.IO.Path.Combine(StartMenuDir, "KaliteKit.lnk"), targetPath, workingDir, description);
 
             string desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
             if (string.IsNullOrEmpty(desktop))
@@ -32,7 +32,7 @@ namespace KalOS.Services
             }
             if (!string.IsNullOrEmpty(desktop))
             {
-                any |= TryCreateShortcut(System.IO.Path.Combine(desktop, "KalOS.lnk"), targetPath, workingDir, description);
+                any |= TryCreateShortcut(System.IO.Path.Combine(desktop, "KaliteKit.lnk"), targetPath, workingDir, description);
             }
             return any;
         }
@@ -54,7 +54,7 @@ namespace KalOS.Services
                 }
 
                 return TryInvokeVerb(targetPath, "pin to taskbar")
-                    || TryInvokeVerb(System.IO.Path.Combine(StartMenuDir, "KalOS.lnk"), "pin to taskbar");
+                    || TryInvokeVerb(System.IO.Path.Combine(StartMenuDir, "KaliteKit.lnk"), "pin to taskbar");
             }
             catch
             {

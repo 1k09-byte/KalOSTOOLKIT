@@ -1,12 +1,12 @@
 <winuiex:WindowEx
-    x:Class="KalOS.MainWindow"
+    x:Class="KaliteKit.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:winuiex="using:WinUIEx"
     mc:Ignorable="d"
-    Title="KalOS"
+    Title="KaliteKit"
     Width="1200"
     Height="820"
     MinWidth="900"
@@ -35,7 +35,7 @@
         <!-- Title bar -->
         <TitleBar x:Name="AppTitleBar"
                    Grid.Row="0"
-                   Title="KalOS"
+                   Title="KaliteKit"
                    IsPaneToggleButtonVisible="True"
                    PaneToggleRequested="AppTitleBar_PaneToggleRequested" />
 

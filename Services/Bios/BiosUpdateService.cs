@@ -5,9 +5,9 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using KalOS.Models.Bios;
+using KaliteKit.Models.Bios;
 
-namespace KalOS.Services.Bios;
+namespace KaliteKit.Services.Bios;
 
 /// <summary>
 /// Service that inspects the system BIOS version, motherboard details, and UEFI firmware

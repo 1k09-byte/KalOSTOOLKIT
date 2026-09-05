@@ -1,6 +1,6 @@
 ﻿<Page
     x:Name="RootPage"
-    x:Class="KalOS.Views.VisualEffectsPage"
+    x:Class="KaliteKit.Views.VisualEffectsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -44,7 +44,7 @@
                             <RadioButton x:Name="WindowsChooseRadio" GroupName="Preset" Content="Let Windows choose what's best for my computer" Checked="Preset_Checked" Tag="Default" />
                             <RadioButton x:Name="BestAppearanceRadio" GroupName="Preset" Content="Adjust for best appearance" Checked="Preset_Checked" Tag="BestAppearance" />
                             <RadioButton x:Name="BestPerformanceRadio" GroupName="Preset" Content="Adjust for best performance" Checked="Preset_Checked" Tag="BestPerformance" />
-                            <RadioButton x:Name="RecommendedRadio" GroupName="Preset" Content="Recommended (KalOS)" Checked="Preset_Checked" Tag="Recommended" />
+                            <RadioButton x:Name="RecommendedRadio" GroupName="Preset" Content="Recommended (KaliteKit)" Checked="Preset_Checked" Tag="Recommended" />
                             <RadioButton x:Name="CustomRadio" GroupName="Preset" Content="Custom:" Checked="Preset_Checked" Tag="Custom" />
                         </StackPanel>
                     </StackPanel>

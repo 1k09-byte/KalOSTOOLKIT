@@ -2,7 +2,7 @@
 using System.Diagnostics;
 using System.Security.Principal;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     public class ElevationService
     {

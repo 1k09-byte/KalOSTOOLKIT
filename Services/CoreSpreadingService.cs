@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
-using KalOS.ViewModels;
+using KaliteKit.ViewModels;
 using Microsoft.Win32;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>
     /// Result of assigning cores to a device.

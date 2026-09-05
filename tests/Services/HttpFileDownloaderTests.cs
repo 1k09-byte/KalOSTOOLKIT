@@ -1,6 +1,6 @@
-using KalOS.Services;
+using KaliteKit.Services;
 
-namespace KalOS.Tests.Services;
+namespace KaliteKit.Tests.Services;
 
 /// <summary>
 /// Pure-math tests for <see cref="HttpFileDownloader"/>: the percent computation

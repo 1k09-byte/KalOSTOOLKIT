@@ -1,12 +1,12 @@
-using KalOS.Services;
+using KaliteKit.Services;
 
-namespace KalOS.Tests.Services;
+namespace KaliteKit.Tests.Services;
 
 /// <summary>
 /// Backend contract tests for <see cref="GitHubReleaseClient"/>: tag parsing
 /// from the /releases/latest redirect, and zip-asset selection from the
 /// expanded-assets fragment — including the rule that a release carrying BOTH
-/// the app zip and the KalOS-Setup wizard payload must never make the installer
+/// the app zip and the KaliteKit-Setup wizard payload must never make the installer
 /// download itself. No network is touched.
 /// </summary>
 public class GitHubReleaseClientTests
@@ -14,10 +14,10 @@ public class GitHubReleaseClientTests
     // ── Tag parsing ───────────────────────────────────────────────────
 
     [Theory]
-    [InlineData("https://github.com/1k09-byte/KalOSTOOLKIT/releases/tag/v1.0.0.6", "v1.0.0.6")]
-    [InlineData("/1k09-byte/KalOSTOOLKIT/releases/tag/v1.2.3", "v1.2.3")]
-    [InlineData("/1k09-byte/KalOSTOOLKIT/releases/tag/1.2.3", "v1.2.3")]
-    [InlineData("https://github.com/1k09-byte/KalOSTOOLKIT/releases/tag/v1.0.0.6/", "v1.0.0.6")]
+    [InlineData("https://github.com/1k09-byte/KaliteKit/releases/tag/v1.0.0.6", "v1.0.0.6")]
+    [InlineData("/1k09-byte/KaliteKit/releases/tag/v1.2.3", "v1.2.3")]
+    [InlineData("/1k09-byte/KaliteKit/releases/tag/1.2.3", "v1.2.3")]
+    [InlineData("https://github.com/1k09-byte/KaliteKit/releases/tag/v1.0.0.6/", "v1.0.0.6")]
     public void ParseTagFromRedirect_ExtractsTagWithVPrefix(string location, string expected)
     {
         Assert.Equal(expected, GitHubReleaseClient.ParseTagFromRedirect(location));
@@ -26,7 +26,7 @@ public class GitHubReleaseClientTests
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
-    [InlineData("https://github.com/1k09-byte/KalOSTOOLKIT/releases")]
+    [InlineData("https://github.com/1k09-byte/KaliteKit/releases")]
     [InlineData("https://example.com/anything")]
     public void ParseTagFromRedirect_ReturnsNullForNonTagLocations(string location)
     {
@@ -41,29 +41,29 @@ public class GitHubReleaseClientTests
 
     // ── Asset selection ───────────────────────────────────────────────
 
-    private const string BaseHref = "/1k09-byte/KalOSTOOLKIT/releases/download";
+    private const string BaseHref = "/1k09-byte/KaliteKit/releases/download";
 
     [Fact]
     public void SelectZipAssetUrl_PrefersTheVersionedAppZip()
     {
         string html = $"""
-            <a href="{BaseHref}/v1.0.0.6/KalOS.zip">KalOS.zip</a>
-            <a href="{BaseHref}/v1.0.0.6/KalOS-v1.0.0.6-win-x64.zip">KalOS-v1.0.0.6-win-x64.zip</a>
+            <a href="{BaseHref}/v1.0.0.6/KaliteKit.zip">KaliteKit.zip</a>
+            <a href="{BaseHref}/v1.0.0.6/KaliteKit-v1.0.0.6-win-x64.zip">KaliteKit-v1.0.0.6-win-x64.zip</a>
             """;
 
         var url = GitHubReleaseClient.SelectZipAssetUrl(html, "v1.0.0.6");
 
         Assert.NotNull(url);
-        Assert.Contains("KalOS-v1.0.0.6-win-x64.zip", url);
+        Assert.Contains("KaliteKit-v1.0.0.6-win-x64.zip", url);
         Assert.StartsWith("https://github.com", url);
     }
 
     [Fact]
-    public void SelectZipAssetUrl_FallsBackToPlainKalosZip()
+    public void SelectZipAssetUrl_FallsBackToPlainKaliteKitZip()
     {
-        string html = $"""<a href="{BaseHref}/v1.0.0.6/KalOS.zip">KalOS.zip</a>""";
+        string html = $"""<a href="{BaseHref}/v1.0.0.6/KaliteKit.zip">KaliteKit.zip</a>""";
 
-        Assert.Contains("/KalOS.zip", GitHubReleaseClient.SelectZipAssetUrl(html, "v1.0.0.6"));
+        Assert.Contains("/KaliteKit.zip", GitHubReleaseClient.SelectZipAssetUrl(html, "v1.0.0.6"));
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public class GitHubReleaseClientTests
         // A release that ships the wizard payload alongside (or instead of)
         // the app zip: the installer must never select its own artifact.
         string html = $"""
-            <a href="{BaseHref}/v1.0.0.6/KalOS-Setup-v1.0.0.6-win-x64.zip">setup</a>
+            <a href="{BaseHref}/v1.0.0.6/KaliteKit-Setup-v1.0.0.6-win-x64.zip">setup</a>
             """;
 
         Assert.Null(GitHubReleaseClient.SelectZipAssetUrl(html, "v1.0.0.6"));
@@ -82,21 +82,21 @@ public class GitHubReleaseClientTests
     public void SelectZipAssetUrl_PicksAppZipOverSetupWhenBothPresent()
     {
         string html = $"""
-            <a href="{BaseHref}/v1.0.0.6/KalOS-Setup-v1.0.0.6-win-x64.zip">setup</a>
-            <a href="{BaseHref}/v1.0.0.6/KalOS.zip">app</a>
+            <a href="{BaseHref}/v1.0.0.6/KaliteKit-Setup-v1.0.0.6-win-x64.zip">setup</a>
+            <a href="{BaseHref}/v1.0.0.6/KaliteKit.zip">app</a>
             """;
 
         var url = GitHubReleaseClient.SelectZipAssetUrl(html, "v1.0.0.6");
 
         Assert.NotNull(url);
         Assert.DoesNotContain("Setup", url, StringComparison.OrdinalIgnoreCase);
-        Assert.EndsWith("/KalOS.zip", url, StringComparison.OrdinalIgnoreCase);
+        Assert.EndsWith("/KaliteKit.zip", url, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
     public void SelectZipAssetUrl_TakesAnyOtherNonSetupZipAsLastResort()
     {
-        string html = $"""<a href="{BaseHref}/v1.0.0.6/KalOS-v1.0.0.6-win-arm64.zip">arm</a>""";
+        string html = $"""<a href="{BaseHref}/v1.0.0.6/KaliteKit-v1.0.0.6-win-arm64.zip">arm</a>""";
 
         var url = GitHubReleaseClient.SelectZipAssetUrl(html, "v1.0.0.6");
 
@@ -107,7 +107,7 @@ public class GitHubReleaseClientTests
     [Theory]
     [InlineData("")]
     [InlineData("<html><body>No assets</body></html>")]
-    [InlineData("""<a href="/1k09-byte/KalOSTOOLKIT/releases/download/v1.0.0.6/notes.txt">notes</a>""")]
+    [InlineData("""<a href="/1k09-byte/KaliteKit/releases/download/v1.0.0.6/notes.txt">notes</a>""")]
     public void SelectZipAssetUrl_ReturnsNullWithoutZipAssets(string html)
     {
         Assert.Null(GitHubReleaseClient.SelectZipAssetUrl(html, "v1.0.0.6"));

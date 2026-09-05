@@ -2,7 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using FluentIcons.Common;
 using System.Collections.ObjectModel;
 
-namespace KalOS.ViewModels
+namespace KaliteKit.ViewModels
 {
     public partial class InstallableItem : ObservableObject
     {

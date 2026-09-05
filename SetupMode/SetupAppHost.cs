@@ -1,12 +1,12 @@
 using System;
 using Microsoft.Extensions.DependencyInjection;
-using KalOS.Setup.ViewModels;
+using KaliteKit.Setup.ViewModels;
 
-namespace KalOS.Setup
+namespace KaliteKit.Setup
 {
     /// <summary>
     /// Main-app-only stand-in for the standalone installer's
-    /// <c>KalOS.Setup.App</c> statics. The wizard pages, view model and
+    /// <c>KaliteKit.Setup.App</c> statics. The wizard pages, view model and
     /// pipeline are source-shared with the Installer project and reference
     /// <c>App.Wizard</c> / <c>App.MainWindow</c> / <c>App.Services</c>; when
     /// they are compiled into the consumer app, this class provides those
@@ -19,7 +19,7 @@ namespace KalOS.Setup
     {
         /// <summary>The shared service provider — the main app's DI container,
         /// which registers everything the pipeline needs.</summary>
-        public static IServiceProvider Services => global::KalOS.App.Services;
+        public static IServiceProvider Services => global::KaliteKit.App.Services;
 
         /// <summary>The wizard shell window — pages reach it for nav refreshes
         /// and the Finish page closes it to swap into the consumer UI.</summary>
@@ -29,7 +29,7 @@ namespace KalOS.Setup
         public static InstallerViewModel Wizard { get; private set; } = null!;
 
         /// <summary>Just the version string — the wizard title bar shows it.</summary>
-        public static string AppVersion => global::KalOS.App.AppVersion;
+        public static string AppVersion => global::KaliteKit.App.AppVersion;
 
         /// <summary>
         /// Called by the main app right before it creates the wizard window on

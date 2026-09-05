@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using Microsoft.UI.Xaml.Media;
 
-namespace KalOS.Models
+namespace KaliteKit.Models
 {
     /// <summary>
     /// One selectable window tint. <see cref="Hex"/> is null for the Default

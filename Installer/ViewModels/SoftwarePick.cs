@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
-using KalOS.Models;
+using KaliteKit.Models;
 
-namespace KalOS.Setup.ViewModels
+namespace KaliteKit.Setup.ViewModels
 {
     /// <summary>
     /// One selectable software item in the wizard's Software page. A thin

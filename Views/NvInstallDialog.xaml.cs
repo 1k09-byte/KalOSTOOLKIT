@@ -2,17 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using KalOS.Models;
-using KalOS.Services;
-using KalOS.ViewModels;
+using KaliteKit.Models;
+using KaliteKit.Services;
+using KaliteKit.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.Storage.Pickers;
 
-namespace KalOS.Views
+namespace KaliteKit.Views
 {
     /// <summary>
-    /// KalOS's own NVIDIA install dialog — the counterpart of the AMD Slimmer
+    /// KaliteKit's own NVIDIA install dialog — the counterpart of the AMD Slimmer
     /// flow, but fully in-app: it mirrors NVCleanstall's "Select Driver Version
     /// To Install" screen (best driver / driver files on disk) and adds the
     /// component checklist in the same dialog. On Next, the page opens the

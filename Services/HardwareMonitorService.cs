@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 using Microsoft.Win32;
 using LibreHardwareMonitor.Hardware;
 
-namespace KalOS.Services;
+namespace KaliteKit.Services;
 
 public sealed class HardwareMonitorService
 {
@@ -87,8 +87,8 @@ public sealed class HardwareMonitorService
                 if (!string.IsNullOrEmpty(exe) && File.Exists(exe))
                 {
                     var dir = Path.GetDirectoryName(exe);
-                    // Avoid deleting the app's own install folder (contains KalOS.exe)
-                    if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir) && !File.Exists(Path.Combine(dir, "KalOS.exe")))
+                    // Avoid deleting the app's own install folder (contains KaliteKit.exe)
+                    if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir) && !File.Exists(Path.Combine(dir, "KaliteKit.exe")))
                     {
                         try { Directory.Delete(dir, recursive: true); } catch { try { File.Delete(exe); } catch { } }
                     }
@@ -109,7 +109,7 @@ public sealed class HardwareMonitorService
             }
             else
             {
-                // If still detected, check if it's just the worker (part of KalOS) vs real monitor
+                // If still detected, check if it's just the worker (part of KaliteKit) vs real monitor
                 var exeStill = FindExecutable();
                 if (string.IsNullOrEmpty(exeStill) || !File.Exists(exeStill))
                 {

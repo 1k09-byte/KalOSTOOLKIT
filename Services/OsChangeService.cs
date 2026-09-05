@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using KalOS.Helpers;
+using KaliteKit.Helpers;
 using Microsoft.Win32;
 
-namespace KalOS.Services;
+namespace KaliteKit.Services;
 
 // ── Manifest data model ──────────────────────────────────────────────────────
-// These live in os-changes.json next to KalOS.exe, so a release's OS changes
+// These live in os-changes.json next to KaliteKit.exe, so a release's OS changes
 // ship inside the update zip WITHOUT recompiling the app. The app only knows
 // how to apply/rollback the ops below, never which ones a release carries.
 
@@ -344,7 +344,7 @@ public sealed class OsChangeService
         return state.AppliedEntries.Any(e => e.Version == manifest.Version);
     }
 
-    /// <summary>Reads the manifest from the app install dir (next to KalOS.exe). Null when none ships.</summary>
+    /// <summary>Reads the manifest from the app install dir (next to KaliteKit.exe). Null when none ships.</summary>
     public static OsChangeManifest? LoadFromInstallDir()
     {
         return Load(Path.Combine(AppContext.BaseDirectory, ManifestFileName));

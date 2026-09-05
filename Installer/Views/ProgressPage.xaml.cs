@@ -1,9 +1,9 @@
-using KalOS.Setup.ViewModels;
+using KaliteKit.Setup.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 
-namespace KalOS.Setup.Views
+namespace KaliteKit.Setup.Views
 {
     /// <summary>
     /// Step 5 — the live progress view. Kicks off the pipeline on load and

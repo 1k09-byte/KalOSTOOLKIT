@@ -3,7 +3,7 @@ using System.IO;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>
     /// Persistent file logger.
@@ -19,7 +19,7 @@ namespace KalOS.Services
 
         private static readonly string LogDirectoryPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "KalOS", "Logs");
+            "KaliteKit", "Logs");
 
         private readonly string _logPath;
         private readonly Channel<string> _queue =
@@ -30,7 +30,7 @@ namespace KalOS.Services
         public LogService()
         {
             Directory.CreateDirectory(LogDirectoryPath);
-            _logPath = Path.Combine(LogDirectoryPath, $"KalOS_{DateTime.Now:yyyyMMdd_HHmmss}.log");
+            _logPath = Path.Combine(LogDirectoryPath, $"KaliteKit_{DateTime.Now:yyyyMMdd_HHmmss}.log");
             _writer = Task.Run(WriteLoopAsync);
         }
 

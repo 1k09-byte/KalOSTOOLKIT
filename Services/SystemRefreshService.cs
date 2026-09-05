@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace KalOS.Services;
+namespace KaliteKit.Services;
 
 /// <summary>Shared refresh-rate state for live system monitoring features.</summary>
 public sealed class SystemRefreshService

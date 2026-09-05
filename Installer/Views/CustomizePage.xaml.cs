@@ -1,15 +1,13 @@
-using KalOS.Setup.ViewModels;
+using KaliteKit.Setup.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
-namespace KalOS.Setup.Views
+namespace KaliteKit.Setup.Views
 {
     /// <summary>
-    /// Step 4 — customize what the install leaves behind. The KalOS look:
-    /// a background image (copied into the app's data folder post-install)
-    /// and a window tint from the shared palette or a custom picker. Plus the
-    /// Windows look, applied at the very end of the install: dark mode /
-    /// transparency effects and the Windhawk dark translucent dock.
+    /// Step 4 — customize what the install leaves behind: a background image
+    /// (copied into the app's data folder post-install) and a window tint from
+    /// the shared palette or a custom picker.
     /// </summary>
     public sealed partial class CustomizePage : WizardPage
     {

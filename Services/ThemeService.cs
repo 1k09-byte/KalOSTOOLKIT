@@ -1,8 +1,8 @@
 ﻿using System;
-using KalOS.Helpers;
+using KaliteKit.Helpers;
 using Microsoft.UI.Xaml;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>
     /// Service to manage application theme switching.
@@ -11,7 +11,7 @@ namespace KalOS.Services
     {
         private const string ConfigFile = "app-theme.json";
 
-        // KalOS is a dark-first utility: with no saved preference the app is
+        // KaliteKit is a dark-first utility: with no saved preference the app is
         // explicitly Dark (rather than following the system), so the Settings
         // dropdown can never disagree with what's on screen.
         private ElementTheme _currentTheme = ElementTheme.Dark;

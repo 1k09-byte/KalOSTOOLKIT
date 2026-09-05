@@ -1,10 +1,10 @@
-using KalOS.Models;
-using KalOS.Services;
-using KalOS.Setup.ViewModels;
+using KaliteKit.Models;
+using KaliteKit.Services;
+using KaliteKit.Setup.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
-namespace KalOS.Setup.Views
+namespace KaliteKit.Setup.Views
 {
     /// <summary>
     /// Step 2 — GPU selection + driver version selection. Mirrors the in-app

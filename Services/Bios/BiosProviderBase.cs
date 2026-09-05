@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using KalOS.Models.Bios;
+using KaliteKit.Models.Bios;
 
-namespace KalOS.Services.Bios;
+namespace KaliteKit.Services.Bios;
 
 /// <summary>
 /// Shared helpers for concrete WMI BIOS providers: the "dangerous setting"
@@ -60,7 +60,7 @@ public abstract class BiosProviderBase : IBiosProvider
             0 => Array.Empty<string>(),
             1 => new[] { $"{context}: the change was staged but a system reboot is required to apply it." },
             4096 => new[] { $"{context}: this BIOS backend does not support the requested operation." },
-            4 or 5 => new[] { $"{context}: permission denied. Run KalOS elevated (as Administrator)." },
+            4 or 5 => new[] { $"{context}: permission denied. Run KaliteKit elevated (as Administrator)." },
             109 => new[] { $"{context}: the TPM is in use (e.g. by BitLocker) and rejected the change." },
             _ => new[] { $"{context}: the BIOS reported return code {returnCode}." },
         };

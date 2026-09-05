@@ -7,7 +7,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace KalOS.Services
+namespace KaliteKit.Services
 {
     /// <summary>One driver package entry from <c>pnputil /enum-drivers</c>.</summary>
     internal sealed record ParsedDriverPackage(
@@ -133,7 +133,7 @@ namespace KalOS.Services
 
         private static readonly string ToolsDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "KalOS", "tools");
+            "KaliteKit", "tools");
 
         private static readonly string SevenZipRunnerPath = Path.Combine(ToolsDir, "7zr.exe");
 

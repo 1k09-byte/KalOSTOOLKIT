@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using KalOS.ViewModels;
+using KaliteKit.ViewModels;
 
-namespace KalOS.Helpers
+namespace KaliteKit.Helpers
 {
     /// <summary>
     /// The resolved core assignments for one Optimize run. Masks are full-core

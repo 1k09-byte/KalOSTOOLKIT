@@ -1,8 +1,8 @@
 using System;
 using System.Linq;
-using KalOS.Services;
+using KaliteKit.Services;
 
-namespace KalOS.Tests.Services;
+namespace KaliteKit.Tests.Services;
 
 public class PrUpdateServiceTests
 {
@@ -18,14 +18,14 @@ public class PrUpdateServiceTests
             "title": "Tweak MMCSS latency",
             "user": { "login": "contributor-one" },
             "state": "open",
-            "html_url": "https://github.com/1k09-byte/KalOSTOOLKIT/pull/7",
+            "html_url": "https://github.com/1k09-byte/KaliteKit/pull/7",
             "head": { "ref": "mmcss", "sha": "abc123def456" }
           },
           {
             "number": 12,
             "title": "Add a tweak",
             "user": { "login": "contributor-two" },
-            "html_url": "https://github.com/1k09-byte/KalOSTOOLKIT/pull/12",
+            "html_url": "https://github.com/1k09-byte/KaliteKit/pull/12",
             "head": { "ref": "tweak", "sha": "fff000aaa111" }
           }
         ]
@@ -39,7 +39,7 @@ public class PrUpdateServiceTests
         Assert.Equal("contributor-two", prs[0].Author);
         Assert.Equal("tweak", prs[0].HeadRef);
         Assert.Equal("fff000aaa111", prs[0].HeadSha);
-        Assert.Equal("https://github.com/1k09-byte/KalOSTOOLKIT/pull/12", prs[0].HtmlUrl);
+        Assert.Equal("https://github.com/1k09-byte/KaliteKit/pull/12", prs[0].HtmlUrl);
         Assert.Equal("#12 — Add a tweak", prs[0].Label);
     }
 
@@ -99,7 +99,7 @@ public class PrUpdateServiceTests
     [InlineData("C:/abs/path.cs", false)]
     public void TryResolveRepoPath_AllowsOnlyPathsInsideTheRepo(string relative, bool expected)
     {
-        string repoRoot = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "kalos-pr-tests");
+        string repoRoot = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "kalitekit-pr-tests");
 
         bool ok = PrUpdateService.TryResolveRepoPath(repoRoot, relative, out string fullPath);
 

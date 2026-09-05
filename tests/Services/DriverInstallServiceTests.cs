@@ -1,9 +1,9 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
-using KalOS.Services;
+using KaliteKit.Services;
 
-namespace KalOS.Tests.Services;
+namespace KaliteKit.Tests.Services;
 
 /// <summary>
 /// Tests for the clean-install pipeline in <see cref="DriverInstallService"/>:
@@ -25,7 +25,7 @@ public class DriverInstallServiceTests : IDisposable
             log,
             new ProcessManager(log),
             new DriverDownloadService(log));
-        _tempDir = Path.Combine(Path.GetTempPath(), "kalos-tests-" + Guid.NewGuid().ToString("N"));
+        _tempDir = Path.Combine(Path.GetTempPath(), "kalitekit-tests-" + Guid.NewGuid().ToString("N"));
     }
 
     public void Dispose()

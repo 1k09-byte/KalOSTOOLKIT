@@ -1,0 +1,26 @@
+<Project>
+  <!--
+    Copies the license file of every NuGet package this project references into
+    $(OutDir)\Licenses\<PackageId>.<Version>\. MIT/MPL redistribution requires
+    the license notice to travel with the copies, so release outputs (zipped
+    verbatim by publish-consumer.ps1) must carry the actual texts.
+
+    Import this from a project that produces a distributed output, e.g.:
+      <Import Project="Licenses.targets" />           (repo root)
+      <Import Project="..\Licenses.targets" />        (tools\HardwareMonitorWorker)
+  -->
+  <Target Name="_CollectNuGetLicenses" AfterTargets="Build"
+          Condition="'$(ProjectAssetsFile)' != '' and '$(NuGetPackageFolders)' != ''">
+    <PropertyGroup>
+      <_LicCollectorScript>$(MSBuildThisFileDirectory)tools\collect-nuget-licenses.ps1</_LicCollectorScript>
+      <!-- OutDir and NuGetPackageFolders end with '\'. A trailing backslash
+           immediately before the closing quote escapes the quote on Windows
+           and the argument gets swallowed, so a space is appended inside the
+           quotes and trimmed by the script. -->
+      <_LicCmd>powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(_LicCollectorScript)&quot; -AssetsFile &quot;$(ProjectAssetsFile)&quot; -OutDir &quot;$(OutDir) &quot; -PackageFolders &quot;$(NuGetPackageFolders) &quot;</_LicCmd>
+    </PropertyGroup>
+    <!-- License collection must never fail or slow a build to a halt. -->
+    <Exec Condition="Exists('$(_LicCollectorScript)')" Command="$(_LicCmd)"
+          IgnoreExitCode="true" />
+  </Target>
+</Project>

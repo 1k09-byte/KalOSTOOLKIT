@@ -1,10 +1,10 @@
 using System.Collections.Generic;
 using System.Linq;
-using KalOS.Models.Bios;
-using KalOS.Services.Bios;
+using KaliteKit.Models.Bios;
+using KaliteKit.Services.Bios;
 using Xunit;
 
-namespace KalOS.Tests.Services;
+namespace KaliteKit.Tests.Services;
 
 public class ScewinParserTests
 {

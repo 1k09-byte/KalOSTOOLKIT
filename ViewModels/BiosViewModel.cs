@@ -8,11 +8,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using KalOS.Models.Bios;
-using KalOS.Services;
-using KalOS.Services.Bios;
+using KaliteKit.Models.Bios;
+using KaliteKit.Services;
+using KaliteKit.Services.Bios;
 
-namespace KalOS.ViewModels;
+namespace KaliteKit.ViewModels;
 
 public partial class BiosViewModel : ObservableObject
 {

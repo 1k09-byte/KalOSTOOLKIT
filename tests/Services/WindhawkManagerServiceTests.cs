@@ -1,9 +1,9 @@
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
-using KalOS.Services;
+using KaliteKit.Services;
 
-namespace KalOS.Tests.Services;
+namespace KaliteKit.Tests.Services;
 
 /// <summary>
 /// Tests for the Explorer-relaunch plumbing. The key guarantee: processes the
@@ -17,7 +17,7 @@ public class WindhawkManagerServiceTests
     [Fact]
     public void LaunchProcessAsStandardUser_RunsChildWithFilteredToken()
     {
-        string outPath = Path.Combine(Path.GetTempPath(), $"kalos_token_probe_{Guid.NewGuid():N}.txt");
+        string outPath = Path.Combine(Path.GetTempPath(), $"kalitekit_token_probe_{Guid.NewGuid():N}.txt");
         try
         {
             string arguments = $"/c C:\\Windows\\System32\\whoami.exe /groups > \"{outPath}\"";

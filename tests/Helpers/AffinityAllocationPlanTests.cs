@@ -1,9 +1,9 @@
 using System.Collections.Generic;
-using KalOS.Helpers;
-using KalOS.ViewModels;
+using KaliteKit.Helpers;
+using KaliteKit.ViewModels;
 using Xunit;
 
-namespace KalOS.Tests.Helpers;
+namespace KaliteKit.Tests.Helpers;
 
 public class AffinityAllocationPlanTests
 {

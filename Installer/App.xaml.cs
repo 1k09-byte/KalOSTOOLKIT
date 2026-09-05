@@ -3,17 +3,22 @@ using System.IO;
 using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
-using KalOS.Services;
-using KalOS.Setup.ViewModels;
+using KaliteKit.Services;
+using KaliteKit.Setup.ViewModels;
 
-namespace KalOS.Setup
+namespace KaliteKit.Setup
 {
     /// <summary>
-    /// Composition root for the KalOS Setup wizard. The installer is an
+    /// Composition root for the KaliteKit Setup wizard. The installer is an
     /// unpackaged, self-contained, <c>requireAdministrator</c> WinUI 3 app
     /// that source-shares the WinUI-free backend (driver stack + package
     /// managers + the new install services) and walks the user through:
-    /// KalOS consumer deploy → GPU driver update → software → done.
+    /// KaliteKit consumer deploy → GPU driver update → software → done.
+    ///
+    /// The standalone release embeds the KaliteKit consumer payload (see
+    /// <see cref="BundledPayload"/>), so the single exe installs KaliteKit
+    /// fully offline; the GPU-driver and software steps stay optional and
+    /// only run for what the user explicitly selects.
     /// </summary>
     public partial class App : Application
     {
@@ -37,14 +42,14 @@ namespace KalOS.Setup
             InitializeComponent();
 
             // Never die silently: log UI-thread exceptions to
-            // %LOCALAPPDATA%\KalOS\SetupCrash.log and keep the wizard alive so
+            // %LOCALAPPDATA%\KaliteKit\SetupCrash.log and keep the wizard alive so
             // the user can retry instead of the window closing by itself.
             UnhandledException += (_, e) =>
             {
                 try
                 {
                     var dir = Path.Combine(
-                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KalOS");
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KaliteKit");
                     Directory.CreateDirectory(dir);
                     File.AppendAllText(
                         Path.Combine(dir, "SetupCrash.log"),
@@ -92,18 +97,9 @@ namespace KalOS.Setup
             // network-behavior modifier) is deliberately NOT registered: the
             // installer never tunes the network stack.
 
-            // New Phase 1 install services — the native KalOS deploy path.
+            // New Phase 1 install services — the native KaliteKit deploy path.
             services.AddSingleton<GitHubReleaseClient>();
             services.AddSingleton<HttpFileDownloader>();
-
-            // Windhawk install + curated mod deploy — powers the Customize
-            // page's "Windows look" step (dark translucent dock), the same
-            // service the main app's Personalization → Windhawk page uses.
-            services.AddSingleton<WindhawkManagerService>();
-
-            // Native tweaks engine (privacy/cleanup catalog generated from the
-            // privacy.sexy scripts — no batch files at runtime).
-            services.AddSingleton<TweaksService>();
 
             // The pipeline orchestrator that ties it all together.
             services.AddSingleton<InstallerPipeline>();

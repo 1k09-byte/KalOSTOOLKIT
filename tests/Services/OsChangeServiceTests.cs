@@ -1,10 +1,10 @@
 using System.IO;
 using System.Text.Json;
-using KalOS.Services;
+using KaliteKit.Services;
 using Microsoft.Win32;
 using Xunit;
 
-namespace KalOS.Tests.Services;
+namespace KaliteKit.Tests.Services;
 
 public class OsChangeServiceTests : IDisposable
 {
@@ -12,7 +12,7 @@ public class OsChangeServiceTests : IDisposable
 
     public OsChangeServiceTests()
     {
-        _tempDir = Path.Combine(Path.GetTempPath(), "KalOS-OsChangeTests-" + Guid.NewGuid().ToString("N"));
+        _tempDir = Path.Combine(Path.GetTempPath(), "KaliteKit-OsChangeTests-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_tempDir);
         // Isolate persisted apply-state from any real usage on the machine.
         OsChangeService.ResetStateForTest();
@@ -32,7 +32,7 @@ public class OsChangeServiceTests : IDisposable
             {
                 Description = "Edited MMCSS settings",
                 Type = OsChangeOp.Registry,
-                Key = @"HKCU\Software\KalOS\Tests\OsChange",
+                Key = @"HKCU\Software\KaliteKit\Tests\OsChange",
                 ValueName = "NetworkThrottlingIndex",
                 Value = JsonDocument.Parse("4294967295").RootElement,
                 ValueKind = RegistryValueKind.DWord,
@@ -173,7 +173,7 @@ public class OsChangeServiceTests : IDisposable
         // Uses an HKCU test key so it works without admin; exercises the full
         // apply -> state -> rollback round trip against the real registry.
         var m = SampleManifest();
-        const string key = @"HKCU\Software\KalOS\Tests\OsChange";
+        const string key = @"HKCU\Software\KaliteKit\Tests\OsChange";
         const string valueName = "NetworkThrottlingIndex";
 
         var svc = new OsChangeService();
@@ -186,7 +186,7 @@ public class OsChangeServiceTests : IDisposable
         Assert.True(OsChangeService.IsApplied(m));
 
         // The value actually landed.
-        Assert.Equal(4294967295u, (uint)(int)KalOS.Helpers.RegistryHelper.GetRegistryValue(key, valueName)!);
+        Assert.Equal(4294967295u, (uint)(int)KaliteKit.Helpers.RegistryHelper.GetRegistryValue(key, valueName)!);
 
         // Roll back.
         var rb = new OsChangeResult();

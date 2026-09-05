@@ -4,14 +4,14 @@ using System.Diagnostics;
 using System.Linq;
 using System.Management;
 using System.Threading.Tasks;
-using KalOS.Services;
+using KaliteKit.Services;
 using Microsoft.UI.Dispatching;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 
-namespace KalOS.ViewModels
+namespace KaliteKit.ViewModels
 {
     public class RestorePointItem
     {
@@ -275,12 +275,12 @@ namespace KalOS.ViewModels
         [RelayCommand]
         private async Task CreateRestorePointAsync()
         {
-            await CreateRestorePointWithDescriptionAsync("KalOS App Restore Point");
+            await CreateRestorePointWithDescriptionAsync("KaliteKit App Restore Point");
         }
 
         public async Task<bool> CreateRestorePointWithDescriptionAsync(string description)
         {
-            if (string.IsNullOrWhiteSpace(description)) description = "KalOS App Restore Point";
+            if (string.IsNullOrWhiteSpace(description)) description = "KaliteKit App Restore Point";
             var safeDesc = description.Replace("'", "''");
             RestorePointStatus = $"Creating restore point '{safeDesc}'. Approve the UAC prompt to continue...";
             bool success = await Task.Run(() =>

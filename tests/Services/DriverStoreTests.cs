@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using KalOS.Models;
-using KalOS.Services;
-using KalOS.ViewModels;
+using KaliteKit.Models;
+using KaliteKit.Services;
+using KaliteKit.ViewModels;
 using Xunit;
 
-namespace KalOS.Tests.Services
+namespace KaliteKit.Tests.Services
 {
     /// <summary>
     /// Driver Store Manager tests. The classifier tests lock the spec's hard

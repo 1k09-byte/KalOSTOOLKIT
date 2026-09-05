@@ -2,12 +2,12 @@
 using System.IO;
 using Microsoft.Win32;
 
-namespace KalOS.Helpers;
+namespace KaliteKit.Helpers;
 
 public static class RegistryHelper
 {
     private static string BackupDirectory =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KalOS", "Backups");
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KaliteKit", "Backups");
 
     public static void BackupRegistryKey(string keyPath)
     {

@@ -1,16 +1,16 @@
 {
-  // os-changes.json — OS changes that ship inside a KalOS update zip.
-  // The app reads this file (next to KalOS.exe) and offers an "Apply changes"
+  // os-changes.json — OS changes that ship inside a KaliteKit update zip.
+  // The app reads this file (next to KaliteKit.exe) and offers an "Apply changes"
   // button on the update log popup. Everything here is applied elevated and
   // backed up first, so the app's existing rollback logic can revert it.
-  // "version" should match the KalOS release tag this manifest belongs to.
+  // "version" should match the KaliteKit release tag this manifest belongs to.
   //
   // Supported types:
   //   "registry" — write a registry value (backed up for rollback)
   //   "service"  — set a Windows service startup type (backed up for rollback)
   //   "script"   — run a PowerShell script from the update package (one-shot, no rollback)
   //
-  // Scripts must be .ps1 files relative to the install dir (next to KalOS.exe),
+  // Scripts must be .ps1 files relative to the install dir (next to KaliteKit.exe),
   // and run with the app's elevation (no UAC prompt). Exit code 0 = success.
   //
   // RULE: an entry must mean this release ACTUALLY changes the OS. An empty

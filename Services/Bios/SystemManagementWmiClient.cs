@@ -6,7 +6,7 @@ using System.Management;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace KalOS.Services.Bios;
+namespace KaliteKit.Services.Bios;
 
 /// <summary>Wraps a raw <see cref="ManagementBaseObject"/> as an <see cref="IWmiRow"/>.</summary>
 internal sealed class WmiObjectRow : IWmiRow

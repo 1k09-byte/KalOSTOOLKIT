@@ -3,7 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using System.Linq;
 using System.Collections.Generic;
 
-namespace KalOS.ViewModels
+namespace KaliteKit.ViewModels
 {
     public partial class DeviceAffinityViewModel : ObservableObject
     {

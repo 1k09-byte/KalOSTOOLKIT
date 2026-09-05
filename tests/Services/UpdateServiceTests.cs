@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
-using KalOS.Services;
+using KaliteKit.Services;
 
-namespace KalOS.Tests.Services;
+namespace KaliteKit.Tests.Services;
 
 public class UpdateServiceTests
 {
@@ -41,8 +41,8 @@ public class UpdateServiceTests
     {
         var assets = new List<ReleaseAsset>
         {
-            new("KalOS-v1.0.0.4-setup.zip", "https://example.com/setup.zip"),
-            new("KalOS-v1.0.0.4-win-x64.zip", "https://example.com/exact.zip"),
+            new("KaliteKit-v1.0.0.4-setup.zip", "https://example.com/setup.zip"),
+            new("KaliteKit-v1.0.0.4-win-x64.zip", "https://example.com/exact.zip"),
             new("readme.txt", "https://example.com/readme.txt")
         };
 
@@ -51,11 +51,11 @@ public class UpdateServiceTests
     }
 
     [Fact]
-    public void SelectZipAsset_FallsBackToAnyKalOsZip()
+    public void SelectZipAsset_FallsBackToAnyKaliteKitZip()
     {
         var assets = new List<ReleaseAsset>
         {
-            new("KalOS-1.0.0.4.zip", "https://example.com/fallback.zip"),
+            new("KaliteKit-1.0.0.4.zip", "https://example.com/fallback.zip"),
             new("notes.txt", "https://example.com/notes.txt")
         };
 
@@ -76,9 +76,9 @@ public class UpdateServiceTests
         string json = """
         {
           "tag_name": "v1.0.0.4",
-          "html_url": "https://github.com/1k09-byte/KalOSTOOLKIT/releases/tag/v1.0.0.4",
+          "html_url": "https://github.com/1k09-byte/KaliteKit/releases/tag/v1.0.0.4",
           "assets": [
-            { "name": "KalOS-v1.0.0.4-win-x64.zip", "browser_download_url": "https://example.com/pkg.zip" },
+            { "name": "KaliteKit-v1.0.0.4-win-x64.zip", "browser_download_url": "https://example.com/pkg.zip" },
             { "name": "checksums.txt", "browser_download_url": "https://example.com/checksums.txt" }
           ]
         }
@@ -100,7 +100,7 @@ public class UpdateServiceTests
         string json = """
         {
           "tag_name": "v1.0.0.1",
-          "assets": [ { "name": "KalOS-v1.0.0.1-win-x64.zip", "browser_download_url": "https://example.com/pkg.zip" } ]
+          "assets": [ { "name": "KaliteKit-v1.0.0.1-win-x64.zip", "browser_download_url": "https://example.com/pkg.zip" } ]
         }
         """;
 
@@ -116,7 +116,7 @@ public class UpdateServiceTests
         string json = """
         {
           "tag_name": "v1.0.0.3",
-          "assets": [ { "name": "KalOS-v1.0.0.3-win-x64.zip", "browser_download_url": "https://example.com/pkg.zip" } ]
+          "assets": [ { "name": "KaliteKit-v1.0.0.3-win-x64.zip", "browser_download_url": "https://example.com/pkg.zip" } ]
         }
         """;
 
@@ -148,9 +148,9 @@ public class UpdateServiceTests
     {
         string json = """
         [
-          { "tag_name": "v1.0.0.4", "name": "v1.0.0.4", "published_at": "2026-08-29T10:00:00Z", "html_url": "https://github.com/1k09-byte/KalOSTOOLKIT/releases/tag/v1.0.0.4", "body": "Fixed the thing" },
-          { "tag_name": "v1.0.0.3", "name": "v1.0.0.3", "published_at": "2026-08-28T10:00:00Z", "html_url": "https://github.com/1k09-byte/KalOSTOOLKIT/releases/tag/v1.0.0.3", "body": "" },
-          { "tag_name": "v1.0.0.5", "name": "v1.0.0.5", "published_at": "2026-08-30T10:00:00Z", "html_url": "https://github.com/1k09-byte/KalOSTOOLKIT/releases/tag/v1.0.0.5", "body": "Newest" }
+          { "tag_name": "v1.0.0.4", "name": "v1.0.0.4", "published_at": "2026-08-29T10:00:00Z", "html_url": "https://github.com/1k09-byte/KaliteKit/releases/tag/v1.0.0.4", "body": "Fixed the thing" },
+          { "tag_name": "v1.0.0.3", "name": "v1.0.0.3", "published_at": "2026-08-28T10:00:00Z", "html_url": "https://github.com/1k09-byte/KaliteKit/releases/tag/v1.0.0.3", "body": "" },
+          { "tag_name": "v1.0.0.5", "name": "v1.0.0.5", "published_at": "2026-08-30T10:00:00Z", "html_url": "https://github.com/1k09-byte/KaliteKit/releases/tag/v1.0.0.5", "body": "Newest" }
         ]
         """;
 
@@ -190,13 +190,13 @@ public class UpdateServiceTests
     public void BuildApplyScript_WaitsForOldProcessAndRelocatesFiles()
     {
         string script = UpdateService.BuildApplyScript(
-            1234, @"C:\temp\v1.0.0.4", @"C:\Apps\KalOS", @"C:\temp\KalOS-1.0.0.4.zip", @"C:\temp\update.log");
+            1234, @"C:\temp\v1.0.0.4", @"C:\Apps\KaliteKit", @"C:\temp\KaliteKit-1.0.0.4.zip", @"C:\temp\update.log");
 
         Assert.Contains("Get-Process -Id 1234", script);
         Assert.Contains("WaitForExit", script);
         Assert.Contains("Copy-Item", script);
-        Assert.Contains(@"'C:\Apps\KalOS'", script);
+        Assert.Contains(@"'C:\Apps\KaliteKit'", script);
         Assert.Contains("Start-Process", script);
-        Assert.Contains("KalOS.exe", script);
+        Assert.Contains("KaliteKit.exe", script);
     }
 }

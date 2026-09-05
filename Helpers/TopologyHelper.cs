@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
-namespace KalOS.Helpers
+namespace KaliteKit.Helpers
 {
     public class TopologyHelper
     {
