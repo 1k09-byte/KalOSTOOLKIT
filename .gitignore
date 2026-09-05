@@ -30,3 +30,4 @@ sdio.cfg
 logs/
 BiosBackups/
 tests/TestResults/
+/.vs

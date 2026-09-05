@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -350,38 +350,6 @@ namespace KalOS.Views
                 // Browser launch is best-effort.
             }
         }
-        /// <summary>Shows the third-party notices file in a scrollable dialog.</summary>
-        private async void ShowNotices_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                var noticesPath = Path.Combine(AppContext.BaseDirectory, "THIRD-PARTY-NOTICES.md");
-                string text = File.Exists(noticesPath)
-                    ? File.ReadAllText(noticesPath)
-                    : "Third-party notices file not found.";
 
-                var dialog = new ContentDialog
-                {
-                    Title = "Third-Party Notices",
-                    Content = new ScrollViewer
-                    {
-                        MaxHeight = 480,
-                        Content = new TextBlock
-                        {
-                            Text = text,
-                            TextWrapping = TextWrapping.Wrap,
-                            IsTextSelectionEnabled = true
-                        }
-                    },
-                    CloseButtonText = "Close",
-                    XamlRoot = this.Content.XamlRoot
-                };
-                await dialog.ShowAsync();
-            }
-            catch (Exception)
-            {
-                // Never crash the Settings page over a missing notices file.
-            }
-        }
     }
 }

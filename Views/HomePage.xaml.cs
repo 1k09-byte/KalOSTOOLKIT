@@ -48,11 +48,8 @@ namespace KalOS.Views
                 "Browsers" => typeof(BrowserPage),
                 "GpuDrivers" => typeof(GpuDriversPage),
                 "AffinityManager" => typeof(AffinityManagerPage),
-                "Personalization" => typeof(PersonalizationPage),
                 "ProcessControl" => typeof(ProcessControlPage),
-                "SystemOverview" => typeof(SystemOverviewPage),
                 "AdditionalTweaks" => typeof(AdditionalTweaksPage),
-                "Sdio" => typeof(SdioPage),
                 "Bios" => typeof(BiosPage),
                 _ => null
             };

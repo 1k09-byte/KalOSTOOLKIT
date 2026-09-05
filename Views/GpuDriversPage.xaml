@@ -198,9 +198,10 @@
                     <!-- Optimization & Maintenance Section -->
                     <TextBlock Text="Optimization &amp; Maintenance" Style="{StaticResource SettingsSectionHeaderTextBlockStyle}" Margin="0,6,0,0" />
 
-                    <!-- Native AMD Post-Install Debloat Card -->
+                    <!-- Native AMD Post-Install Debloat Card — only for AMD GPUs -->
                     <controls:SettingsCard Header="Purge AMD Telemetry (Post-Install)"
-                                           Description="Disables background telemetry services (Crash Defender, External Events, AUEP) and clears residual caches.">
+                                           Description="Disables background telemetry services (Crash Defender, External Events, AUEP) and clears residual caches."
+                                           Visibility="{x:Bind ViewModel.HasAmdGpu, Mode=OneWay, Converter={StaticResource BoolToVis}}">
                         <controls:SettingsCard.HeaderIcon>
                             <FontIcon Glyph="&#xE946;" FontSize="18" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
                         </controls:SettingsCard.HeaderIcon>
@@ -244,9 +245,10 @@
                                       OnContent="Enabled" OffContent="Disabled (DPC Optimized)" />
                     </controls:SettingsCard>
 
-                    <!-- Official AMD Auto-Detect Card -->
+                    <!-- Official AMD Auto-Detect Card — only for AMD GPUs -->
                     <controls:SettingsCard Header="Official AMD Auto-Detect Installer"
-                                           Description="Downloads and executes the official AMD Auto-Detect tool with strict Authenticode verification.">
+                                           Description="Downloads and executes the official AMD Auto-Detect tool with strict Authenticode verification."
+                                           Visibility="{x:Bind ViewModel.HasAmdGpu, Mode=OneWay, Converter={StaticResource BoolToVis}}">
                         <controls:SettingsCard.HeaderIcon>
                             <FontIcon Glyph="&#xE896;" FontSize="18" Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                         </controls:SettingsCard.HeaderIcon>

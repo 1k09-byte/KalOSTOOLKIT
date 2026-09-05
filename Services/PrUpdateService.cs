@@ -493,7 +493,7 @@ try {{
     exit 1
   }}
   'BUILD OK' | Add-Content $log
-  $exe = Get-ChildItem -Path {Q(RepoRoot)} -Filter KalOS.exe -Recurse -ErrorAction SilentlyContinue |
+  $exe = Get-ChildItem -Path {Q(RepoRoot!)} -Filter KalOS.exe -Recurse -ErrorAction SilentlyContinue |
          Where-Object {{ $_.FullName -like '*\bin\x64\*' }} |
          Sort-Object LastWriteTime -Descending | Select-Object -First 1
   if ($exe) {{
